@@ -1,400 +1,425 @@
 # CORMC 时间步执行顺序梳理
 
-本文档用于讨论第一版 CORMC 复现中，一个仿真时间步 `t -> t + dt` 内 APS、CUC、CMC、纵向更新和横向轨迹更新的执行顺序。
+本文档是第一版 CORMC 复现的算法流程总纲。它用于约束后续场景、参数、车辆模型、数据结构、输出指标等 spec 文档的写作方向，也用于后续代码实现时确认每个仿真时间步内 APS、CUC、CMC、纵向模型、横向轨迹和状态提交的调度关系。
 
-这是一份时间步调度讨论稿，不是完整复现计划，也不是小场景设计。它的目标是先把论文中的分层逻辑转换成一个清楚、稳定、可实现的主循环语义，避免后续实现时把上层决策、下层运动、横向轨迹和纵向加速度混在一起。
+本文档不是论文笔记、不是小场景设计、不是数据结构设计，也不是继续讨论问题的草稿。已经确认的默认语义直接写入主流程；确实无法从论文和现有讨论中确认的问题，单独放在文末供审阅。
 
-本文档延续 `CORMC复现讨论对齐记录.md` 中已经确定的第一版边界：
+本文档吸收了前序算法主循环评估稿中的有效结论，并延续 `docs/复现讨论/CORMC复现讨论对齐记录.md` 中的第一版边界。
 
-- 不做 SUMO 对比。
-- 不做严格 MPC 横向轨迹跟踪。
-- 不做 MV platoon 首尾规则。
-- 不做普通主线主动换道，只做 CUC 触发的协同换道。
-- 横向换道和合流直接按正弦参考轨迹更新位置。
-- 纵向运动按实时加速度规则推进。
+## 1. 第一版边界
 
-## 1. 论文中的基本调度思想
+第一版目标是先做一个能运行、能看到效果的 Python 微观仿真版本。运行后应能输出车辆轨迹图 PNG，并能观察 `lane 1`、`lane 2` 和 `on-ramp` 中车辆随时间运动、协同、换道与合流的过程。
 
-论文的 CORMC 是分层框架：
+第一版不追求和论文结果完全数值一致。优先目标是跑通 CORMC 主链路，保证算法语义、模块边界和后续扩展方向清楚。
 
-```text
-上层：APS + CUC
-下层：纵向模型 + 换道模型 + CMC
-```
+第一版保留：
 
-上层根据当前交通状态做决策：
+- 两条主线车道 `lane 1`、`lane 2`，以及一条 `on-ramp`。
+- 混合交通：`CAV` 和 `CHV`；`CHV` 按 compliance rate 分为 compliant 和 non-compliant。
+- APS：每个 MV 独立寻找 lane 2 中的 anticipatory merge position，并选出 CLV / CFV。
+- CUC：lane 2 中需要协同的 CV 在“换到 lane 1”和“继续留在 lane 2”之间做决策。
+- CMC 单车合流：动态可接受间隙、边界防撞、正弦轨迹合流。
+- 主线纵向模型：CAV 使用 cruising + gap-regulating 思路，CHV 使用 IDM。
+- front-collision-avoidance 的简化速度约束语义。
 
-- APS 给每个 MV 寻找 anticipatory merging position，并指定 CLV / CFV。
-- APS 根据预测间隙判断 cooperative case，并标记 CLV / CFV 是否需要协同。
-- CUC 对需要协同的 lane 2 中 CV 做 maneuver choice：换到 lane 1，或继续留在 lane 2。
+第一版暂不做：
 
-下层根据上层输出执行运动：
+- SUMO 对比。
+- 严格 MPC 横向轨迹跟踪。
+- CMC platoon 部分，即多个 MV 被视为 platoon 时“只考虑首尾 MV”的规则。
+- 普通主线主动换道；第一版只做 CUC 触发的协同换道。
+- 全局多 MV gap 优化或全局合流顺序优化。
 
-- 主线车辆用纵向模型和换道模型更新微观轨迹。
-- MV 用 CMC 判断是否开始合流，并执行合流运动。
-- 每一步更新车辆的 position、speed、acceleration 等状态。
-- 更新后的状态再反馈给下一时间步的上层决策。
+## 2. 三类语义边界
 
-因此，第一版主循环应该遵守一个基本原则：
+后续实现和文档都必须区分三类内容：
 
 ```text
-用 t 时刻状态做上层决策和本步控制量计算；
-再同步写入 t + dt 状态；
-t + dt 状态只供下一步使用。
+论文原算法：
+    论文明确给出的 APS、CUC、CMC、纵向模型、换道模型、车辆生成和避碰逻辑。
+
+第一版简化：
+    为了先跑通主链路而主动关闭或简化的内容，例如不做 MPC、不做 platoon、不做普通主线主动换道。
+
+工程安全补丁：
+    为了让第一版代码稳定、避免冲突或非法状态而补充的处理，例如 assignment 失效兜底、多 MV 共享 CV 仲裁、每车每步只提交一次。
 ```
 
-这样可以避免“前面的车先更新、后面的车用已经更新后的状态决策”的顺序偏差。
+工程安全补丁不能写成论文已经定义的算法。尤其是 CMC 中 assignment 失效处理、多 MV 共享 CV 的冲突仲裁，必须明确标注为第一版工程补充。
 
-## 2. 推荐的 `t -> t + dt` 主循环顺序
+## 3. 时间步核心原则
 
-### Step 0：冻结当前状态 `S(t)`
-
-每个时间步开始时，先把当前所有车辆状态视为一个快照：
+每个仿真时间步都遵守以下原则：
 
 ```text
-S(t) = {
-  vehicle id,
-  lane / logical lane,
-  x, y,
-  v, a,
-  vehicle type,
-  compliance state,
-  maneuver state,
-  APS assignment,
-  CUC choice,
-  merge state
-}
+用 S(t) 做本步所有决策和控制量计算；
+所有模块只写本步 command / next-state；
+最后同步提交为 S(t+dt)；
+S(t+dt) 只供下一时间步使用。
 ```
 
-本步中的 APS、CUC、CMC、leader/follower 查找和加速度计算，都应基于这个快照。不要在本步中途一边更新某辆车的位置，一边让另一辆车使用更新后的结果。
+不得在本步中途直接修改车辆的 `x`、`y`、`v`、`a` 后再让其他车辆使用这些已更新状态。否则会出现前后车更新顺序偏差。
 
-输出：
+真实时间使用 `t += dt` 推进，不用 `time = time + 1` 表示真实时间。论文参数中 `dt = 0.1 s`，`T_APS = 5 s`，因此 APS 周期判断必须基于真实时间或等价的 step-time 映射。
+
+`CV` 在本文档中指 cooperative vehicle，即 APS 指定的 CLV / CFV，不是 CAV。CAV 是自动驾驶车辆类型，CV 是协同角色。
+
+车辆有两个需要区分的概念：
 
 ```text
-只读快照 S(t)
+physical y：
+    车辆当前横向物理位置，用于画图、横向轨迹和碰撞检查。
+
+logical longitudinal role：
+    本步纵向关系角色，用于决定谁跟随谁。
 ```
 
-可能问题：
+正在换道的 CV 可能物理上位于两条车道之间，但纵向关系上已经与目标车道 TLV / TFV 和原车道 FV 同时发生作用。不能简单按 `y` 距离哪条车道中心线更近来连续切换 leader/follower。
 
-- 如果直接操作车辆对象，很容易在本步中途写入新位置，造成异步更新。
-- 建议实现时区分 `state_t` 和 `state_next`，或至少先收集所有本步更新量，再统一提交。
+## 4. 第一版主循环
 
-第一版决定和待实现细节：
-
-- 第一版具体使用浅拷贝、不可变快照，还是用“先算 delta 再统一 apply”的结构，需要到代码设计阶段确定。
-
-### Step 1：刷新派生交通关系
-
-根据 `S(t)` 计算每条车道上的车辆排序和前后车关系。
-
-需要得到：
+下面伪代码规定第一版算法流程顺序。它表达调度语义，不设计具体数据结构。
 
 ```text
-lane 1 中每辆车的 leader / follower
-lane 2 中每辆车的 leader / follower
-on-ramp 中每辆车的 leader / follower
-CUC 计算需要的 TLV / TFV / LV / FV
-CMC 判断需要的 CLV / CFV 实际位置
+初始化：
+    预生成 lane 1 / lane 2 / on-ramp 的 boundary vehicle queues
+    生成初始车辆
+    初始化 APS assignment cache
+    初始化车辆 maneuver / merge 状态
+    t = 0
+    step = 0
+    dt = 0.1
+
+while t <= T_end:
+
+    0. 清理与准备
+       移除驶出仿真路段的车辆
+       清空本步 command / next-state 缓冲
+       不清空 APS assignment cache
+
+    1. 边界车辆生成
+       对 lane 1 / lane 2 / on-ramp 的入口队列：
+           若等待车辆的到达时距条件和入口安全间隙满足：
+               生成该车辆
+           否则：
+               本步不生成该车
+
+    2. 冻结当前状态 S(t)
+       本步 APS / CUC / CMC / 纵向 / 横向决策都只读 S(t)
+       所有模块只写 command / next-state
+
+    3. 刷新车辆关系
+       基于 S(t) 更新：
+           lane 1、lane 2、on-ramp 排序
+           leader / follower
+           TLV / TFV / LV / FV
+           正在换道或合流车辆的 logical longitudinal role
+
+    4. 处理 on-ramp MV
+
+       for each MV:
+
+           if merge_state == executing:
+               继续 CMC 合流轨迹
+               使用 CMC 已计算或刷新的 boundary speed cap
+               写入 MV 的 merge command
+               continue
+
+           if MV 不在 merging zone:
+               if first_APS(MV) or APS_due(MV, t):
+                   执行 APS
+                   更新该 MV 的 APS assignment cache
+               else:
+                   沿用该 MV 的上一轮 APS assignment
+
+               本步 MV 不执行横向合流
+               只生成 on-ramp 纵向 command
+               continue
+
+           if MV 已在 merging zone and merge_state != executing:
+               进入 CMC
+               计算动态可接受合流时间间隙
+               验证 APS assignment 中 CLV / CFV 是否仍有效
+               计算或刷新 boundary speed cap
+
+               if assignment invalid:
+                   本步暂不开始合流
+                   标记等待下一次 APS 或保守安全处理
+                   写入 on-ramp 纵向 command
+               else if Eq.53 gap 满足:
+                   merge_state = executing
+                   初始化或继续正弦合流轨迹
+                   写入 merge command
+               else:
+                   不横向合流
+                   继续 on-ramp 纵向行驶 / 调整速度 / 受边界约束
+                   写入 on-ramp 纵向 command
+
+    5. 汇总 APS 产生的 CV 协同请求
+       对所有有效 APS assignment：
+           收集 col = 1 的 CLV / CFV 请求
+       如果同一 CV 被多个 MV 请求：
+           按第一版工程安全仲裁消解冲突
+           优先级：已在 merging zone 的 MV > T*_MV 更小 > 离 x0^m 更近
+
+    6. 处理 mainline 车辆
+
+       for each mainline vehicle:
+
+           if lane_change_state == executing:
+               写入 continue lane-change command
+               本步不重新执行 CUC
+               仍进入 Step 7 计算纵向动力学，Step 8 更新横向轨迹
+               continue to next mainline vehicle for CUC processing
+
+           if vehicle 是被选中的 active CV 且 col = 1:
+
+               if vehicle 是 CAV 或 compliant CHV:
+                   执行 CUC
+                   if CUC choice == lane 1 且目标车道安全:
+                       lane_change_state = executing
+                       初始化 lane 2 -> lane 1 正弦换道轨迹
+                   else:
+                       留在 lane 2
+                       设置纵向协同目标
+
+               else if vehicle 是 non-compliant CHV:
+                   不执行 CUC 建议
+                   按普通 CHV / IDM 行驶
+
+           else:
+               生成普通主线纵向 command
+
+    7. 计算纵向动力学
+
+       CAV:
+           cruising 或 gap-regulating
+       CHV:
+           IDM
+       CUC 留在 lane 2 的 CV:
+           若为 case 2 / 4 中的 CFV，使用 Eq.10 对应的期望跟驰间距语义
+           若为 case 3 / 4 中的 CLV，按 APS case 语义和正常纵向模型处理，不套用 CFV 的 Eq.10
+       不在 merging zone 的 MV:
+           按 on-ramp 纵向模型行驶
+       CMC waiting / executing MV:
+           在 CMC 语义内计算纵向运动，并使用 boundary speed cap 约束纵向速度
+
+    8. 计算横向运动与安全修正
+
+       对 CUC 触发的 lane 2 -> lane 1 换道:
+           按正弦参考轨迹更新横向位置
+           应用 front-collision-avoidance
+
+       对 MV 合流:
+           按正弦参考轨迹更新横向位置
+           使用已受 speed cap 约束后的 planning speed
+
+       第一版不做普通主线主动换道
+
+    9. 同步提交 S(t+dt)
+
+       每辆车本步只提交一次：
+           x, y, v, a
+           physical lane / logical longitudinal role
+           APS assignment state
+           CUC choice
+           lane_change_state
+           merge_state
+
+       如果 CV 完成换道：
+           lane = lane 1
+           lane_change_state = normal
+           原 lane 2 的 FV 重新连接到原 lane 中新的 leader
+
+       如果 MV 到达 lane 2 centerline：
+           lane = lane 2
+           MV 转为 mainline vehicle
+           merge_state = merged / normal
+           清理该 MV 的 APS assignment
+
+    10. Vehicle States Information Integration
+        记录轨迹、协同事件、换道事件、合流事件、越界和碰撞检查结果
+        形成下一时间步使用的 S(t+dt)
+
+    11. t += dt
+        step += 1
 ```
 
-这里要区分两个概念：
+## 5. 边界车辆生成
+
+车辆生成分为初始化和边界生成两部分。初始化阶段在仿真开始前生成初始车辆；边界生成阶段在每个时间步检查是否有新车从 lane 1、lane 2 或 on-ramp 上游边界进入。
+
+第一版保留论文车辆生成的基本语义：
 
 ```text
-physical y：车辆当前横向位置
-logical lane：本步纵向关系使用的车道归属
+对每个入口车道：
+    查看等待队列中的下一辆车
+    判断该车分配到的 arrival headway HA 是否满足
+    判断等待车辆相对前车的实际 headway HW 是否满足
+    判断入口处与前车的安全间隙是否满足
+    满足则生成，否则等待下一时间步
 ```
 
-正在换道的车辆可能 `y` 还在两条车道之间，但纵向上已经需要和目标车道车辆形成子系统。论文中 CV 换到 lane 1 后，CV 与 TLV、TFV 形成新的 lane-changing demand system；在下层 lane-changing model 中，论文又用 `SV` 表示 subject vehicle，也就是“正在执行换道的那辆车”。放到 CUC 触发的协同换道语境里，这个 `SV` 就是正在从 lane 2 换到 lane 1 的 `CV`。因此论文所说的 `SV` 与 TLV 形成新 subsystem、TFV 将 SV 视为新 leader、FV 仍将 SV 视为 leader，可以在第一版中理解为：CV 与 TLV 形成新 subsystem，TFV 将 CV 视为新 leader，同时 FV 仍将 CV 视为 leader 并进行协同运动。
+车辆类型、CHV compliance、CHV desired speed、CAV inertial lag、arrival headway 等随机属性在车辆生成相关文档中细化。本文档只规定车辆生成在主循环中的位置：它发生在冻结 `S(t)` 之前。
 
-第一版建议：
+## 6. 车辆关系刷新
 
-- 未开始换道的车按当前 lane 建立纵向关系。
-- CUC 决定换到 lane 1 后，该 CV 自身的纵向 leader 切换为目标 lane 1 的 TLV。
-- 目标 lane 1 的 TFV 将正在换道的 CV 视为 leader。
-- 原 lane 2 的 FV 在 CV 换道完成前仍将 CV 视为 leader。
-- CV 完成换道后，FV 再重新连接到原 lane 2 中 CV 前方的下一辆车。
+冻结 `S(t)` 后，需要基于当前状态刷新车辆关系，包括每条车道的排序、前后车关系，以及 CUC 需要的 TLV / TFV / LV / FV。
 
-换句话说，换道中的 CV 不应该“只属于一个普通 lane 排序”。它应拥有物理横向位置和纵向关系角色两个概念：
+第一版保留换道中的三类纵向关系：
 
 ```text
-physical y：用于画图、横向位置、碰撞检测
-logical longitudinal role：用于决定谁跟谁
+CV -> TLV：
+    CV 以目标车道前车 TLV 为 leader。
+
+TFV -> CV：
+    目标车道后车 TFV 以正在换道的 CV 为 leader。
+
+FV -> CV：
+    原车道后车 FV 在 CV 换道完成前仍以 CV 为 leader。
 ```
 
-### 换道中 CV 的三类纵向关系
+箭头表示“后车跟随前车”。CV 自己只有一个主 leader，即 TLV；但 CV 可以同时作为 TFV 和 FV 的 leader。换道开始到完成之前，不根据 `y` 最近车道连续改变纵向关系。CV 到达目标 lane centerline 后，才提交 lane 归属变化，并让原 lane 的 FV 重新连接到新 leader。
 
-对于从 lane 2 换到 lane 1 的 CV，第一版应按论文语义保留三类关系：
+更远上游车辆不被 CUC 直接控制。CV 换道显式影响 TFV 和 FV；FV 后方车辆只通过正常跟驰链条间接受影响。
+
+## 7. APS 调度
+
+APS 只作用于尚未进入 merging zone 的 on-ramp MV。这个触发位置来自 Fig. 9；APS 内部预测和 case 判断则遵循 Algorithm 1。Fig. 9 的核心分叉是：
 
 ```text
-CV -> TLV：CV 以目标车道前车 TLV 为 leader
-TFV -> CV：目标车道后车 TFV 以 CV 为 leader
-FV  -> CV：原车道后车 FV 在 CV 换道完成前仍以 CV 为 leader
+MV 不在 merging zone:
+    APS
+
+MV 已在 merging zone:
+    CMC
 ```
 
-这里的箭头表示“后车跟随前车”。因此，CV 自己只有一个主 leader，即 TLV；但 CV 可以同时作为 TFV 和 FV 的 leader。这不是重复约束，而是换道过程中对两个后车的影响同时存在。
+因此，第一版不再采用“所有未合流 MV 每步先 APS，再由 CMC 判断能否合流”的调度。
 
-不建议第一版根据 `y` 距离哪条车道中心线更近来动态切换纵向关系。那样会导致换道中途 leader/follower 突然跳变。更稳妥的语义是：换道开始时确定 TLV/TFV/FV 关系，换道完成后再更新 lane 归属和原车道 FV 的 leader。
+APS 按每辆 MV 的 `T_APS` 周期更新。MV 首次进入 APS 适用阶段时应立即执行 APS，避免没有 assignment cache 可沿用。之后若本步未到 APS 周期，则沿用上一轮 APS assignment。非 APS 周期不代表该 MV 没有 CLV / CFV / case，而是继续使用当前生效的协同关系。
 
-这里与“FV 在 CV 的 `y` 到达目标 lane 中心线时重新连接”并不矛盾。前者禁止的是换道过程中按 `y` 最近车道连续改 leader/follower；后者定义的是一个一次性的 maneuver 完成事件。换道开始到完成之前，关系保持为 `CV -> TLV`、`TFV -> CV`、`FV -> CV`；当 `CV.y` 到达目标 lane 中心线后，才提交 lane 归属变化，并让原 lane 的 FV 重新连接到新 leader。
-
-输出：
+APS 每次更新时执行：
 
 ```text
-lane orderings
-leader/follower map
-TLV/TFV/LV/FV query results
+1. 搜索 lane 2 中 MV 前后 Lcr 范围内的候选车辆。
+2. 计算 MV 到达 merging zone 起点 x0^m 的预测时间 T*_MV。
+3. 预测候选 lane 2 车辆在 T*_MV 后的位置。
+4. 找出预测插入间隙对应的 CLV / CFV。
+5. 根据预测间隙判断 case 1 / 2 / 3 / 4。
+6. 标记 col_CLV / col_CFV。
+7. case 2 / 4 设置 virtual MV'，并为 CFV 设置 Eq.10 的期望跟驰间距语义。
+8. case 3 标记 MV 可将 CLV 作为协同前车来调整间距。
 ```
 
-可能问题：
+APS 产出的 assignment 是后续 CUC 和 CMC 的依据。第一版不在本文档中设计 assignment 的具体字段。
 
-- 正在换道车辆同时影响目标 lane 和原 lane，但这不应理解为 CV 自己同时跟随两个 leader；CV 自己跟随 TLV，TFV 和 FV 分别跟随 CV。
-- 如果完全只按 `y` 最近车道归属，换道中途的纵向关系会跳变。
-- 关系图需要支持“一个 vehicle 作为多个 follower 的 leader”，普通 lane 排序结果本身可能不够表达这种临时关系。
+## 8. CV 协同请求仲裁
 
-第一版决定和待实现细节：
+多个 MV 独立运行 APS 时，可能选中同一辆 lane 2 车辆作为 CLV 或 CFV。论文没有完整定义这种冲突消解规则，但第一版实现必须避免同一辆 CV 在同一时间步接收多个互相冲突的协同目标。
 
-- FV 重新连接到原 lane 2 新 leader 的精确时刻：第一版按 CV 的 `y` 到达目标 lane 中心线判定；实现时只需设置一个很小的 `abs(y - target_y)` 容差。
-- 第一版碰撞检测只作为仿真指标和实现 sanity check，采用简单物理 `x/y` 阈值或简化矩形检查即可，不作为论文算法的一部分，也不引入复杂碰撞检测算法。
-
-### 更远上游车辆如何受影响
-
-论文在 CUC 和 lane-changing model 中显式建模的是紧邻车辆：
+第一版采用工程安全仲裁：
 
 ```text
-目标 lane：TLV, TFV
-当前 lane：LV, FV
+如果同一 CV 被多个 MV 请求：
+    优先服务已经在 merging zone 的 MV；
+    其次服务 T*_MV 更小的 MV；
+    再其次服务距离 merging zone 起点 x0^m 更近的 MV；
+    未获得该 CV 的 MV 标记为等待或冲突状态，后续通过 APS 更新处理。
 ```
 
-CUC 的效用函数也只显式包含 CV、TLV、TFV、LV、FV 之间的安全项和新加速度项，例如 `a_TFV^CV`、`a_FV^CV`。论文没有给出“直接控制 FV 后面第二辆、第三辆上游车”的规则。
+该仲裁属于第一版工程补充，不是论文原生算法。正式实现和后续文档中都不能把它描述成论文已经给出的多 MV 协同分配机制。
 
-因此第一版建议：
+## 9. CUC 调度
+
+CUC 只对 APS 指定且 `col = 1` 的 cooperative vehicle 执行。这里的 CV 是 CLV / CFV 角色，不是 CAV 类型。
+
+CUC 的输出是 maneuver choice，不直接更新车辆位置：
 
 ```text
-CV 换道时，显式影响 TFV 和 FV；
-FV 后方更远的上游车不被 CUC 直接控制；
-它们通过正常纵向跟驰链条间接受影响。
+choice 1:
+    CV 从 lane 2 换到 lane 1。
+
+choice 2:
+    CV 留在 lane 2，继续通过纵向模型调整速度和间距。
 ```
 
-也就是说，CV 影响 FV，FV 的速度/加速度变化再影响 FV 后面的车。这既符合论文的局部 subsystem 表达，也避免把 CUC 扩展成论文没有定义的多车全局控制器。
-
-### Step 2：APS 更新
-
-APS 只对尚未完成合流的 MV 执行。论文强调 APS 不应该每个 `dt` 都强制更换 CLV / CFV，而是通过 `T_APS` 间隔更新，以避免频繁切换 cooperative case 导致交通流不稳定。
-
-建议第一版 APS 更新条件：
-
-```text
-MV 在 on-ramp 上，尚未进入 active merge
-MV 已进入需要进行 APS 的区域或状态
-当前时间满足该 MV 的 APS 更新间隔 T_APS
-```
-
-APS 本步做的事情：
-
-```text
-1. 从 lane 2 中筛选 MV 通信范围内的候选车辆。
-2. 计算 MV 到达 merging zone 起点的预测时间 T*_MV(t)。
-3. 预测候选 lane 2 车辆在 T*_MV(t) 后的位置。
-4. 找到预测位置一前一后的 CLV / CFV。
-5. 根据预测间隙判断 case 1/2/3/4。
-6. 设置 col_CLV / col_CFV。
-7. 在 case 2/4 中，为 CFV 计算用于协同的期望 spacing，并保留 virtual MV' 语义。
-```
-
-输出：
-
-```text
-MV.assigned_clv
-MV.assigned_cfv
-MV.aps_case
-MV.col_clv
-MV.col_cfv
-CFV.desired_spacing_for_merge_gap（case 2/4）
-```
-
-可能问题：
-
-- 如果同一个 CV 被多个 MV 同时选中，会出现协同冲突。
-- 如果 MV 已经开始合流，继续 APS 可能导致 CLV/CFV 在合流过程中跳变。
-- 如果 lane 2 通信范围内没有足够车辆，APS 需要边界处理，例如只有前车、只有后车或无车。
-
-待确定：
-
-- 第一版是否只对“尚未 active merge 的 MV”运行 APS。建议默认是：MV 一旦进入 active merge，就固定最近一次 CLV/CFV，直到合流完成。
-- 多 MV 同时请求同一 CV 时如何仲裁。建议待确认默认：更靠近 merging zone 起点或更早到达合流区的 MV 优先。
-- APS 更新时机是严格按 `T_APS`，还是首次进入 cooperative zone 时立即执行一次，然后再按 `T_APS` 更新。建议第一版采用“首次立即执行 + 后续按间隔更新”。
-
-### Step 3：CUC 决策
-
-CUC 对 APS 标记为需要协同的 lane 2 中 CV 执行。
-
-需要协同的 CV 来自：
-
-```text
-col_CLV = 1
-col_CFV = 1
-```
-
-CUC 的输出不是位置，也不是加速度，而是 maneuver choice：
-
-```text
-choice 1：CV 从 lane 2 换到 lane 1
-choice 2：CV 继续留在 lane 2
-```
-
-执行规则建议：
+执行规则：
 
 - CAV 接受 CUC 决策。
-- compliant CHV 接受 CUC 决策。
-- non-compliant CHV 忽略 CUC 决策，继续按自身模型行驶。
-- 已经处于 active lane change 的 CV，不应在每个时间步被 CUC 反复改决策。
-- CUC 可在 APS 更新后触发；如果 APS 未更新且 CV 已有未完成 maneuver，则沿用原决策。
+- compliant CHV 接受 CUC 决策，但纵向行为仍按 CHV/IDM 更新。
+- non-compliant CHV 不执行 CUC 建议，继续按自身模型行驶。
+- 若 CV 已处于 `lane_change_state == executing`，本步不重新执行 CUC，不重新选择目标，只继续既有换道轨迹；该车仍参与本步纵向动力学计算和横向轨迹更新。
+- 若 CV 尚未开始换道，则可以按 Fig. 9 的时间步语义检查 CUC。
 
-CUC 决策时需要查询：
+CUC 选择 lane 1 时，必须检查目标车道 TLV / TFV 的 TT 安全约束。若换道收益不足或目标车道不安全，则 CV 留在 lane 2。
 
-```text
-当前 lane 2 的 LV / FV
-目标 lane 1 的 TLV / TFV
-换道 choice 的效用 U1
-留在 lane 2 choice 的效用 U2
-目标车道安全约束 TT
-```
+APS case 与 CUC 后续运动的关系：
 
-论文中有一个需要注意的文字问题：原文写到 choice 2 时提及 TT 安全约束，但 Eq. 14 的 TLV/TFV 语义对应的是目标车道安全检查。因此第一版应按下面语义处理：
+- case 1：CLV / CFV 都不需要协同。
+- case 2：CFV 需要协同；若 CFV 留在 lane 2，则使用 Eq.10 对应的期望跟驰间距语义为 MV 创建后向 gap。
+- case 3：CLV 需要协同；MV 可将 CLV 作为前车来调整间距。
+- case 4：CLV 和 CFV 都需要协同；CFV 使用 virtual MV' / Eq.10 语义，CLV 按 CUC choice 执行协同。
 
-```text
-只有当 CV 准备换到 lane 1 时，才检查目标 lane 1 中 TLV/TFV 的 TT 安全约束。
-```
+## 10. CMC 调度
 
-输出：
+CMC 只对已经进入 merging zone 的 MV 执行。CMC 包括动态可接受时间间隙、合流决策、合流轨迹和 boundary-collision-avoidance。
+
+第一版 MV 合流状态使用以下语义：
 
 ```text
-CV.cuc_choice
-CV.target_lane（若选择换道）
-CV.maneuver_state（若开始换道）
-CV.cooperative_longitudinal_target（若留在 lane 2 且需要纵向协同）
+not_started:
+    MV 已在 merging zone，但尚未开始横向合流。
+
+waiting:
+    MV 在 CMC 内等待可接受 gap，同时仍沿 on-ramp 纵向行驶。
+
+executing:
+    MV 已开始横向合流，继续执行既有正弦合流轨迹。
+
+merged:
+    MV 已到达 lane 2 centerline，转为 mainline vehicle。
 ```
 
-可能问题：
+若 `merge_state == executing`，本步继续已有合流轨迹，不重新判断“是否开始合流”，也不因短时 gap 变化退回 waiting。进入 executing 后，assignment valid 检查不再用于撤销本次合流；除非发生实现层面的硬异常，否则 MV 继续既有合流轨迹。
 
-- 同一 CV 被多个 MV 赋予不同协同目标。
-- CV 换到 lane 1 对 lane 1 的 TFV 产生影响，TFV 的纵向 leader 需要更新。
-- CV 留在 lane 2 时，如何把“继续纵向调整”落实为具体 desired spacing 或 leader 关系，需要结合 APS case 处理。
-
-待确定与已定默认：
-
-- CUC 是否每个 `dt` 重新计算效用。建议第一版不这么做，而是在 APS 更新或 CV 当前无 active maneuver 时更新。
-- 同一 CV 同时服务多个 MV 的冲突仲裁策略。
-- 如果 CUC 选择换道但目标 lane 1 安全约束不满足，是强制留 lane 2，还是延迟决策等待下一步。建议第一版强制选择留 lane 2，并记录原因。
-
-### Step 4：CMC 合流判断
-
-CMC 负责 MV 的单车合流。
-
-CMC 本步使用最近一次 APS 给出的：
+若 MV 已在 merging zone 且尚未开始合流，CMC 执行：
 
 ```text
-CLV
-CFV
-aps_case
+1. 读取当前有效 APS assignment。
+2. 计算动态可接受合流时间间隙 h~_MV^CM(t)。
+3. 验证 assigned CLV / CFV 是否仍有效。
+4. 根据 Eq.56 计算或刷新 boundary speed cap。
+5. 若 assignment 有效且 Eq.53 gap 满足，则开始合流。
+6. 若 assignment 无效或 Eq.53 不满足，则不横向合流，继续 on-ramp 纵向行驶。
 ```
 
-CMC 每个时间步都可以判断是否满足合流条件，因为即使 APS 每 `T_APS` 才更新，实际 gap 会随着车辆运动每步变化。
+Eq.53 使用 APS assignment 中的 CLV / CFV 作为目标协同对象。执行 Eq.53 前必须验证 assigned CLV / CFV 是否仍有效：例如是否仍在 lane 2、是否已驶离、是否仍能形成目标协同 gap。
 
-CMC 判断包括：
+若 assigned CV 已换道离开 lane 2、已驶离、或不再形成安全边界，则：
 
 ```text
-1. 动态可接受时间间隙 h~_MV^CM(t)。
-2. MV 与 CLV 的实际前向间隙。
-3. CFV 与 MV 的实际后向间隙。
-4. 边界防撞速度上限。
+assignment invalid；
+MV 本步暂不开始合流；
+等待下一次 APS 或执行保守安全处理。
 ```
 
-如果 Eq. 53 对应的实际间隙条件满足，并且边界防撞允许，则 MV 进入 active merge：
+第一版不把这种兜底写成“每步实时重查 lane 2 actual leader/follower 并替代 APS assignment”的论文算法。它只是工程安全补丁。
 
-```text
-MV.merge_state = active
-MV.target_lane = lane 2
-MV.merge_trajectory = sine reference trajectory
-```
+“等待”不是停车。gap 不满足时，MV 仍沿 on-ramp 纵向行驶，并在纵向动力学阶段使用 boundary speed cap 约束速度。
 
-如果不满足，则 MV 继续在 on-ramp 上纵向运动，并继续等待 gap。
+## 11. 纵向动力学
 
-输出：
-
-```text
-MV.merge_state
-MV.target_lane
-MV.boundary_speed_cap
-MV.merge_trajectory_state
-```
-
-可能问题：
-
-- MV 太接近 ramp end 时，边界防撞公式可能给出非常低甚至不可行的速度上限。
-- 如果一直不满足 gap，MV 可能被迫急减速或失败。
-- MV active merge 后，如果继续更换 CLV/CFV，轨迹和安全判断会变得不稳定。
-
-待确定：
-
-- 边界防撞速度上限为负或过低时，第一版如何处理。建议记录为 failed/unsafe case，或将速度目标裁剪到 0 并保留告警。
-- active merge 后是否继续 APS。建议第一版不继续，直到合流完成。
-- MV 合流过程中的纵向 leader 默认是否固定为 CLV。建议第一版固定为最近一次 APS 的 CLV。
-
-### Step 5：确定本步纵向子系统
-
-上层决策完成后，需要为所有车辆确定本步的纵向更新关系。
-
-每辆车本步至少需要知道：
-
-```text
-longitudinal leader
-desired time gap
-desired spacing
-speed limit / speed cap
-是否有特殊协同目标
-```
-
-建议第一版规则：
-
-- 普通 mainline 车辆：跟随当前 logical lane 的 leader。
-- 普通 on-ramp 车辆：跟随 on-ramp leader。
-- 选择换到 lane 1 的 CV：纵向主 leader 使用 lane 1 的 TLV。
-- lane 1 的 TFV：在目标车道中将换道 CV 视为 leader。
-- 原 lane 2 的 FV：在 CV 换道完成前仍将 CV 视为 leader，换道完成后再重新连接到 lane 2 中新的 leader。
-- 留在 lane 2 的 CFV：在 APS case 2/4 中使用 Eq. 10 对应的期望 spacing 语义，为 MV 创建后向 gap。
-- active merge 的 MV：以 CLV 作为主要 leader，同时检查 CFV 后向安全。
-
-输出：
-
-```text
-vehicle.longitudinal_context
-vehicle.leader_id
-vehicle.desired_spacing_override
-vehicle.speed_cap
-```
-
-可能问题：
-
-- 论文对 case 3 中 CLV 如果不换道时如何纵向协同，表达不如 CFV 明确。
-- 正在换道车辆会同时影响当前 lane 和目标 lane：这属于论文语义，而不是可忽略的异常情况。
-- MV 既在物理上处于 on-ramp/lane 2 之间，又需要和 lane 2 的 CLV/CFV 形成合流关系。
-
-待确定与已定默认：
-
-- Case 3 中，CLV 选择留 lane 2 时是否只按普通纵向模型行驶，还是额外给加速目标。此处需要后续结合论文公式和实验表现再定。
-- 换道中车辆的 logical longitudinal role 在 maneuver 开始时切到 target lane 关系；正式 lane 归属在 `y` 到达目标 lane 中心线后提交。在绘图和碰撞检测中始终使用物理 `y`。
-- 原 lane 2 的 FV 重新连接到新 leader 的时刻：第一版按 CV 的 `y` 到达目标 lane 中心线判定。轨迹长度完成可作为辅助检查，但不作为主要重连条件。
-
-### Step 6：计算纵向加速度
-
-确定纵向子系统后，计算每辆车本步加速度。
+纵向模型在本步车辆关系、APS assignment、CUC choice 和 CMC state 确定后计算。
 
 CAV：
 
 ```text
-无 leader 或实际 time gap 足够大：cruising
-有 leader 且需要跟驰：gap-regulating
+无 leader 或实际 time gap 足够大：
+    cruising
+
+有 leader 且需要跟驰：
+    gap-regulating
 ```
 
 CHV：
@@ -403,327 +428,132 @@ CHV：
 IDM
 ```
 
+compliant CHV 可以接受 CUC 的换道或留车道建议，但纵向加速度仍按 CHV/IDM 逻辑计算。non-compliant CHV 不接受 CUC 建议。
+
 MV：
 
 ```text
-按其车辆类型使用纵向模型；
-如果受到边界防撞约束，则额外应用 speed cap 或 deceleration cap。
+不在 merging zone：
+    按 on-ramp 纵向模型行驶。
+
+在 merging zone 且 waiting：
+    在 CMC 内按 on-ramp 纵向行驶，并使用 CMC 产生的 boundary speed cap 约束速度。
+
+在 merging zone 且 executing：
+    在 CMC 内继续合流轨迹，并使用 CMC 产生的 boundary speed cap 约束速度。
 ```
 
-注意：
+所有纵向计算都只读 `S(t)`。纵向模型输出本步将应用的加速度、速度约束或纵向 command，最后统一提交。
 
-- compliant CHV 可以接受 CUC 的换道/留车道建议，但纵向加速度仍按 CHV/IDM 逻辑计算。
-- non-compliant CHV 不接受 CUC 建议。
-- 所有加速度都应基于 `S(t)` 和本步已经确定的纵向 context 计算，不能使用其他车辆已经更新到 `t+dt` 的位置。
+## 12. 横向轨迹与避碰
 
-输出：
+第一版不做 MPC tracking。论文中给出正弦参考轨迹的地方，第一版直接按参考轨迹更新横向位置。
 
-```text
-a_i(t)
-v_i target/capped
-```
-
-可能问题：
-
-- CAV gap-regulating 的 CPID 参数来自前作，CORMC 本篇没有完整列出，需要配置化。
-- IDM 在极小间距下可能产生很大减速度，需要裁剪。
-- 如果 MV 同时需要跟驰和边界防撞，应明确谁优先。建议第一版边界防撞速度上限优先。
-
-第一版决定和待实现细节：
-
-- 纵向积分时使用的加速度是 `a(t)` 还是 CPID 公式中的 `a(t+dt)`。建议实现时把模型输出视为本步将应用的加速度，并统一记录。
-- 加速度和速度上下界的裁剪顺序。
-
-### Step 7：同步更新纵向状态
-
-所有车辆的加速度计算完后，再统一更新纵向状态。
-
-建议第一版采用统一、简单、可解释的积分规则，例如：
-
-```text
-v(t+dt) = clip(v(t) + a(t) * dt)
-x(t+dt) = x(t) + v(t) * dt + 0.5 * a(t) * dt^2
-```
-
-更新后再做：
-
-```text
-速度上下界裁剪
-加速度上下界裁剪
-道路边界检查
-```
-
-输出：
-
-```text
-x(t+dt)
-v(t+dt)
-a(t+dt) 或 a_applied(t)
-```
-
-可能问题：
-
-- 如果先裁剪速度再更新位置，和先按加速度更新再裁剪，会产生不同结果。
-- 边界防撞速度上限如果在 Step 6 已经生效，Step 7 不应再次产生越界速度。
-
-待确定：
-
-- 最终积分公式在实现文档中固定后，所有模型都必须共用同一套规则。
-
-### Step 8：更新横向轨迹状态
-
-纵向状态更新后，对正在执行 lane change 或 merge 的车辆更新横向位置。
-
-第一版原则：
-
-```text
-不做 MPC tracking；
-直接按正弦参考轨迹计算 y(t+dt)。
-```
-
-正在换道的 CV：
+CUC 触发的 CV 换道：
 
 ```text
 lane 2 -> lane 1
 ```
 
-正在合流的 MV：
+CMC 触发的 MV 合流：
 
 ```text
 on-ramp -> lane 2
 ```
 
-横向轨迹需要记录：
+换道或合流开始时确定起点、目标 lane centerline 和正弦参考轨迹语义。完成条件以车辆横向位置到达目标 lane centerline 为主；轨迹长度完成可作为保护性检查。具体容差由后续参数或实现文档给出。
+
+front-collision-avoidance 与简单碰撞检测必须区分：
 
 ```text
-trajectory_start_x
-trajectory_start_y
-target_y
-trajectory_length M
-start_time
+front-collision-avoidance:
+    论文 lane-changing model 的事前安全约束，会影响换道/合流时可采用的规划速度。
+
+简单碰撞检测:
+    仿真平台的事后检查和 sanity check，不改变车辆运动。
 ```
 
-完成条件可以初步理解为：
+front-collision-avoidance 第一版落地口径：
 
 ```text
-车辆 y 足够接近 target_y
-或 x - trajectory_start_x 达到轨迹规划长度
+先按纵向模型得到 candidate_speed
+用 candidate_speed 计算或更新正弦轨迹相关速度语义
+检查轨迹中点防撞约束
+若满足：使用 candidate_speed
+若不满足：使用上一时刻速度或延迟本次横向 maneuver
 ```
 
-完成后：
+boundary-collision-avoidance 只针对 MV 与 on-ramp downstream boundary 的安全，核心是 Eq.56 给出的速度上限。第一版中，CMC 负责根据 Eq.56 计算或刷新 boundary speed cap；纵向动力学阶段负责施加该速度上限；横向合流轨迹只消费已经约束后的 planning speed。若 MV 同时受到 front-collision-avoidance 和 boundary speed cap 影响，使用更保守的 planning speed。
+
+## 13. 状态提交与信息集成
+
+每辆车每个时间步只能提交一次状态更新。提交内容包括：
 
 ```text
-lane = target_lane
-logical lane = target_lane
-maneuver_state = none/completed
-```
-
-可能问题：
-
-- 论文称 dynamic lane-changing trajectory planning，`M(t)` 与速度有关，可能每步更新。
-- 第一版若每步重算 `M(t)`，轨迹可能抖动；若固定 `M`，则和论文 dynamic 语义略有偏差。
-- MV 合流过程中如果纵向速度变化很大，固定轨迹长度可能导致横向完成时机不自然。
-
-待确定：
-
-- 第一版建议固定一次 maneuver 的起点和目标，按正弦参考轨迹直接更新；是否每步重算 `M(t)` 作为后续增强。
-- 换道/合流完成以 `y` 到达目标 lane 中心线为主；实现阶段只需确定 `abs(y - target_y)` 的数值容差。轨迹长度完成可作为保护性检查。
-
-### Step 9：记录、检测、反馈
-
-本步最后统一记录：
-
-```text
-车辆轨迹
-APS assignment
+x, y
+v, a
+physical lane
+logical longitudinal role
+APS assignment state
 CUC choice
-merge start/completion event
-lane change start/completion event
-collision/near-collision event
-boundary violation event
+lane_change_state
+merge_state
+事件记录
 ```
 
-然后执行安全检查：
+提交规则：
 
-```text
-同 lane/logical lane 前后车纵向间距
-物理 x/y 距离是否重叠
-MV 是否越过 ramp end 仍未完成合流
-车辆是否驶出仿真道路边界
-```
+- CV 完成换道后，正式归属 `lane 1`，`lane_change_state` 回到 normal。
+- CV 完成换道后，原 lane 2 的 FV 重新连接到原 lane 中新的 leader。
+- MV 到达 lane 2 centerline 后，正式归属 `lane 2`，转为 mainline vehicle，`merge_state` 变为 merged / normal，并清理该 MV 的 APS assignment。
+- 简单碰撞检测、越界检查、near-collision 记录发生在状态提交后，用于调试、指标和 sanity check，不参与 APS/CUC/CMC 决策。
 
-最后形成：
+状态集成后形成 `S(t+dt)`，作为下一时间步的输入。
 
-```text
-S(t+dt)
-```
+## 14. 前序评估结论的吸收情况
 
-作为下一时间步输入。
+本文档已吸收前序算法主循环评估稿中的关键修正：
 
-可能问题：
+- 使用 `t += dt`，不把 `time = time + 1` 当真实时间。
+- APS 使用 assignment cache，首次进入 APS 适用阶段立即执行，非 APS 周期沿用上一轮 assignment。
+- on-ramp MV 按是否进入 merging zone 分叉：未进入走 APS，进入后走 CMC。
+- CMC 使用 `merge_state`，开始合流后不每步重新“开始/等待”。
+- CMC 执行 Eq.53 前验证 APS assignment 有效性。
+- boundary-collision-avoidance 的职责收敛为：CMC 计算 speed cap，纵向阶段施加，横向阶段消费最终 planning speed。
+- CUC 只对 APS 指定且 `col = 1` 的 cooperative vehicle 执行。
+- active lane change 中的 CV 不重新执行 CUC。
+- Eq.10 的协同期望跟驰间距语义只明确套用于 case 2 / 4 中的 CFV，不误套 CLV。
+- 每辆车每步只写 command / next-state，最后同步提交一次。
+- 保留 front-collision-avoidance 的简化速度约束语义。
+- 多 MV 共享 CV 的处理标注为第一版工程安全仲裁。
+- 普通主线主动换道明确为第一版关闭。
 
-- 只按 lane 检查碰撞可能漏掉换道中车辆的侧向冲突。
-- 只按物理距离检查又可能需要更复杂的车辆矩形模型。
+本文档与前序评估稿的必要差异：
 
-待确定：
+- 前序评估稿是评估/建议稿，包含评分、诊断和对话语气；本文档是正式算法流程指导，不保留评分和聊天式表述。
+- 前序评估稿为了指出问题保留了“必须修改或补充”的评审结构；本文档将已经确认的修正直接写入主流程。
+- 前序评估稿中涉及数据结构的示意只保留概念，不在本文档中设计具体字段或类。
 
-- 第一版碰撞检测只用于记录指标和发现实现错误，可以先用简化矩形或纵横向阈值。它不参与 APS/CUC/CMC 决策，也不作为论文算法增益。
+## 15. 需后续审阅或细化的问题
 
-### 碰撞检测与 front-collision-avoidance 的区别
+以下内容不阻止第一版算法流程成立，但需要后续在参数、车辆模型、数据结构或异常处理文档中细化。这里不直接猜测实现细节。
 
-这里需要区分两个概念：
+1. **assignment invalid 后的保守安全处理**
+   - 当前流程规定 MV 暂不开始合流，等待下一次 APS 或保守处理。
+   - 具体是减速、限速、失败记录还是强制等待，需要后续实现策略文档确认。
 
-```text
-简单碰撞检测：仿真平台的事后检查/指标记录。
-front-collision-avoidance：论文 lane-changing model 的事前安全约束。
-```
+2. **边界防撞速度上限过低或不可行**
+   - Eq.56 给出 MV 的边界速度约束。
+   - 若速度上限过低、为负或导致车辆无法继续安全运行，后续需要定义失败/告警/保守停车策略。
 
-简单碰撞检测发生在状态更新后，用来回答：
+3. **正弦轨迹是否每步动态重规划**
+   - 论文称 dynamic lane-changing trajectory planning。
+   - 第一版按正弦参考轨迹直接更新横向位置；是否固定一次 maneuver 的起点和目标，或每步更新轨迹长度，由后续车辆模型/轨迹文档细化。
 
-```text
-这一步仿真结果里有没有车辆重叠、过近或越界？
-```
+4. **APS / CUC 开关下的消融行为**
+   - 第一版代码结构应保留 APS 和 CUC 开关。
+   - `enable_aps=False` 或 `enable_cuc=False` 时的默认车辆行为，后续实验/消融文档单独定义。
 
-它主要服务于调试、指标记录和 sanity check。第一版不需要做复杂的全局碰撞检测算法，简单的 `x/y` 距离阈值或简化矩形检查就够。
-
-front-collision-avoidance 则发生在换道/合流运动执行过程中，用来避免 SV 在换道到车道分界线附近时追上当前 lane 的 LV。论文给出的思路是检查 SV 到轨迹中点时，与 LV 的纵向间距是否仍满足安全条件；如果不满足，则本步轨迹规划不使用按最新纵向加速度更新后的速度，而是回退使用上一时刻速度。
-
-更准确地说，论文这里不是另写一个连续优化控制器，也不是做全局碰撞检测，而是在正弦参考轨迹规划前加入一个局部安全检查。它会影响本步用于计算轨迹长度 `M(t)` 的速度，从而影响横向换道参考轨迹。
-
-因此，二者区别是：
-
-```text
-简单碰撞检测：被动记录，不改变车辆运动。
-front-collision-avoidance：主动约束，会影响换道/合流时可采用的速度或是否继续按当前速度规划。
-```
-
-第一版建议保留 front-collision-avoidance 的速度回退/速度约束语义，因为它属于论文换道模型的一部分；但不扩展成复杂控制器，也不和全局碰撞检测混为一谈。这里的“简化”主要指第一版不实现论文后续 MPC 横向轨迹跟踪，也不额外求解一个论文没有给出的最优安全速度。
-
-### front-collision-avoidance 的第一版落地口径
-
-第一版建议按下面口径实现，既保留论文语义，又避免扩展成论文没有定义的复杂控制器：
-
-```text
-先按纵向模型得到 candidate_speed = v(t - dt) + a(t) * dt
-用 candidate_speed 计算正弦轨迹长度 M(t)
-检查 front-collision-avoidance 的轨迹中点安全约束
-如果满足：本步用 candidate_speed 规划横向参考轨迹
-如果不满足：本步轨迹规划速度回退到上一时刻速度
-```
-
-这里“回退到上一时刻速度”是论文明确给出的处理方式。它不是在求一个新的最优安全速度，也不是让车辆进入额外的横向控制器。
-
-如果车辆尚未正式进入 active lane change / active merge，而中点安全约束已经不满足，第一版可以先延迟启动本次横向 maneuver。这属于工程上的保守处理，需要在实现中记录为第一版取舍，而不是论文明确给出的新增算法。
-
-对已经处于 active lane change / active merge 的车辆，第一版不建议每步随意改换道对象或重新触发 CUC/APS；只在当前 maneuver 内根据 front-collision-avoidance 选择本步用于正弦参考轨迹规划的速度。
-
-需要特别区分：
-
-```text
-front-collision-avoidance：原 lane 前方 LV 的中点防撞检查。
-boundary-collision-avoidance：MV 与匝道末端边界的速度上限检查。
-```
-
-前者主要影响 SV/CV/MV 在换道或合流横向轨迹中的规划速度；后者只针对 MV，且论文 Eq. 56 给出了更直接的 ramp-end 速度上限。第一版实现时，如果 MV 同时受到二者影响，应先按纵向模型得到 candidate speed，再同时应用 front-collision 的速度回退语义和 boundary-collision 的速度上限，最终使用更保守的规划速度。
-
-## 3. 推荐主循环伪代码
-
-下面伪代码用于表达顺序，不代表最终代码结构：
-
-```text
-for each time step t:
-    state_t = freeze_current_state()
-
-    relations = build_lane_relations(state_t)
-
-    for each MV not merged and not active_merge:
-        if should_run_aps(MV, t):
-            aps_result = run_aps(MV, state_t, relations)
-            store_aps_assignment(MV, aps_result)
-
-    for each CV marked by APS as col = 1:
-        if can_accept_cuc(CV) and not active_lane_change(CV):
-            cuc_choice = run_cuc(CV, state_t, relations)
-            store_cuc_choice(CV, cuc_choice)
-        else:
-            keep_or_ignore_cuc_choice(CV)
-
-    for each MV not merged:
-        cmc_result = evaluate_cmc(MV, state_t, latest_aps_assignment)
-        if cmc_result.can_merge:
-            start_or_continue_merge(MV, cmc_result)
-
-    longitudinal_context = build_longitudinal_context(
-        state_t,
-        relations,
-        aps_assignments,
-        cuc_choices,
-        merge_states
-    )
-
-    for each vehicle:
-        acceleration[vehicle] = compute_longitudinal_acceleration(
-            vehicle,
-            state_t,
-            longitudinal_context
-        )
-
-    state_next = integrate_longitudinal_state(state_t, acceleration, dt)
-
-    for each vehicle with active lane_change or active merge:
-        planning_speed = choose_lateral_planning_speed(
-            vehicle,
-            state_t,
-            state_next,
-            front_collision_avoidance=True,
-            boundary_collision_avoidance_if_mv=True
-        )
-        update_lateral_position_by_sine_reference(vehicle, state_next, planning_speed)
-        complete_maneuver_if_reached_target(vehicle, state_next)
-
-    record_history_and_events(state_next)
-    check_collisions_and_boundaries(state_next)
-    commit(state_next)
-```
-
-## 4. 当前最需要后续确认的问题
-
-以下问题不会阻止继续推进，但需要在实现前或实现中逐步锁定：
-
-1. **多 MV 冲突**  
-   多个 MV 同时选择同一 CLV/CFV 或同一 CV 时，第一版采用什么优先级。
-
-2. **Case 3 的 CLV 留 lane 2 行为**  
-   论文对 CFV 的期望 spacing 讲得更明确，对 CLV 留在 lane 2 时如何纵向协同不够直接。需要实现时谨慎处理。
-
-3. **换道中车辆的双车道关系落地方式**  
-   论文语义上，CV 换道时目标 lane 的 TFV 和原 lane 的 FV 都受影响。更远上游车辆通过 FV 的纵向跟驰链条间接受影响，不做 CUC 的显式多车控制。后续需要确认的是数据结构，而不是是否保留 FV 影响。
-
-4. **横向轨迹是否动态重规划**  
-   论文是 dynamic trajectory planning；第一版倾向固定一次 maneuver 的参考轨迹，避免抖动。后续可以增强为每步重规划。
-
-5. **边界防撞失败状态**  
-   如果 MV 接近 ramp end 且仍无法合流，需要定义失败、急减速或强制等待的处理方式。
-
-6. **碰撞检测粒度**  
-   第一版碰撞检测只做简单指标记录和实现检查，不引入复杂全局碰撞检测算法。需要确定的只是采用纵横向阈值还是简化矩形。
-
-7. **APS / CUC 开关下的行为**  
-   后续为了消融实验，需要明确 `enable_aps=False` 或 `enable_cuc=False` 时，MV 和 CV 的默认行为。
-
-## 5. 第一版默认建议
-
-为了让第一版先跑通，建议先采用以下默认：
-
-- 上层决策和加速度计算全部基于 `S(t)` 快照。
-- APS 首次进入协同范围立即执行，之后按 `T_APS` 更新。
-- MV 进入 active merge 后固定 CLV/CFV，不再继续 APS。
-- CUC 不对 active lane change 的 CV 反复重决策。
-- CUC 选择换道但目标 lane 不安全时，CV 留在 lane 2。
-- 正在换道车辆的纵向主关系以 target lane 为主：CV 跟随 TLV，TFV 跟随 CV，同时原 lane 的 FV 在换道完成前仍跟随 CV。
-- FV 在 CV 的 `y` 到达目标 lane 中心线时重新连接到原 lane 的新 leader。
-- CV 换道对更远上游车只通过 FV 间接传播，不显式控制 FV 后方更多车辆。
-- 横向轨迹在 maneuver 开始时固定起点、目标和轨迹长度，后续按参考轨迹直接更新。
-- 所有车辆同步更新纵向状态，再更新横向位置。
-- 简单碰撞检测只用于指标记录；front-collision-avoidance 作为论文中的换道安全约束，以简化速度约束语义保留。
-- 对论文表达不清的地方，在代码中保留注释和配置开关，不假装已经完全确定。
+5. **碰撞检测粒度**
+   - 本文档只规定简单碰撞检测用于记录和 sanity check。
+   - 具体采用纵横向阈值还是简化矩形检查，由后续指标或仿真实现文档确定。

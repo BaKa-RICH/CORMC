@@ -56,6 +56,14 @@ CMC 用于 MV 的单车合流过程。MV 先根据动态可接受间隙判断当
 
 第一版不实现多个 MV 组成 platoon 后只考虑首尾 MV 的规则。每辆 MV 独立处理 APS 和合流。
 
+### 论文语义与工程兜底边界
+
+第一版实现中可以加入必要的工程兜底，但必须和论文原算法语义区分开，不把工程补丁写成论文已经定义的机制。
+
+CMC 执行 Eq.53 时，应以 APS assignment 中的 CLV / CFV 作为目标协同对象。执行实际间隙判断前，可以验证 assigned CLV / CFV 是否仍有效：例如是否仍在 lane 2、是否已经驶离、是否仍能形成目标协同 gap。若 assigned CV 已换道离开 lane 2、已驶离或不再形成安全边界，则将该 assignment 标记为 invalid，MV 本步暂不开始合流，等待下一次 APS 或执行保守安全处理。第一版不把这种兜底写成“每步实时重查 lane 2 actual leader/follower 并替代 APS assignment”的论文算法。
+
+多 MV 同时选中同一 CV 时，第一版需要安全仲裁以避免同一辆 CV 接收多个冲突协同目标。该仲裁属于工程补充，不是论文原生定义。默认优先级为：已在 merging zone 的 MV 优先，其次是 `T*_MV` 更小的 MV，再其次是距离 merging zone 起点 `x0^m` 更近的 MV；未获得该 CV 的 MV 标记为等待或冲突状态，后续通过下一次 APS 更新处理。
+
 ## CPID 的处理口径
 
 CPID 属于 CAV 纵向 gap-regulating 的一种加速度模型，不是横向 MPC，也不是轨迹插值方法。
