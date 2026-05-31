@@ -12,6 +12,7 @@ from cormc.mvs.matcher import (
     match_event_counts,
     match_forbidden_events,
 )
+from cormc.step9_11 import run_mvs_commit_1_lite
 
 
 @dataclass(frozen=True)
@@ -90,6 +91,20 @@ def run_targeted_scenario(
     context = ScenarioRuntimeContext(config=config)
     if context.status == "deferred":
         return build_scenario_report(context, ScenarioRunResult(), skipped_deferred=True)
+
+    if (
+        actual_events is None
+        and actual_sanity_checks is None
+        and context.scenario_id == "MVS-COMMIT-1-lite"
+    ):
+        commit_result = run_mvs_commit_1_lite()
+        return build_scenario_report(
+            context,
+            ScenarioRunResult(
+                actual_events=commit_result.history.event_dicts(),
+                actual_sanity_checks=commit_result.history.sanity_dicts(),
+            ),
+        )
 
     result = ScenarioRunResult(
         actual_events=list(actual_events or []),
