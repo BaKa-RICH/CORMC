@@ -222,7 +222,7 @@ while t <= T_end:
            x, y, v, a
            physical lane / logical longitudinal role
            APS assignment state
-           CUC choice
+           CUC choice 的 event/history 记录
            lane_change_state
            merge_state
 
@@ -234,11 +234,12 @@ while t <= T_end:
        如果 MV 到达 lane 2 centerline：
            lane = lane 2
            MV 转为 mainline vehicle
-           merge_state = merged / normal
+           merge_state = merged
+           下一时间步可压缩为 merge_state = none
            清理该 MV 的 APS assignment
 
     10. Vehicle States Information Integration
-        记录轨迹、协同事件、换道事件、合流事件、越界和碰撞检查结果
+        记录轨迹、协同事件、CUC choice history、换道事件、合流事件、越界和碰撞检查结果
         形成下一时间步使用的 S(t+dt)
 
     11. t += dt
@@ -495,7 +496,7 @@ v, a
 physical lane
 logical longitudinal role
 APS assignment state
-CUC choice
+CUC choice 的 event/history 记录
 lane_change_state
 merge_state
 事件记录
@@ -505,7 +506,8 @@ merge_state
 
 - CV 完成换道后，正式归属 `lane 1`，`lane_change_state` 回到 normal。
 - CV 完成换道后，原 lane 2 的 FV 重新连接到原 lane 中新的 leader。
-- MV 到达 lane 2 centerline 后，正式归属 `lane 2`，转为 mainline vehicle，`merge_state` 变为 merged / normal，并清理该 MV 的 APS assignment。
+- MV 到达 lane 2 centerline 后，正式归属 `lane 2`，转为 mainline vehicle，`merge_state` 变为 merged，并清理该 MV 的 APS assignment；若后续实现不长期保留 merged，则下一时间步可将该车压缩为 `merge_state = none`。
+- `CUC choice` 默认是本步 command / event，不作为下一时间步继续控制车辆的真实状态；若车辆已处于 `lane_change_state == executing`，后续继续换道由 `lane_change_state` 和 maneuver trajectory state 决定。
 - 简单碰撞检测、越界检查、near-collision 记录发生在状态提交后，用于调试、指标和 sanity check，不参与 APS/CUC/CMC 决策。
 
 状态集成后形成 `S(t+dt)`，作为下一时间步的输入。
