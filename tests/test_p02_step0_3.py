@@ -1,0 +1,439 @@
+from __future__ import annotations
+
+from dataclasses import fields
+
+import pytest
+
+from cormc import (
+    RoadGeometryConfig,
+    VehicleSpec,
+    VehicleState,
+    assert_x_plot_not_used_in_algorithm_path,
+    build_prefreeze_workspace_from_scenario,
+    freeze_simulation_state,
+    refresh_relations_snapshot,
+    resolve_aps_candidate_ids,
+    resolve_aps_candidate_window,
+    resolve_lane_centerline,
+    resolve_region,
+    run_step0_to_step3,
+    step0_cleanup_and_prepare,
+    step1_prefreeze_boundary_generation_hook,
+)
+from cormc.mvs import (
+    match_expected_events,
+    match_expected_sanity_checks,
+    match_expected_png_features_v0,
+)
+
+
+def test_step0_clears_buffers_retains_cache_and_maneuver_state() -> None:
+    workspace, _ = build_prefreeze_workspace_from_scenario(
+        _cuc_relation_scenario(),
+        command_buffer={"stale": object()},
+        next_state_buffer={"stale": object()},
+    )
+    workspace.aps_assignment_cache["MV_CUC"] = {"status": "valid"}
+    workspace.active_maneuvers["CFV_X"] = workspace.active_maneuvers["CFV_X"]
+
+    event = step0_cleanup_and_prepare(workspace)
+
+    assert workspace.command_buffer == {}
+    assert workspace.next_state_buffer == {}
+    assert workspace.aps_assignment_cache == {"MV_CUC": {"status": "valid"}}
+    assert "CFV_X" in workspace.active_maneuvers
+    assert event["event_type"] == "cleanup"
+    assert event["payload"]["retained_aps_cache_vehicle_ids"] == ["MV_CUC"]
+
+
+def test_step1_disabled_boundary_generation_does_not_insert_vehicle() -> None:
+    workspace, config = build_prefreeze_workspace_from_scenario("MVS-APS-FAIL-EMPTY")
+    before = list(workspace.active_vehicle_ids)
+    candidate = (
+        VehicleState(
+            vehicle_id="LATE_BOUNDARY",
+            x_global=10.0,
+            y=0.0,
+            v=30.0,
+            a=0.0,
+            physical_lane="lane_2",
+            road_role="mainline",
+        ),
+        VehicleSpec(
+            vehicle_id="LATE_BOUNDARY",
+            vehicle_type="cav",
+            compliance_state="not_applicable",
+            source_lane_at_generation="lane_2",
+        ),
+    )
+
+    event = step1_prefreeze_boundary_generation_hook(
+        workspace,
+        config,
+        new_vehicle_candidates=[candidate],
+    )
+
+    assert workspace.active_vehicle_ids == before
+    assert "LATE_BOUNDARY" not in workspace.vehicle_states
+    assert event["event_type"] == "boundary_generation"
+    assert event["reason"] == "disabled"
+    assert event["payload"]["freeze_phase"] == "pre_freeze"
+
+
+def test_step1_enabled_boundary_generation_only_affects_prefreeze_active_set() -> None:
+    scenario = _base_scenario(
+        "P02-BOUNDARY-ENABLED",
+        vehicles=[_vehicle("MV", "on_ramp", 6830.0, -3.5, road_role="on_ramp_mv")],
+        module_overrides={"boundary_generation_enabled": True},
+    )
+    workspace, config = build_prefreeze_workspace_from_scenario(scenario)
+    candidate = (
+        VehicleState(
+            vehicle_id="PRE_FREEZE_NEW",
+            x_global=5.0,
+            y=0.0,
+            v=30.0,
+            a=0.0,
+            physical_lane="lane_2",
+            road_role="mainline",
+        ),
+        VehicleSpec(
+            vehicle_id="PRE_FREEZE_NEW",
+            vehicle_type="cav",
+            compliance_state="not_applicable",
+            source_lane_at_generation="lane_2",
+        ),
+    )
+
+    event = step1_prefreeze_boundary_generation_hook(
+        workspace,
+        config,
+        new_vehicle_candidates=[candidate],
+    )
+    frozen = freeze_simulation_state(workspace)
+    workspace.active_vehicle_ids.append("POST_FREEZE_NEW")
+
+    assert event["reason"] == "generated_pre_freeze"
+    assert "PRE_FREEZE_NEW" in frozen.active_vehicle_ids
+    assert "POST_FREEZE_NEW" not in frozen.active_vehicle_ids
+
+
+def test_step2_freeze_is_immutable_to_late_vehicle_insert() -> None:
+    workspace, _ = build_prefreeze_workspace_from_scenario("MVS-APS-FAIL-EMPTY")
+    frozen = freeze_simulation_state(workspace)
+    workspace.active_vehicle_ids.append("LATE")
+    workspace.vehicle_states["LATE"] = VehicleState(
+        vehicle_id="LATE",
+        x_global=1.0,
+        y=0.0,
+        v=1.0,
+        a=0.0,
+        physical_lane="lane_2",
+        road_role="mainline",
+    )
+
+    relations = refresh_relations_snapshot(frozen)
+
+    assert "LATE" not in frozen.active_vehicle_ids
+    assert "LATE" not in relations.lane_ordering["lane_2"]
+    with pytest.raises(TypeError):
+        frozen.vehicle_states["LATE"] = workspace.vehicle_states["LATE"]  # type: ignore[index]
+
+
+def test_simulation_state_excludes_command_next_state_history_relations() -> None:
+    workspace, _ = build_prefreeze_workspace_from_scenario(
+        "MVS-APS-FAIL-EMPTY",
+        command_buffer={"stale": "command"},
+        next_state_buffer={"stale": "next"},
+    )
+    frozen = freeze_simulation_state(workspace)
+    field_names = {field.name for field in fields(frozen)}
+
+    assert "command_buffer" not in field_names
+    assert "next_state_buffer" not in field_names
+    assert "relations" not in field_names
+    assert "event_records" not in field_names
+    assert "sanity_check_records" not in field_names
+    assert "trajectory_records" not in field_names
+    assert "history" not in field_names
+
+
+def test_step3_lane_ordering_uses_x_global() -> None:
+    scenario = _base_scenario(
+        "P02-X-GLOBAL-ORDER",
+        vehicles=[
+            _vehicle("A", "lane_2", 700.0, 0.0),
+            _vehicle("B", "lane_2", 100.0, 0.0),
+            _vehicle("C", "lane_2", 400.0, 0.0),
+        ],
+    )
+    result = run_step0_to_step3(scenario)
+
+    assert result.relations.lane_ordering["lane_2"] == ("B", "C", "A")
+    event = _event_by_type(result.actual_events, "relation_refresh")
+    lane_2_payload = _lane_payload(event, "lane_2")
+    assert lane_2_payload["ordered_vehicle_ids"] == ["B", "C", "A"]
+    assert lane_2_payload["ordered_x_global"] == [100.0, 400.0, 700.0]
+    assert lane_2_payload["ordering_coordinate"] == "x_global"
+    assert lane_2_payload["x_plot_used"] is False
+
+
+def test_aps_candidate_window_uses_lcr_not_fixed_cooperative_zone() -> None:
+    window = resolve_aps_candidate_window(6830.0, mv_id="MV_FAIL_EMPTY")
+
+    assert window.start_x_global == 6530.0
+    assert window.end_x_global == 7130.0
+    assert window.l_cr == 300.0
+    assert window.parameter_name == "L_cr"
+    assert window.uses_fixed_cooperative_zone is False
+    assert window.uses_dynamic_coop_window is False
+
+
+def test_mvs_aps_fail_empty_candidates_supported_by_geometry_and_relations() -> None:
+    result = run_step0_to_step3("MVS-APS-FAIL-EMPTY")
+
+    assert resolve_aps_candidate_ids(result.state, "MV_FAIL_EMPTY") == ["ONLY_LANE2_FAIL"]
+    geometry_event = _event_by_type(result.actual_events, "geometry")
+    window = geometry_event["payload"]["aps_candidate_windows"]["MV_FAIL_EMPTY"]
+    assert window["start_x_global"] == 6530.0
+    assert window["end_x_global"] == 7130.0
+    assert window["candidate_vehicle_ids"] == ["ONLY_LANE2_FAIL"]
+    assert geometry_event["payload"]["uses_fixed_cooperative_zone_for_aps_window"] is False
+
+
+def test_lane_centerline_and_region_resolvers() -> None:
+    assert resolve_lane_centerline("lane_1").y == 3.5
+    assert resolve_lane_centerline("lane_2").y == 0.0
+    assert resolve_lane_centerline("on_ramp").y == -3.5
+
+    before = resolve_region(6949.9, "on_ramp_mv")
+    merging = resolve_region(6950.0, "on_ramp_mv")
+    ramp_end = resolve_region(7250.0, "on_ramp_mv")
+    past = resolve_region(7250.1, "on_ramp_mv")
+
+    assert before.before_merging_zone is True
+    assert merging.in_merging_zone is True
+    assert ramp_end.in_merging_zone is True
+    assert past.past_ramp_end is True
+    assert all(not result.uses_x_plot for result in [before, merging, ramp_end, past])
+
+
+def test_active_lane_change_relation_not_switched_by_physical_y() -> None:
+    result = run_step0_to_step3(_cuc_relation_scenario())
+
+    neighborhood = result.relations.lane_change_neighborhood["CFV_X"]
+    active_relation = result.relations.active_maneuver_relation["CFV_X"]
+
+    assert neighborhood.source_lane == "lane_2"
+    assert neighborhood.target_lane == "lane_1"
+    assert neighborhood.tlv_id == "TLV"
+    assert neighborhood.tfv_id == "TFV"
+    assert neighborhood.lv_id == "CLV_Y"
+    assert neighborhood.fv_id == "FV_Z"
+    assert active_relation.primary_leader_id == "TLV"
+    assert active_relation.affected_target_follower_id == "TFV"
+    assert active_relation.affected_source_follower_id == "FV_Z"
+    assert active_relation.relation_source == "active_lane_change"
+    assert result.state.vehicle_states["CFV_X"].physical_lane == "lane_2"
+
+
+def test_p02_event_and_sanity_candidates_are_consumable_by_p01_matcher() -> None:
+    result = run_step0_to_step3(_cuc_relation_scenario())
+
+    events = match_expected_events(
+        [
+            {"event_type": "cleanup", "required": True},
+            {"event_type": "boundary_generation", "required": True, "reason_code": "disabled"},
+            {
+                "event_type": "freeze",
+                "required": True,
+                "match": {"snapshot_is_read_only": True},
+            },
+            {
+                "event_type": "relation_refresh",
+                "required": True,
+                "match": {"relations_based_on_frozen_s_t": True},
+            },
+            {
+                "event_type": "geometry",
+                "required": True,
+                "match": {
+                    "aps_candidate_window_parameter": "L_cr",
+                    "uses_fixed_cooperative_zone_for_aps_window": False,
+                },
+            },
+        ],
+        result.actual_events,
+        {"derived_formula_abs": 0.01},
+    )
+    sanity = match_expected_sanity_checks(
+        [
+            {"check_type": "collision", "required": True, "expected_status": "pass"},
+            {"check_type": "near_collision", "required": True, "expected_status": "pass"},
+            {
+                "check_type": "state_machine_inconsistency",
+                "required": True,
+                "expected_status": "pass",
+            },
+            {
+                "check_type": "unexpected_ordinary_lane_change_attempt",
+                "required": True,
+                "expected_status": "pass",
+            },
+            {
+                "check_type": "multiple_commit_for_one_vehicle",
+                "required": True,
+                "expected_status": "not_applicable",
+            },
+            {
+                "check_type": "x_plot_used_in_algorithm_path",
+                "required": True,
+                "expected_status": "pass",
+            },
+            {
+                "check_type": "geometry_inconsistency",
+                "required": True,
+                "expected_status": "pass",
+            },
+            {
+                "check_type": "relations_consistency",
+                "required": True,
+                "expected_status": "pass",
+            },
+        ],
+        result.actual_sanity_checks,
+    )
+    png = match_expected_png_features_v0(result.expected_png_features)
+
+    assert events.passed is True
+    assert sanity.passed is True
+    assert png.passed is True
+    assert {item["feature_type"] for item in png.registered} == {
+        "lane_centerline_quicklook",
+        "merging_zone_boundary_quicklook",
+        "aps_candidate_window_quicklook",
+    }
+
+
+def test_x_plot_is_absent_from_algorithm_state_and_relations() -> None:
+    result = run_step0_to_step3(_cuc_relation_scenario())
+
+    assert assert_x_plot_not_used_in_algorithm_path(result.state, result.relations) is True
+
+
+def test_custom_geometry_sanity_detects_centerline_mismatch() -> None:
+    geometry = RoadGeometryConfig(
+        lane_centerlines={"lane_1": 4.0, "lane_2": 0.0, "on_ramp": -3.5}
+    )
+    result = run_step0_to_step3("MVS-APS-FAIL-EMPTY", geometry=geometry)
+
+    geometry_sanity = _sanity_by_type(result.actual_sanity_checks, "geometry_inconsistency")
+    assert geometry_sanity["result"] == "fail"
+
+
+def _base_scenario(
+    scenario_id: str,
+    *,
+    vehicles: list[dict],
+    module_overrides: dict | None = None,
+    preloaded_maneuver_trajectory_states: list[dict] | None = None,
+) -> dict:
+    return {
+        "scenario_id": scenario_id,
+        "scenario_name": scenario_id,
+        "purpose": "P02 targeted scenario",
+        "test_level": "unit",
+        "status": "required",
+        "initial_time": {"t": 0.0, "step": 0, "dt": 0.1},
+        "initial_vehicles": vehicles,
+        "module_overrides": {
+            "boundary_generation_enabled": False,
+            "random_arrival_enabled": False,
+            "random_vehicle_attributes_enabled": False,
+            "ordinary_mainline_lane_change_enabled": False,
+            "platoon_cmc_enabled": False,
+            "mpc_lateral_tracking_enabled": False,
+            **(module_overrides or {}),
+        },
+        "preloaded_maneuver_trajectory_states": preloaded_maneuver_trajectory_states or [],
+        "expected_events": [],
+        "forbidden_events": [],
+        "expected_event_counts": [],
+        "expected_sanity_checks": [],
+        "expected_png_features": [],
+    }
+
+
+def _vehicle(
+    vehicle_id: str,
+    lane: str,
+    x_global: float,
+    y: float,
+    *,
+    road_role: str = "mainline",
+    lane_change_state: str = "normal",
+    merge_state: str = "none",
+) -> dict:
+    return {
+        "vehicle_id": vehicle_id,
+        "vehicle_type": "CAV",
+        "compliance_state": "not_applicable",
+        "initial_x_global": x_global,
+        "initial_y": y,
+        "initial_v": 20.0,
+        "initial_a": 0.0,
+        "physical_lane": lane,
+        "road_role": road_role,
+        "lane_change_state": lane_change_state,
+        "merge_state": merge_state,
+        "spec_overrides": {},
+    }
+
+
+def _cuc_relation_scenario() -> dict:
+    return _base_scenario(
+        "P02-CUC-RELATIONS",
+        vehicles=[
+            _vehicle("MV_CUC", "on_ramp", 6850.0, -3.5, road_role="on_ramp_mv"),
+            _vehicle("CFV_X", "lane_2", 6844.0, 3.1, lane_change_state="executing"),
+            _vehicle("CLV_Y", "lane_2", 6884.0, 0.0),
+            _vehicle("FV_Z", "lane_2", 6800.0, 0.0),
+            _vehicle("TLV", "lane_1", 6920.0, 3.5),
+            _vehicle("TFV", "lane_1", 6750.0, 3.5),
+        ],
+        preloaded_maneuver_trajectory_states=[
+            {
+                "vehicle_id": "CFV_X",
+                "maneuver_type": "lane_change",
+                "start_step": 0,
+                "start_t": 0.0,
+                "start_x_global": 6840.0,
+                "start_y": 0.0,
+                "target_lane": "lane_1",
+                "target_y": 3.5,
+                "planned_length": 100.0,
+                "progress": 0.8,
+            }
+        ],
+    )
+
+
+def _event_by_type(events: list[dict], event_type: str) -> dict:
+    for event in events:
+        if event["event_type"] == event_type:
+            return event
+    raise AssertionError(f"missing event: {event_type}")
+
+
+def _lane_payload(event: dict, lane_id: str) -> dict:
+    for payload in event["payload"]["lane_ordering"]:
+        if payload["lane_id"] == lane_id:
+            return payload
+    raise AssertionError(f"missing lane payload: {lane_id}")
+
+
+def _sanity_by_type(sanity_checks: list[dict], check_type: str) -> dict:
+    for check in sanity_checks:
+        if check["check_type"] == check_type:
+            return check
+    raise AssertionError(f"missing sanity check: {check_type}")
