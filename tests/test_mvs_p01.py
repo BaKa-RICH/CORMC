@@ -118,7 +118,11 @@ def test_scenario_config_loader_rejects_cav_compliance_state_compliant() -> None
 
 
 def test_mvs_aps_fail_empty_failing_contract() -> None:
-    report = run_targeted_scenario("MVS-APS-FAIL-EMPTY")
+    report = run_targeted_scenario(
+        "MVS-APS-FAIL-EMPTY",
+        actual_events=[],
+        actual_sanity_checks=[],
+    )
     as_dict = report.to_dict()
     assert as_dict["scenario_id"] == "MVS-APS-FAIL-EMPTY"
     assert as_dict["test_level"] == "unit"

@@ -665,3 +665,326 @@ def _validate_expected_sanity_enum_values(item: dict[str, Any], index: int) -> N
 def _normalized_compliance_state(value: Any) -> str:
     lowered = str(value).lower()
     return COMPLIANCE_ALIASES.get(lowered, lowered)
+
+
+def _p04_vehicle(
+    vehicle_id: str,
+    lane: str,
+    x_global: float,
+    y: float,
+    *,
+    road_role: str = "mainline",
+    merge_state: str = "none",
+) -> dict[str, Any]:
+    return {
+        "vehicle_id": vehicle_id,
+        "vehicle_type": "CAV",
+        "compliance_state": "not_applicable",
+        "initial_x_global": x_global,
+        "initial_y": y,
+        "initial_v": 20.0,
+        "initial_a": 0.0,
+        "physical_lane": lane,
+        "road_role": road_role,
+        "lane_change_state": "normal",
+        "merge_state": merge_state,
+        "spec_overrides": {},
+    }
+
+
+def _p04_base_scenario(
+    scenario_id: str,
+    *,
+    vehicles: list[dict[str, Any]],
+    expected_events: list[dict[str, Any]],
+    expected_sanity_checks: list[dict[str, Any]],
+    expected_png_features: list[dict[str, Any]] | None = None,
+    forbidden_events: list[dict[str, Any]] | None = None,
+    expected_event_counts: list[dict[str, Any]] | None = None,
+    preloaded_assignments: list[dict[str, Any]] | None = None,
+    preloaded_state_machine_states: list[dict[str, Any]] | None = None,
+) -> dict[str, Any]:
+    return {
+        "scenario_id": scenario_id,
+        "scenario_name": scenario_id,
+        "purpose": "P04 Step4A APS targeted MVS gate",
+        "test_level": "unit",
+        "status": "required",
+        "derivation_ref": ["CORMC minimal validation scenario spec #5"],
+        "initial_time": {"t": 0.0, "step": 0, "dt": 0.1},
+        "initial_vehicles": vehicles,
+        "module_overrides": {
+            "boundary_generation_enabled": False,
+            "random_arrival_enabled": False,
+            "random_vehicle_attributes_enabled": False,
+            "ordinary_mainline_lane_change_enabled": False,
+            "platoon_cmc_enabled": False,
+            "mpc_lateral_tracking_enabled": False,
+            "test_harness_overrides": {"source": "test_harness_override"},
+        },
+        "preloaded_assignments": preloaded_assignments or [],
+        "preloaded_state_machine_states": preloaded_state_machine_states or [],
+        "preloaded_maneuver_trajectory_states": [],
+        "expected_events": expected_events,
+        "forbidden_events": forbidden_events or [],
+        "expected_event_counts": expected_event_counts or [],
+        "expected_sanity_checks": expected_sanity_checks,
+        "expected_png_features": expected_png_features or [],
+        "tolerances": deepcopy(DEFAULT_TOLERANCES),
+    }
+
+
+def _p04_fail_cache_scenario() -> dict[str, Any]:
+    return _p04_base_scenario(
+        "MVS-APS-FAIL-CACHE",
+        vehicles=[
+            _p04_vehicle(
+                "MV_FAIL_CACHE",
+                "on_ramp",
+                6830.0,
+                -3.5,
+                road_role="on_ramp_mv",
+                merge_state="not_started",
+            ),
+            _p04_vehicle("ONLY_LANE2_FAIL", "lane_2", 6860.0, 0.0),
+            _p04_vehicle("OLD_CLV", "lane_2", 7200.0, 0.0),
+            _p04_vehicle("OLD_CFV", "lane_2", 6450.0, 0.0),
+        ],
+        preloaded_assignments=[
+            {
+                "mv_id": "MV_FAIL_CACHE",
+                "clv_id": "OLD_CLV",
+                "cfv_id": "OLD_CFV",
+                "aps_case": "case_1",
+                "col_clv": False,
+                "col_cfv": False,
+                "desired_spacing_override": None,
+                "status": "valid",
+                "created_at_t": -5.0,
+                "created_at_step": -50,
+                "source": "aps_cache",
+                "valid_until_next_aps": True,
+                "staleness_policy": "retain_on_failed_aps",
+            }
+        ],
+        expected_events=[
+            {
+                "event_type": "APS",
+                "required": True,
+                "vehicle_ids": ["MV_FAIL_CACHE"],
+                "match": {"failure": True},
+                "reason_code": "insufficient_candidates",
+                "source": "paper_formula",
+            },
+            {
+                "event_type": "assignment_cache",
+                "required": True,
+                "vehicle_ids": ["MV_FAIL_CACHE"],
+                "match": {
+                    "previous_cache_exists": True,
+                    "invalid_new_assignment_overwrites_existing_cache": False,
+                },
+                "source": "first_version_engineering_patch",
+            },
+        ],
+        expected_sanity_checks=[
+            {
+                "check_type": "assignment_cache_overwrite_by_failed_APS",
+                "required": True,
+                "expected_status": "pass",
+                "vehicle_ids": ["MV_FAIL_CACHE"],
+            }
+        ],
+        expected_png_features=[
+            {
+                "feature_type": "aps_failure_marker",
+                "required": True,
+                "vehicle_ids": ["MV_FAIL_CACHE"],
+                "expected_visibility": "visible",
+            },
+            {
+                "feature_type": "cache_reuse_marker",
+                "required": True,
+                "vehicle_ids": ["MV_FAIL_CACHE"],
+                "expected_visibility": "visible",
+            },
+        ],
+        expected_event_counts=[
+            {
+                "event_type": "cooperative_request",
+                "vehicle_ids": ["MV_FAIL_CACHE"],
+                "expected_count": 0,
+                "comparison": "exactly",
+            }
+        ],
+    )
+
+
+def _p04_aps_case_scenario(
+    *,
+    scenario_id: str,
+    clv_id: str,
+    clv_x: float,
+    cfv_id: str,
+    cfv_x: float,
+    aps_case: str,
+    col_clv: bool,
+    col_cfv: bool,
+    eq10_spacing: float | None = None,
+    forbid_eq10_to_clv: bool = False,
+) -> dict[str, Any]:
+    expected_match: dict[str, Any] = {
+        "trigger": "first_APS",
+        "aps_case": aps_case,
+        "clv_id": clv_id,
+        "cfv_id": cfv_id,
+        "col_clv": col_clv,
+        "col_cfv": col_cfv,
+    }
+    numeric_expectations: dict[str, Any] = {}
+    expected_events = [
+        {
+            "event_type": "APS",
+            "required": True,
+            "vehicle_ids": ["MV_A", clv_id, cfv_id],
+            "match": expected_match,
+            "numeric_expectations": numeric_expectations,
+            "source": "paper_formula",
+        }
+    ]
+    expected_png_features = [
+        {
+            "feature_type": "aps_assignment_marker",
+            "required": True,
+            "vehicle_ids": ["MV_A", clv_id, cfv_id],
+            "expected_visibility": "visible",
+        }
+    ]
+    if eq10_spacing is not None:
+        expected_match["eq10_vehicle_role"] = "cfv"
+        numeric_expectations["desired_spacing_override"] = {
+            "value": eq10_spacing,
+            "tolerance": "derived_formula_abs",
+        }
+        expected_events.append(
+            {
+                "event_type": "eq10_desired_spacing_source",
+                "required": True,
+                "vehicle_ids": ["MV_A", cfv_id],
+                "match": {"eq10_vehicle_role": "cfv"},
+                "numeric_expectations": {
+                    "desired_spacing_override": {
+                        "value": eq10_spacing,
+                        "tolerance": "derived_formula_abs",
+                    }
+                },
+                "source": "paper_formula",
+            }
+        )
+        expected_png_features.append(
+            {
+                "feature_type": "eq10_spacing_marker",
+                "required": True,
+                "vehicle_ids": ["MV_A", cfv_id],
+                "expected_visibility": "visible",
+            }
+        )
+    return _p04_base_scenario(
+        scenario_id,
+        vehicles=[
+            _p04_vehicle(
+                "MV_A",
+                "on_ramp",
+                6850.0,
+                -3.5,
+                road_role="on_ramp_mv",
+                merge_state="not_started",
+            ),
+            _p04_vehicle(clv_id, "lane_2", clv_x, 0.0),
+            _p04_vehicle(cfv_id, "lane_2", cfv_x, 0.0),
+        ],
+        expected_events=expected_events,
+        forbidden_events=(
+            [
+                {
+                    "event_type": "APS",
+                    "vehicle_ids": ["MV_A", clv_id],
+                    "match": {"eq10_vehicle_role": "clv"},
+                    "source": "paper_formula",
+                }
+            ]
+            if forbid_eq10_to_clv
+            else []
+        ),
+        expected_sanity_checks=[
+            {
+                "check_type": "assignment_invalid",
+                "required": True,
+                "expected_status": "pass",
+                "vehicle_ids": ["MV_A"],
+            },
+            {
+                "check_type": "Eq10_applied_to_wrong_vehicle",
+                "required": True,
+                "expected_status": "pass",
+                "vehicle_ids": ["MV_A"],
+            },
+            {
+                "check_type": "x_plot_used_in_algorithm_path",
+                "required": True,
+                "expected_status": "pass",
+                "vehicle_ids": ["MV_A"],
+            },
+        ],
+        expected_png_features=expected_png_features,
+    )
+
+
+BUILTIN_SCENARIOS.update(
+    {
+        "MVS-APS-FAIL-CACHE": _p04_fail_cache_scenario(),
+        "MVS-APS-1": _p04_aps_case_scenario(
+            scenario_id="MVS-APS-1",
+            clv_id="CLV_APS_1",
+            clv_x=6884.0,
+            cfv_id="CFV_APS_1",
+            cfv_x=6824.0,
+            aps_case="case_1",
+            col_clv=False,
+            col_cfv=False,
+        ),
+        "MVS-APS-2": _p04_aps_case_scenario(
+            scenario_id="MVS-APS-2",
+            clv_id="CLV_APS_2",
+            clv_x=6884.0,
+            cfv_id="CFV_APS_2",
+            cfv_x=6844.0,
+            aps_case="case_2",
+            col_clv=False,
+            col_cfv=True,
+            eq10_spacing=58.0,
+        ),
+        "MVS-APS-3": _p04_aps_case_scenario(
+            scenario_id="MVS-APS-3",
+            clv_id="CLV_APS_3",
+            clv_x=6864.0,
+            cfv_id="CFV_APS_3",
+            cfv_x=6824.0,
+            aps_case="case_3",
+            col_clv=True,
+            col_cfv=False,
+            forbid_eq10_to_clv=True,
+        ),
+        "MVS-APS-4": _p04_aps_case_scenario(
+            scenario_id="MVS-APS-4",
+            clv_id="CLV_APS_4",
+            clv_x=6864.0,
+            cfv_id="CFV_APS_4",
+            cfv_x=6844.0,
+            aps_case="case_4",
+            col_clv=True,
+            col_cfv=True,
+            eq10_spacing=52.0,
+        ),
+    }
+)

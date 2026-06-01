@@ -834,6 +834,8 @@ ParameterConfig 与 ControlPolicyConfig 必须分离。
 | `preloaded_state_machine_states` | list[`PreloadedStateMachineStateSpec`] | 预加载 lane-change / merge / cache 状态机状态 |
 | `preloaded_maneuver_trajectory_states` | list[`PreloadedManeuverTrajectoryStateSpec`] | 预加载 active lane-change / merge trajectory |
 | `expected_events` | list[`ExpectedEventSpec`] | 场景预期事件 |
+| `forbidden_events` | list[`ExpectedEventSpec`] | 场景中禁止出现的事件；复用 ExpectedEventSpec 的匹配字段，若匹配到对应事件则场景失败 |
+| `expected_event_counts` | list[`ExpectedEventCountSpec`] | 场景事件出现次数断言 |
 | `expected_sanity_checks` | list[`ExpectedSanityCheckSpec`] | 场景预期 sanity check |
 | `expected_png_features` | list[`ExpectedPNGFeatureSpec`] | 场景预期 PNG 可见特征 |
 | `tolerances` | `ScenarioToleranceSpec` | 场景级数值容差 |
@@ -954,7 +956,28 @@ quasi_static_longitudinal_override 只用于执行规格明确允许的场景。
 | `reason_code` | 期望 reason |
 | `source` | `paper_formula` / `first_version_engineering_patch` / `test_harness_override` 等 |
 
-#### 7.5.9 `ExpectedSanityCheckSpec`
+#### 7.5.9 `ExpectedEventCountSpec`
+
+`ExpectedEventCountSpec` 表达事件出现次数断言。它不替代 `ExpectedEventSpec` 的正向事件断言，也不用于承载事件日志字段全集。
+
+| 字段 | 说明 |
+| --- | --- |
+| `event_type` | 要计数的 `EventType` |
+| `time_window` | 计数适用的时间或 step 窗口 |
+| `vehicle_ids` | 相关车辆集合，可为空 |
+| `match` | 需要匹配的语义键值，例如 `case=case_1`、`eq53_pass=true` |
+| `reason_code` | 可选 reason 过滤条件 |
+| `expected_count` | 期望次数 |
+| `comparison` | `exactly` / `at_least` / `at_most`；第一版至少支持 `exactly` |
+
+约束：
+
+```text
+forbidden_events 必须使用 ScenarioConfig 顶层 `forbidden_events` 表达，不得用 expected_events.required=false 暗示。
+event count 必须使用 ScenarioConfig 顶层 `expected_event_counts` 表达，不得在 expected_events.match 中塞入私有 event_count 键。
+```
+
+#### 7.5.10 `ExpectedSanityCheckSpec`
 
 | 字段 | 说明 |
 | --- | --- |
@@ -965,7 +988,7 @@ quasi_static_longitudinal_override 只用于执行规格明确允许的场景。
 | `time_window` | 允许出现的时间或 step 窗口 |
 | `reason_code` | 期望 reason |
 
-#### 7.5.10 `ExpectedPNGFeatureSpec`
+#### 7.5.11 `ExpectedPNGFeatureSpec`
 
 | 字段 | 说明 |
 | --- | --- |
@@ -976,7 +999,7 @@ quasi_static_longitudinal_override 只用于执行规格明确允许的场景。
 | `expected_visibility` | `visible` / `not_visible` / `optional` |
 | `notes` | 人工验收说明 |
 
-#### 7.5.11 `ScenarioToleranceSpec`
+#### 7.5.12 `ScenarioToleranceSpec`
 
 | 字段 | 说明 |
 | --- | --- |
@@ -1158,6 +1181,7 @@ PreloadedManeuverTrajectoryStateSpec
 VehicleSpec
 VehicleState
 ExpectedEventSpec
+ExpectedEventCountSpec
 ExpectedSanityCheckSpec
 ExpectedPNGFeatureSpec
 ScenarioToleranceSpec

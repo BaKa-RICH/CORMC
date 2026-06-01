@@ -22,7 +22,7 @@
   - 固定“论文原公式 / 第一版简化 / 第一版关闭 / 工程补丁”的分类边界。
   - 固定执行计划不得首次决定核心字段的规则。
   - 固定后续每个 Pxx 的 `Step × MVS × 上游 spec × event/sanity/PNG 证据` 追踪要求。
-  - 固定 P01、P03、P04-P10、P11 在 MVS runner、日志、targeted gate、正式 artifact 上的分层责任。
+  - 固定 P01、P03、P04-P10、P11、P12 在 MVS runner、日志、targeted gate、正式 artifact 与论文级实验入口上的分层责任。
 - 本阶段不要求通过的后续场景:
   - 不运行 `MVS-APS-*`、`MVS-CUC-*`、`MVS-CMC-*`、`MVS-SAFE-*`、`MVS-ASSIGN-*`、`MVS-CONFLICT-*`、`MVS-COMMIT-*`。
   - 不生成真实 `EventRecord`、`SanityCheckRecord`、`TrajectoryRecord` 或 PNG artifact。
@@ -78,7 +78,7 @@ P01-P03:
 
 P04-P12:
     当前只要求 trace_registered。
-    不要求已有完整执行计划，不允许在本轮补写完整 P04-P12 计划，也不允许实现 APS、CMC、cooperative request、CUC、纵向模型、横向轨迹、正式 PNG、全量 smoke suite 或论文级实验入口。
+    不要求已有完整执行计划；P00 不代替 P04-P12 的后续完整执行计划，也不允许实现 APS、CMC、cooperative request、CUC、纵向模型、横向轨迹、正式 PNG、全量 smoke suite 或论文级实验入口。
 ```
 
 P00 的追踪矩阵不得因为 P04-P12 仅处于 trace_registered 状态而判定失败；但如果 P04-P12 未进入矩阵，或缺少总纲级 Step / MVS / evidence 占位，则 P00 静态追踪失败。
@@ -191,7 +191,7 @@ P00 的追踪矩阵不得因为 P04-P12 仅处于 trace_registered 状态而判�
 | P08 | Step 7：纵向模型 / Eq.10 spacing override / speed cap 合成 | `MVS-CUC-2`、`MVS-CUC-3`、`MVS-SAFE-1A_waiting_cap` | CPID memory 与裁剪诊断 | 论文级全量数值实验 | longitudinal_model、speed_cap consumption event | Eq.10 only CFV、non-compliant no Eq.10、planning_speed=min caps | longitudinal trace 可渲染数据 | 车辆模型、参数、公式映射、状态接口、代码数据结构、日志验证 | trace_registered | 否 | 等 P08 完整 spec；不得提前实现隐藏纵向模型 |
 | P09 | Step 8：正弦横向轨迹 / active maneuver progress / safety correction | `MVS-SAFE-1B_executing_cap_lateral_consumption`、`MVS-SAFE-2` | front-collision fallback 诊断 | 严格 MPC tracking 关闭 | lateral_trajectory、maneuver progress、completion candidate event | no reset active trajectory、no ordinary lane-change、boundary risk sanity | lane-change / merge trajectory marker 数据 | 车辆模型、道路几何、时间步总纲、日志验证、最小验证场景 | trace_registered | 否 | 等 P09 完整 spec；不得把 completion 提前写入真实状态 |
 | P10 | Step 4-9 集成：APS / CMC / CUC / longitudinal / lateral / commit 同步闭环 | `MVS-E2E-1`、`MVS-COMMIT-1-full` | 跨步 cache / trajectory lifecycle 诊断 | 无 | end-to-end event chain、cache lifecycle、active maneuver event | one commit per vehicle、no rerun CUC、executing merge no rejudge | full chain quicklook 数据 | 时间步总纲、状态接口、代码数据结构、日志验证、最小验证场景 | trace_registered | 否 | 等 P10 完整 spec；依赖 P04-P09 |
-| P11 | Step 10 交付级收口：正式导出、PNG、artifact、required smoke suite、regression report | 全部 required MVS 聚合执行与报告 | probe 场景非阻塞报告 | deferred 场景不进入第一版强验收 | exported event history、regression event summary | exported sanity summary、suite result | 正式 PNG、artifact record、regression report | 输出日志、代码数据结构、最小验证场景、道路几何 | trace_registered | 否 | P11 不是首次实现日志 / sanity / MVS runner / PNG 口径；只做交付级聚合 |
+| P11 | 交付级收口：正式导出、PNG、artifact、required smoke suite、regression report | 全部 required MVS 聚合执行与报告 | probe 场景非阻塞报告 | deferred 场景不进入第一版强验收 | exported event history、regression event summary | exported sanity summary、suite result | 正式 PNG、artifact record、regression report | 输出日志、代码数据结构、最小验证场景、道路几何 | trace_registered | 否 | P11 不是首次实现日志 / sanity / MVS runner / PNG 口径；只做交付级聚合 |
 | P12 | Step 1 扩展：边界车辆生成、随机属性、论文级实验入口 | 随机入口关闭时不得破坏全部 required MVS | 论文级实验入口可观测 | 论文级数值复刻不作为第一版强验收 | boundary_generation、random attribute、experiment config event | pre-freeze only、random disabled in smoke、entry safety sanity | 宏观指标 artifact 入口 | 时间步总纲、公式映射、参数、代码数据结构、输出指标 | trace_registered | 否 | 等 P12 完整 spec；只在主链路稳定后实现 |
 
 ## 8. 完成标准
