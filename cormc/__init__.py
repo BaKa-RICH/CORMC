@@ -87,6 +87,11 @@ from cormc.step5_cooperative_request import (
     run_step5_cooperative_request_conflict_resolution_for_scenario,
     select_conflict_winner,
 )
+from cormc.step6_cuc import (
+    Step6CUCRunResult,
+    register_p07_png_features,
+    run_step6_cuc_choice_compliance_lane_change_overlay,
+)
 from cormc.step9_11 import (
     ALLOWED_CANDIDATE_SOURCES,
     IDENTITY_CANDIDATE_SOURCE,
@@ -162,6 +167,7 @@ __all__ = [
     "SanityCheckRecord",
     "Step4BCMCRunResult",
     "Step5CooperativeRequestRunResult",
+    "Step6CUCRunResult",
     "Step0To3RunResult",
     "TEST_HARNESS_CANDIDATE_SOURCE",
     "TimeAdvanceResult",
@@ -214,6 +220,7 @@ __all__ = [
     "group_requests_by_cv",
     "record_information_integration_v0",
     "register_p06_png_features",
+    "register_p07_png_features",
     "register_p05_png_features",
     "refresh_relations_snapshot",
     "resolve_aps_candidate_ids",
@@ -239,6 +246,7 @@ __all__ = [
     "run_step4b_cmc_for_scenario",
     "run_step5_cooperative_request_conflict_resolution",
     "run_step5_cooperative_request_conflict_resolution_for_scenario",
+    "run_step6_cuc_choice_compliance_lane_change_overlay",
     "select_final_candidate_per_vehicle",
     "select_conflict_winner",
     "step0_cleanup_and_prepare",
