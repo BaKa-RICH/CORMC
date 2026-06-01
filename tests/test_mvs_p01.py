@@ -35,6 +35,35 @@ def test_scenario_config_loader_accepts_forbidden_events_and_event_counts() -> N
     assert config["expected_event_counts"][0]["expected_count"] == 0
 
 
+def test_scenario_config_loader_accepts_preloaded_assignment_t_star_handoff() -> None:
+    config = load_builtin_scenario("MVS-APS-FAIL-EMPTY")
+    config["preloaded_assignments"] = [
+        {
+            "mv_id": "MV_A",
+            "clv_id": "CLV_A",
+            "cfv_id": "CFV_A",
+            "aps_case": "case_3",
+            "col_clv": True,
+            "col_cfv": False,
+            "desired_spacing_override": None,
+            "t_mv_star": 5.5,
+            "t_star_mv": 5.5,
+            "status": "valid",
+            "created_at_t": 0.0,
+            "created_at_step": 0,
+            "source": "test_preload",
+            "valid_until_next_aps": True,
+            "staleness_policy": "valid_until_next_aps",
+        }
+    ]
+
+    loaded = load_scenario_config(config)
+
+    assignment = loaded["preloaded_assignments"][0]
+    assert assignment["t_mv_star"] == 5.5
+    assert assignment["t_star_mv"] == 5.5
+
+
 def test_scenario_config_loader_rejects_private_event_count_in_expected_events() -> None:
     config = load_builtin_scenario("MVS-APS-FAIL-EMPTY")
     config["expected_events"].append(

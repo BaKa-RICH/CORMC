@@ -63,6 +63,8 @@ class APSAssignment:
             "col_clv": self.col_clv,
             "col_cfv": self.col_cfv,
             "desired_spacing_override": self.desired_spacing_override,
+            "t_star_mv": self.t_star_mv,
+            "t_mv_star": self.t_star_mv,
             "status": self.status,
             "created_at_t": t,
             "created_at_step": step,

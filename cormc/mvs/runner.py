@@ -14,6 +14,9 @@ from cormc.mvs.matcher import (
 )
 from cormc.step4b_cmc import run_step4b_cmc_for_scenario
 from cormc.step4a_aps import run_step4a_aps_for_scenario
+from cormc.step5_cooperative_request import (
+    run_step5_cooperative_request_conflict_resolution_for_scenario,
+)
 from cormc.step9_11 import run_mvs_commit_1_lite
 
 
@@ -126,6 +129,21 @@ def run_targeted_scenario(
     if (
         actual_events is None
         and actual_sanity_checks is None
+        and _is_p06_cooperative_request_scenario(context.scenario_id)
+    ):
+        p06_result = run_step5_cooperative_request_conflict_resolution_for_scenario(config)
+        return build_scenario_report(
+            context,
+            ScenarioRunResult(
+                actual_events=p06_result.actual_events,
+                actual_sanity_checks=p06_result.actual_sanity_checks,
+                actual_png_artifacts=p06_result.expected_png_features,
+            ),
+        )
+
+    if (
+        actual_events is None
+        and actual_sanity_checks is None
         and context.scenario_id == "MVS-COMMIT-1-lite"
     ):
         commit_result = run_mvs_commit_1_lite()
@@ -155,6 +173,10 @@ def _is_p05_cmc_scenario(scenario_id: str) -> bool:
         or scenario_id == "MVS-SAFE-1A_waiting_cap"
         or scenario_id.startswith("P05-")
     )
+
+
+def _is_p06_cooperative_request_scenario(scenario_id: str) -> bool:
+    return scenario_id.startswith("MVS-CONFLICT") or scenario_id.startswith("P06-")
 
 
 def build_scenario_report(

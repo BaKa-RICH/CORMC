@@ -1126,11 +1126,14 @@ no replacement assignment arrow to actual lane_2 follower
 1. 已在 merging zone 的 MV 优先。
 2. 若都未在 merging zone，则 T*_MV 更小者优先。
 3. 若仍相同，则距离 x0_m_global 更近者优先。
+4. 若以上三层仍完全平局，则按 `(cv_id, source_mv_id, request_id)` 稳定排序选择 winner；该分支必须标记为 first-version engineering patch，不是论文原生规则。
 ```
 
 ### 12.1 `MVS-CONFLICT-1A`
 
 purpose：Step 5 请求汇总 / 冲突仲裁单元测试，验证 merging zone MV 优先。该场景可直接加载 effective assignment；不验证 APS 端到端计算。
+
+加载口径：当前 `ScenarioConfig` 顶层没有 `preloaded_effective_assignments`。实现 P06 前，`MVS-CONFLICT-1A/1B` 只能使用现有 `preloaded_assignments` 加 Python test helper 生成 `EffectiveAssignmentThisStep`，或先同步修订数据结构文档和 loader；不得让红灯失败在 unknown field / loader 层。若使用 `preloaded_assignments` 承载 P06 conflict 输入，必须携带可追溯 `t_mv_star` / `t_star_mv`。
 
 setup：
 
@@ -1169,14 +1172,29 @@ conflict_resolution:
     loser = MV_B
     priority_reason = MV_in_merging_zone
     source = first_version_engineering_patch
+    is_engineering_patch = true
+    active_request_count_for_cv = 1
+    one_active_request_per_cv = true
+    conflicting_commands_to_same_CV = false
 cooperative_request:
     CV_X_receives_only_one_active_request_from = MV_A
+```
+
+expected_event_counts：
+
+```text
+cooperative_request:
+    match:
+        cv_id = CV_X
+        active = true
+    expected_count = 1
+    comparison = exactly
 ```
 
 expected_sanity_checks：
 
 ```text
-conflicting_commands_to_same_CV = false
+no_write_before_commit = pass
 ```
 
 expected_png_features：
@@ -1245,6 +1263,8 @@ Both upstream:
     => winner = MV_G1
 ```
 
+`T*_MV` 权威来源：本场景不要求 APS 端到端重算；`MV_G1 = 5.5 s`、`MV_G2 = 6.0 s` 必须来自 `EffectiveAssignmentThisStep.assignment`、允许后的 `preloaded_assignments` / APS cache 字段，或显式关联 `source_event_id` 的 P04 APS event payload。P06 不得为了仲裁重新运行 APS candidate / `T*_MV` 计算。
+
 expected_events：
 
 ```text
@@ -1255,15 +1275,30 @@ conflict_resolution:
     loser = MV_G2
     priority_basis = smaller_T_star_MV
     source = first_version_engineering_patch
+    is_engineering_patch = true
+    active_request_count_for_cv = 1
+    one_active_request_per_cv = true
+    conflicting_commands_to_same_CV = false
 loser_state:
     MV_G2 result = waiting_or_conflict
     no_conflicting_command_issued_to_SHARED_CLV_G = true
 ```
 
+expected_event_counts：
+
+```text
+cooperative_request:
+    match:
+        cv_id = SHARED_CLV_G
+        active = true
+    expected_count = 1
+    comparison = exactly
+```
+
 expected_sanity_checks：
 
 ```text
-conflicting_commands_to_same_CV = false
+no_write_before_commit = pass
 ```
 
 expected_png_features：

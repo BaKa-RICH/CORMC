@@ -4,6 +4,7 @@ from typing import Any
 
 from cormc import build_prefreeze_workspace_from_scenario, freeze_simulation_state
 from cormc.mvs import run_targeted_scenario
+from cormc.step4a_aps import run_step4a_aps_for_scenario
 
 
 def test_mvs_aps_fail_empty_p04_required_fails_until_aps_implemented() -> None:
@@ -71,6 +72,28 @@ def test_mvs_aps_case_3_no_eq10_to_clv_contract() -> None:
 
     _assert_required_p04_pass(report)
     assert _matcher_result(report, "forbidden_events").passed is True
+
+
+def test_p04_effective_assignment_preserves_t_star_handoff() -> None:
+    config = _aps_case_config(
+        scenario_id="P04-T-STAR-HANDOFF",
+        clv_id="CLV_T_STAR",
+        clv_x=6864.0,
+        cfv_id="CFV_T_STAR",
+        cfv_x=6824.0,
+        aps_case="case_3",
+        col_clv=True,
+        col_cfv=False,
+    )
+
+    result = run_step4a_aps_for_scenario(config)
+
+    assignment = result.effective_assignments["MV_A"].assignment
+    aps_event = next(
+        event for event in result.actual_events if "t_star_mv" in event.get("payload", {})
+    )
+    assert assignment["t_star_mv"] == aps_event["payload"]["t_star_mv"]
+    assert assignment["t_mv_star"] == aps_event["payload"]["t_star_mv"]
 
 
 def test_mvs_aps_case_4_eq10_to_cfv_only_contract() -> None:

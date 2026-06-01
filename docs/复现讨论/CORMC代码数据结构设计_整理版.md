@@ -192,6 +192,8 @@ x_plot_used_in_algorithm_path
 其中 `assignment_invalid` 既可以作为 `EventType.assignment_invalid` 记录决策链，也可以作为 sanity check 的汇总结果。二者用途不同：event 记录发生过程，sanity check 记录验收状态。
 `no_write_before_commit` 复用 P03 提交边界守卫，表示模块只产生命令、事件、sanity 或派生结构，不直接改写冻结 `S(t)`；`x_plot_used_in_algorithm_path` 表示算法路径只使用 `x_global`，`x_plot` 只能留给 PNG / renderer 派生层。
 
+当前第一版不包含 `conflicting_commands_to_same_CV` 或 `one_active_request_per_cv` 这两个正式 `SanityCheckType`。P06 / Step 5 如需验证“同一 CV 最多一个 active cooperative request”，应先通过 `conflict_resolution` / `cooperative_request` event payload、`expected_event_counts` 和 `no_write_before_commit` sanity 表达；若后续要把它升级为正式 sanity enum，必须先修订本文档、loader / matcher 约束和 MVS 场景规格。
+
 ### 3.4 辅助 reason 枚举
 
 为了避免后续实现临时拼字符串，第一版建议预留以下 reason code 组。本文档只定义语义集合，具体是否实现为 enum 由代码阶段决定。
@@ -484,9 +486,9 @@ MV merged:
 | `mv_id` | id | 本步派生 | 来源 MV |
 | `assignment` | `APSAssignment` 或引用 | 本步派生 | 本步有效 assignment 内容 |
 | `source` | enum/text | 本步派生 | `aps_updated_this_step` 或 `cache_reused` |
-| `is_valid_for_request` | bool | 本步派生 | 是否可进入 cooperative request 汇总 |
+| `available_for_cooperative_request` | bool | 本步派生 | 是否可进入 cooperative request 汇总 |
 
-该结构不跨步持久化。跨步持久化仍由 `APSAssignment` cache 负责。
+该结构不跨步持久化。跨步持久化仍由 `APSAssignment` cache 负责。旧草稿中的 `is_valid_for_request` 与当前实现字段 `available_for_cooperative_request` 语义相同；第一版实现以 `available_for_cooperative_request` 为 canonical 字段名，后续文档不得再让 P06 同时猜两个字段。若需要迁移命名，应以独立 schema 变更完成，而不是在 P06 局部兼容。
 
 ### 5.7 `CooperativeRequest`
 
@@ -914,11 +916,14 @@ quasi_static_longitudinal_override 只用于执行规格明确允许的场景。
 | `aps_case` | `APSCase` |
 | `col_clv` / `col_cfv` | APS 协同标志 |
 | `desired_spacing_override` | Eq.10 spacing 或空 |
+| `t_mv_star` / `t_star_mv` | APS 到达预测时间；`t_mv_star` 是文档语义名，`t_star_mv` 是当前 P04 代码 / event payload 名 |
 | `status` | `APSAssignmentStatus` |
 | `created_at_t` / `created_at_step` | 创建时间 |
 | `source` | `aps_cache` / `effective_assignment` / `test_preload` |
 | `valid_until_next_aps` | 是否允许非 APS 周期沿用 |
 | `staleness_policy` | failure 或 invalid 后保留、stale、invalid 等策略记录 |
+
+`PreloadedAssignmentSpec` 当前已用于 loader 写入 APS cache。若 P06 conflict 场景直接通过 `preloaded_assignments` 注入 handoff evidence，则 `t_mv_star` / `t_star_mv` 必须随该 preload 一起可加载；否则只能在 Python 测试 helper 中构造 `EffectiveAssignmentThisStep` 并显式携带该值。实现层在扩展 loader 之前不得新增 `preloaded_effective_assignments` 顶层字段。
 
 #### 7.5.6 `PreloadedStateMachineStateSpec`
 
@@ -1200,34 +1205,37 @@ ScenarioToleranceSpec
 
 ```text
 P01:
-    config、enum、VehicleSpec、VehicleState、SimulationState。
+    ScenarioConfig、enum、VehicleSpec、VehicleState、SimulationState、expected_* matcher 基础。
 
 P02:
-    RoadGeometryConfig、VehicleGenerationConfig、BoundaryQueueItem。
+    RoadGeometryConfig、VehicleGenerationConfig、BoundaryQueueItem、RelationsSnapshot、冻结几何口径。
 
 P03:
-    CommandBuffer、NextStateBuffer、commit。
+    CommandBuffer、NextStateBuffer、commit、EventRecord、SanityCheckRecord、no-write-before-commit。
 
 P04:
-    LongitudinalCommand、LongitudinalControllerMemory、CandidateLongitudinalKinematics。
+    APSAssignment、EffectiveAssignmentThisStep、APS event、assignment cache handoff。
 
 P05:
-    APSAssignment、EffectiveAssignmentThisStep、APS event。
+    CMCDecision、MergeCommand、SpeedCapCommand、StateTransitionCommand、CMC event、assignment validation evidence。
 
 P06:
-    CooperativeRequest、ConflictResolutionResult、CUCDecision、LaneChangeCommand。
+    CooperativeRequest、ConflictResolutionResult、active cooperative request view、conflict_resolution event。
 
 P07:
-    CMCDecision、MergeCommand、SpeedCapCommand。
+    CUCDecision、LaneChangeCommand、SameStepManeuverRelationOverlay、CUC event、cooperation command。
 
 P08:
-    ManeuverTrajectoryState、CandidateLateralKinematics、CandidateManeuverProgress、SameStepManeuverRelationOverlay。
+    LongitudinalCommand、LongitudinalControllerMemory、CandidateLongitudinalKinematics、speed cap consumption。
 
 P09:
-    TrajectoryRecord、EventRecord、SanityCheckRecord、PNG artifact。
+    ManeuverTrajectoryState、CandidateLateralKinematics、CandidateManeuverProgress、lateral trajectory update。
 
 P10:
-    ScenarioConfig 和 smoke scenario 加载。
+    Step4-9 integration smoke。
+
+P11:
+    TrajectoryRecord、OutputArtifactRecord、formal PNG、smoke suite aggregation、regression report。
 ```
 
 执行计划不得首次决定核心字段归属。如需新增字段，先修订本文档。

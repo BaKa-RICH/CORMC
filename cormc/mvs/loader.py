@@ -79,6 +79,8 @@ PRELOADED_ASSIGNMENT_FIELDS = frozenset(
         "col_clv",
         "col_cfv",
         "desired_spacing_override",
+        "t_mv_star",
+        "t_star_mv",
         "status",
         "created_at_t",
         "created_at_step",
@@ -1658,5 +1660,390 @@ BUILTIN_SCENARIOS.update(
         "MVS-ASSIGN-1": _p05_assign_1_scenario(),
         "MVS-SAFE-1A_waiting_cap": _p05_safe_1a_waiting_cap_scenario(),
         "P05-EXECUTING-CONTINUATION": _p05_executing_continuation_scenario(),
+    }
+)
+
+
+def _p06_vehicle(
+    vehicle_id: str,
+    lane: str,
+    x_global: float,
+    y: float,
+    *,
+    road_role: str = "mainline",
+    merge_state: str = "none",
+    initial_v: float = 20.0,
+) -> dict[str, Any]:
+    return {
+        "vehicle_id": vehicle_id,
+        "vehicle_type": "CAV",
+        "compliance_state": "not_applicable",
+        "initial_x_global": x_global,
+        "initial_y": y,
+        "initial_v": initial_v,
+        "initial_a": 0.0,
+        "physical_lane": lane,
+        "road_role": road_role,
+        "lane_change_state": "normal",
+        "merge_state": merge_state,
+        "spec_overrides": {},
+    }
+
+
+def _p06_assignment(
+    *,
+    mv_id: str,
+    clv_id: str,
+    cfv_id: str,
+    aps_case: str,
+    col_clv: bool,
+    col_cfv: bool,
+    t_mv_star: float,
+    source: str = "test_preload",
+) -> dict[str, Any]:
+    return {
+        "mv_id": mv_id,
+        "clv_id": clv_id,
+        "cfv_id": cfv_id,
+        "aps_case": aps_case,
+        "col_clv": col_clv,
+        "col_cfv": col_cfv,
+        "desired_spacing_override": None,
+        "t_mv_star": t_mv_star,
+        "t_star_mv": t_mv_star,
+        "status": "valid",
+        "created_at_t": -1.0,
+        "created_at_step": -10,
+        "source": source,
+        "valid_until_next_aps": True,
+        "staleness_policy": "valid_until_next_aps",
+    }
+
+
+def _p06_base_scenario(
+    scenario_id: str,
+    *,
+    vehicles: list[dict[str, Any]],
+    preloaded_assignments: list[dict[str, Any]],
+    expected_events: list[dict[str, Any]],
+    expected_event_counts: list[dict[str, Any]],
+    expected_png_features: list[dict[str, Any]],
+) -> dict[str, Any]:
+    return {
+        "scenario_id": scenario_id,
+        "scenario_name": scenario_id,
+        "purpose": "P06 Step5 cooperative request conflict resolution targeted MVS gate",
+        "test_level": "unit",
+        "status": "required",
+        "derivation_ref": ["P06-Step5_CooperativeRequest_ConflictResolution.md#6"],
+        "initial_time": {"t": 0.0, "step": 0, "dt": 0.1},
+        "initial_vehicles": vehicles,
+        "module_overrides": {
+            "boundary_generation_enabled": False,
+            "random_arrival_enabled": False,
+            "random_vehicle_attributes_enabled": False,
+            "ordinary_mainline_lane_change_enabled": False,
+            "platoon_cmc_enabled": False,
+            "mpc_lateral_tracking_enabled": False,
+            "test_harness_overrides": {"source": "test_harness_override"},
+        },
+        "preloaded_assignments": preloaded_assignments,
+        "preloaded_state_machine_states": [],
+        "preloaded_maneuver_trajectory_states": [],
+        "expected_events": expected_events,
+        "forbidden_events": [
+            {"event_type": "APS_candidate"},
+            {"event_type": "APS"},
+            {"event_type": "CMC"},
+            {"event_type": "CUC"},
+            {"event_type": "lane_change_command"},
+        ],
+        "expected_event_counts": expected_event_counts,
+        "expected_sanity_checks": [
+            {
+                "check_type": "no_write_before_commit",
+                "required": True,
+                "expected_status": "pass",
+            }
+        ],
+        "expected_png_features": expected_png_features,
+        "tolerances": deepcopy(DEFAULT_TOLERANCES),
+    }
+
+
+def _p06_conflict_1a_scenario() -> dict[str, Any]:
+    cv_id = "CV_X"
+    return _p06_base_scenario(
+        "MVS-CONFLICT-1A",
+        vehicles=[
+            _p06_vehicle(
+                "MV_A",
+                "on_ramp",
+                6970.0,
+                -3.5,
+                road_role="on_ramp_mv",
+                merge_state="waiting",
+            ),
+            _p06_vehicle(
+                "MV_B",
+                "on_ramp",
+                6840.0,
+                -3.5,
+                road_role="on_ramp_mv",
+                merge_state="not_started",
+            ),
+            _p06_vehicle(cv_id, "lane_2", 6920.0, 0.0),
+            _p06_vehicle("CLV_FOR_MV_A", "lane_2", 7040.0, 0.0),
+            _p06_vehicle("CFV_FOR_MV_B", "lane_2", 6800.0, 0.0),
+        ],
+        preloaded_assignments=[
+            _p06_assignment(
+                mv_id="MV_A",
+                clv_id="CLV_FOR_MV_A",
+                cfv_id=cv_id,
+                aps_case="case_2",
+                col_clv=False,
+                col_cfv=True,
+                t_mv_star=4.0,
+            ),
+            _p06_assignment(
+                mv_id="MV_B",
+                clv_id=cv_id,
+                cfv_id="CFV_FOR_MV_B",
+                aps_case="case_3",
+                col_clv=True,
+                col_cfv=False,
+                t_mv_star=5.5,
+            ),
+        ],
+        expected_events=[
+            {
+                "event_type": "cooperative_request",
+                "required": True,
+                "vehicle_ids": ["MV_A", cv_id],
+                "match": {
+                    "source_mv_id": "MV_A",
+                    "cv_id": cv_id,
+                    "cv_role": "cfv",
+                    "col": True,
+                    "mv_in_merging_zone": True,
+                },
+                "reason_code": "col_cfv_request",
+                "source": "paper_formula",
+            },
+            {
+                "event_type": "cooperative_request",
+                "required": True,
+                "vehicle_ids": ["MV_B", cv_id],
+                "match": {
+                    "source_mv_id": "MV_B",
+                    "cv_id": cv_id,
+                    "cv_role": "clv",
+                    "col": True,
+                    "mv_in_merging_zone": False,
+                },
+                "reason_code": "col_clv_request",
+                "source": "paper_formula",
+            },
+            {
+                "event_type": "conflict_resolution",
+                "required": True,
+                "vehicle_ids": ["MV_A", "MV_B", cv_id],
+                "match": {
+                    "cv_id": cv_id,
+                    "winner_mv_id": "MV_A",
+                    "loser_mv_ids": ["MV_B"],
+                    "priority_basis": "MV_in_merging_zone",
+                    "active_request_count_for_cv": 1,
+                    "one_active_request_per_cv": True,
+                    "conflicting_commands_to_same_CV": False,
+                },
+                "reason_code": "MV_in_merging_zone",
+                "source": "first_version_engineering_patch",
+            },
+        ],
+        expected_event_counts=[
+            {
+                "event_type": "cooperative_request",
+                "vehicle_ids": [cv_id],
+                "expected_count": 2,
+                "comparison": "exactly",
+            },
+            {
+                "event_type": "conflict_resolution",
+                "vehicle_ids": [cv_id],
+                "expected_count": 1,
+                "comparison": "exactly",
+            },
+        ],
+        expected_png_features=[
+            {
+                "feature_type": "cooperative_request_marker",
+                "required": True,
+                "vehicle_ids": ["MV_A", "MV_B", cv_id],
+                "expected_visibility": "visible",
+            },
+            {
+                "feature_type": "conflict_group_marker",
+                "required": True,
+                "vehicle_ids": ["MV_A", "MV_B", cv_id],
+                "expected_visibility": "visible",
+            },
+            {
+                "feature_type": "active_request_marker",
+                "required": True,
+                "vehicle_ids": ["MV_A", cv_id],
+                "expected_visibility": "visible",
+            },
+            {
+                "feature_type": "suppressed_request_marker",
+                "required": True,
+                "vehicle_ids": ["MV_B", cv_id],
+                "expected_visibility": "visible",
+            },
+        ],
+    )
+
+
+def _p06_conflict_1b_scenario() -> dict[str, Any]:
+    cv_id = "SHARED_CLV_G"
+    return _p06_base_scenario(
+        "MVS-CONFLICT-1B",
+        vehicles=[
+            _p06_vehicle(
+                "MV_G1",
+                "on_ramp",
+                6840.0,
+                -3.5,
+                road_role="on_ramp_mv",
+                merge_state="not_started",
+            ),
+            _p06_vehicle(
+                "MV_G2",
+                "on_ramp",
+                6830.0,
+                -3.5,
+                road_role="on_ramp_mv",
+                merge_state="not_started",
+            ),
+            _p06_vehicle(cv_id, "lane_2", 6920.0, 0.0),
+            _p06_vehicle("CFV_G1", "lane_2", 6800.0, 0.0),
+            _p06_vehicle("CFV_G2", "lane_2", 6790.0, 0.0),
+        ],
+        preloaded_assignments=[
+            _p06_assignment(
+                mv_id="MV_G1",
+                clv_id=cv_id,
+                cfv_id="CFV_G1",
+                aps_case="case_3",
+                col_clv=True,
+                col_cfv=False,
+                t_mv_star=5.5,
+            ),
+            _p06_assignment(
+                mv_id="MV_G2",
+                clv_id=cv_id,
+                cfv_id="CFV_G2",
+                aps_case="case_3",
+                col_clv=True,
+                col_cfv=False,
+                t_mv_star=6.0,
+            ),
+        ],
+        expected_events=[
+            {
+                "event_type": "cooperative_request",
+                "required": True,
+                "vehicle_ids": ["MV_G1", cv_id],
+                "match": {
+                    "source_mv_id": "MV_G1",
+                    "cv_id": cv_id,
+                    "cv_role": "clv",
+                    "col": True,
+                    "t_mv_star": 5.5,
+                    "mv_in_merging_zone": False,
+                },
+                "reason_code": "col_clv_request",
+                "source": "paper_formula",
+            },
+            {
+                "event_type": "cooperative_request",
+                "required": True,
+                "vehicle_ids": ["MV_G2", cv_id],
+                "match": {
+                    "source_mv_id": "MV_G2",
+                    "cv_id": cv_id,
+                    "cv_role": "clv",
+                    "col": True,
+                    "t_mv_star": 6.0,
+                    "mv_in_merging_zone": False,
+                },
+                "reason_code": "col_clv_request",
+                "source": "paper_formula",
+            },
+            {
+                "event_type": "conflict_resolution",
+                "required": True,
+                "vehicle_ids": ["MV_G1", "MV_G2", cv_id],
+                "match": {
+                    "cv_id": cv_id,
+                    "winner_mv_id": "MV_G1",
+                    "loser_mv_ids": ["MV_G2"],
+                    "priority_basis": "smaller_T_star_MV",
+                    "active_request_count_for_cv": 1,
+                    "one_active_request_per_cv": True,
+                    "conflicting_commands_to_same_CV": False,
+                },
+                "reason_code": "smaller_T_star_MV",
+                "source": "first_version_engineering_patch",
+            },
+        ],
+        expected_event_counts=[
+            {
+                "event_type": "cooperative_request",
+                "vehicle_ids": [cv_id],
+                "expected_count": 2,
+                "comparison": "exactly",
+            },
+            {
+                "event_type": "conflict_resolution",
+                "vehicle_ids": [cv_id],
+                "expected_count": 1,
+                "comparison": "exactly",
+            },
+        ],
+        expected_png_features=[
+            {
+                "feature_type": "cooperative_request_marker",
+                "required": True,
+                "vehicle_ids": ["MV_G1", "MV_G2", cv_id],
+                "expected_visibility": "visible",
+            },
+            {
+                "feature_type": "conflict_group_marker",
+                "required": True,
+                "vehicle_ids": ["MV_G1", "MV_G2", cv_id],
+                "expected_visibility": "visible",
+            },
+            {
+                "feature_type": "active_request_marker",
+                "required": True,
+                "vehicle_ids": ["MV_G1", cv_id],
+                "expected_visibility": "visible",
+            },
+            {
+                "feature_type": "suppressed_request_marker",
+                "required": True,
+                "vehicle_ids": ["MV_G2", cv_id],
+                "expected_visibility": "visible",
+            },
+        ],
+    )
+
+
+BUILTIN_SCENARIOS.update(
+    {
+        "MVS-CONFLICT-1A": _p06_conflict_1a_scenario(),
+        "MVS-CONFLICT-1B": _p06_conflict_1b_scenario(),
     }
 )
