@@ -988,3 +988,675 @@ BUILTIN_SCENARIOS.update(
         ),
     }
 )
+
+
+def _p05_vehicle(
+    vehicle_id: str,
+    lane: str,
+    x_global: float,
+    y: float,
+    *,
+    road_role: str = "mainline",
+    merge_state: str = "none",
+    initial_v: float = 20.0,
+) -> dict[str, Any]:
+    return {
+        "vehicle_id": vehicle_id,
+        "vehicle_type": "CAV",
+        "compliance_state": "not_applicable",
+        "initial_x_global": x_global,
+        "initial_y": y,
+        "initial_v": initial_v,
+        "initial_a": 0.0,
+        "physical_lane": lane,
+        "road_role": road_role,
+        "lane_change_state": "normal",
+        "merge_state": merge_state,
+        "spec_overrides": {},
+    }
+
+
+def _p05_assignment(
+    *,
+    mv_id: str,
+    clv_id: str,
+    cfv_id: str,
+    source: str = "test_preload",
+) -> dict[str, Any]:
+    return {
+        "mv_id": mv_id,
+        "clv_id": clv_id,
+        "cfv_id": cfv_id,
+        "aps_case": "case_1",
+        "col_clv": False,
+        "col_cfv": False,
+        "desired_spacing_override": None,
+        "status": "valid",
+        "created_at_t": -1.0,
+        "created_at_step": -10,
+        "source": source,
+        "valid_until_next_aps": True,
+        "staleness_policy": "valid_until_next_aps",
+    }
+
+
+def _p05_base_scenario(
+    scenario_id: str,
+    *,
+    vehicles: list[dict[str, Any]],
+    expected_events: list[dict[str, Any]],
+    expected_sanity_checks: list[dict[str, Any]],
+    expected_png_features: list[dict[str, Any]],
+    status: str = "required",
+    test_level: str = "unit",
+    preloaded_assignments: list[dict[str, Any]] | None = None,
+    preloaded_maneuver_trajectory_states: list[dict[str, Any]] | None = None,
+    forbidden_events: list[dict[str, Any]] | None = None,
+    expected_event_counts: list[dict[str, Any]] | None = None,
+) -> dict[str, Any]:
+    return {
+        "scenario_id": scenario_id,
+        "scenario_name": scenario_id,
+        "purpose": "P05 Step4B CMC targeted MVS gate",
+        "test_level": test_level,
+        "status": status,
+        "derivation_ref": ["CORMC最小验证场景执行规格.md#P05"],
+        "initial_time": {"t": 0.0, "step": 0, "dt": 0.1},
+        "initial_vehicles": vehicles,
+        "module_overrides": {
+            "boundary_generation_enabled": False,
+            "random_arrival_enabled": False,
+            "random_vehicle_attributes_enabled": False,
+            "ordinary_mainline_lane_change_enabled": False,
+            "platoon_cmc_enabled": False,
+            "mpc_lateral_tracking_enabled": False,
+            "test_harness_overrides": {"source": "test_harness_override"},
+        },
+        "preloaded_assignments": preloaded_assignments or [],
+        "preloaded_state_machine_states": [],
+        "preloaded_maneuver_trajectory_states": preloaded_maneuver_trajectory_states or [],
+        "expected_events": expected_events,
+        "forbidden_events": forbidden_events or [],
+        "expected_event_counts": expected_event_counts or [],
+        "expected_sanity_checks": expected_sanity_checks,
+        "expected_png_features": expected_png_features,
+        "tolerances": deepcopy(DEFAULT_TOLERANCES),
+    }
+
+
+def _p05_standard_sanity(mv_id: str) -> list[dict[str, Any]]:
+    return [
+        {
+            "check_type": "assignment_invalid",
+            "required": True,
+            "expected_status": "pass",
+            "vehicle_ids": [mv_id],
+        },
+        {
+            "check_type": "boundary_violation",
+            "required": True,
+            "expected_status": "pass",
+            "vehicle_ids": [mv_id],
+        },
+        {
+            "check_type": "no_write_before_commit",
+            "required": True,
+            "expected_status": "pass",
+            "vehicle_ids": [mv_id],
+        },
+        {
+            "check_type": "x_plot_used_in_algorithm_path",
+            "required": True,
+            "expected_status": "pass",
+            "vehicle_ids": [mv_id],
+        },
+        {
+            "check_type": "state_machine_inconsistency",
+            "required": True,
+            "expected_status": "pass",
+            "vehicle_ids": [mv_id],
+        },
+    ]
+
+
+def _p05_common_png(mv_id: str, *extra_vehicle_ids: str) -> list[dict[str, Any]]:
+    vehicle_ids = [mv_id, *extra_vehicle_ids]
+    return [
+        {
+            "feature_type": "cmc_decision_marker",
+            "required": True,
+            "vehicle_ids": vehicle_ids,
+            "expected_visibility": "visible",
+        },
+        {
+            "feature_type": "assigned_clv_cfv_marker",
+            "required": True,
+            "vehicle_ids": vehicle_ids,
+            "expected_visibility": "visible",
+        },
+        {
+            "feature_type": "boundary_cap_marker",
+            "required": True,
+            "vehicle_ids": [mv_id],
+            "expected_visibility": "visible",
+        },
+    ]
+
+
+def _p05_cmc_1_scenario() -> dict[str, Any]:
+    return _p05_base_scenario(
+        "MVS-CMC-1",
+        vehicles=[
+            _p05_vehicle(
+                "MV_CMC_1",
+                "on_ramp",
+                7000.0,
+                -3.5,
+                road_role="on_ramp_mv",
+                merge_state="not_started",
+            ),
+            _p05_vehicle("CLV_CMC_1", "lane_2", 7030.0, 0.0),
+            _p05_vehicle("CFV_CMC_1", "lane_2", 6970.0, 0.0),
+        ],
+        preloaded_assignments=[
+            _p05_assignment(mv_id="MV_CMC_1", clv_id="CLV_CMC_1", cfv_id="CFV_CMC_1")
+        ],
+        expected_events=[
+            {
+                "event_type": "CMC",
+                "required": True,
+                "vehicle_ids": ["MV_CMC_1"],
+                "match": {
+                    "branch": "cmc_waiting_decision",
+                    "zone_state": "merging_zone",
+                    "merge_state": "not_started",
+                },
+                "reason_code": "cmc_waiting_decision",
+                "source": "first_version_engineering_patch",
+            },
+            {
+                "event_type": "CMC",
+                "required": True,
+                "vehicle_ids": ["MV_CMC_1", "CLV_CMC_1", "CFV_CMC_1"],
+                "match": {
+                    "assignment_source": "test_preload",
+                    "assignment_valid": True,
+                    "assigned_clv_id": "CLV_CMC_1",
+                    "assigned_cfv_id": "CFV_CMC_1",
+                },
+                "reason_code": "assignment_validation",
+                "source": "first_version_engineering_patch",
+            },
+            {
+                "event_type": "CMC",
+                "required": True,
+                "vehicle_ids": ["MV_CMC_1", "CLV_CMC_1", "CFV_CMC_1"],
+                "match": {"eq53_pass": True, "fail_side": None},
+                "numeric_expectations": {
+                    "h_tilde": {"value": 1.0666666667, "tolerance": "derived_formula_abs"},
+                    "threshold": {"value": 21.3333333333, "tolerance": "derived_formula_abs"},
+                    "d_MV_to_CLV": {"value": 26.0, "tolerance": "derived_formula_abs"},
+                    "d_CFV_to_MV": {"value": 26.0, "tolerance": "derived_formula_abs"},
+                },
+                "reason_code": "eq53_gap",
+                "source": "paper_formula",
+            },
+            {
+                "event_type": "CMC",
+                "required": True,
+                "vehicle_ids": ["MV_CMC_1"],
+                "match": {
+                    "cap_source": "boundary_collision_avoidance",
+                    "cap_reason": "normal_cap",
+                    "cap_feasible": True,
+                    "cap_binding": False,
+                },
+                "reason_code": "boundary_speed_cap",
+                "source": "paper_formula",
+            },
+            {
+                "event_type": "CMC",
+                "required": True,
+                "vehicle_ids": ["MV_CMC_1"],
+                "match": {
+                    "init_or_continue_maneuver": "init",
+                    "target_lane": "lane_2",
+                    "target_y": 0.0,
+                    "state_transition_request": "executing",
+                },
+                "reason_code": "merge_start",
+                "source": "first_version_engineering_patch",
+            },
+        ],
+        forbidden_events=[
+            {
+                "event_type": "assignment_invalid",
+                "vehicle_ids": ["MV_CMC_1"],
+                "source": "first_version_engineering_patch",
+            }
+        ],
+        expected_event_counts=[
+            {
+                "event_type": "APS",
+                "vehicle_ids": ["MV_CMC_1"],
+                "expected_count": 0,
+                "comparison": "exactly",
+            }
+        ],
+        expected_sanity_checks=_p05_standard_sanity("MV_CMC_1"),
+        expected_png_features=[
+            *_p05_common_png("MV_CMC_1", "CLV_CMC_1", "CFV_CMC_1"),
+            {
+                "feature_type": "merge_start_marker",
+                "required": True,
+                "vehicle_ids": ["MV_CMC_1"],
+                "expected_visibility": "visible",
+            },
+        ],
+    )
+
+
+def _p05_cmc_2_scenario() -> dict[str, Any]:
+    return _p05_base_scenario(
+        "MVS-CMC-2",
+        vehicles=[
+            _p05_vehicle(
+                "MV_CMC_2",
+                "on_ramp",
+                7000.0,
+                -3.5,
+                road_role="on_ramp_mv",
+                merge_state="waiting",
+            ),
+            _p05_vehicle("CLV_CMC_2", "lane_2", 7015.0, 0.0),
+            _p05_vehicle("CFV_CMC_2", "lane_2", 6970.0, 0.0),
+        ],
+        preloaded_assignments=[
+            _p05_assignment(mv_id="MV_CMC_2", clv_id="CLV_CMC_2", cfv_id="CFV_CMC_2")
+        ],
+        expected_events=[
+            {
+                "event_type": "CMC",
+                "required": True,
+                "vehicle_ids": ["MV_CMC_2", "CLV_CMC_2", "CFV_CMC_2"],
+                "match": {"assignment_valid": True, "assignment_source": "test_preload"},
+                "reason_code": "assignment_validation",
+                "source": "first_version_engineering_patch",
+            },
+            {
+                "event_type": "CMC",
+                "required": True,
+                "vehicle_ids": ["MV_CMC_2", "CLV_CMC_2", "CFV_CMC_2"],
+                "match": {"eq53_pass": False, "fail_side": "CLV_gap"},
+                "numeric_expectations": {
+                    "d_MV_to_CLV": {"value": 11.0, "tolerance": "derived_formula_abs"},
+                    "d_CFV_to_MV": {"value": 26.0, "tolerance": "derived_formula_abs"},
+                    "threshold": {"value": 21.3333333333, "tolerance": "derived_formula_abs"},
+                },
+                "reason_code": "eq53_gap",
+                "source": "paper_formula",
+            },
+            {
+                "event_type": "CMC",
+                "required": True,
+                "vehicle_ids": ["MV_CMC_2"],
+                "match": {"merge_command_created": False, "longitudinal_mode": "cmc_waiting"},
+                "reason_code": "waiting_command",
+                "source": "first_version_engineering_patch",
+            },
+            {
+                "event_type": "CMC",
+                "required": True,
+                "vehicle_ids": ["MV_CMC_2"],
+                "match": {"cap_feasible": True, "cap_binding": False},
+                "reason_code": "boundary_speed_cap",
+                "source": "paper_formula",
+            },
+        ],
+        expected_event_counts=[
+            {
+                "event_type": "CMC",
+                "vehicle_ids": ["MV_CMC_2"],
+                "match": {"init_or_continue_maneuver": "init"},
+                "expected_count": 0,
+                "comparison": "exactly",
+            },
+            {
+                "event_type": "APS",
+                "vehicle_ids": ["MV_CMC_2"],
+                "expected_count": 0,
+                "comparison": "exactly",
+            },
+        ],
+        expected_sanity_checks=_p05_standard_sanity("MV_CMC_2"),
+        expected_png_features=[
+            *_p05_common_png("MV_CMC_2", "CLV_CMC_2", "CFV_CMC_2"),
+            {
+                "feature_type": "waiting_marker",
+                "required": True,
+                "vehicle_ids": ["MV_CMC_2"],
+                "expected_visibility": "visible",
+            },
+        ],
+    )
+
+
+def _p05_assign_1_scenario() -> dict[str, Any]:
+    return _p05_base_scenario(
+        "MVS-ASSIGN-1",
+        vehicles=[
+            _p05_vehicle(
+                "MV_ASSIGN_1",
+                "on_ramp",
+                7000.0,
+                -3.5,
+                road_role="on_ramp_mv",
+                merge_state="waiting",
+            ),
+            _p05_vehicle("CLV_ASSIGN_1", "lane_2", 7030.0, 0.0),
+            _p05_vehicle("CFV_ASSIGN_1", "lane_1", 6970.0, 3.5),
+            _p05_vehicle("ACTUAL_LANE2_FOLLOWER_ASSIGN_1", "lane_2", 6972.0, 0.0),
+        ],
+        preloaded_assignments=[
+            _p05_assignment(
+                mv_id="MV_ASSIGN_1",
+                clv_id="CLV_ASSIGN_1",
+                cfv_id="CFV_ASSIGN_1",
+            )
+        ],
+        expected_events=[
+            {
+                "event_type": "CMC",
+                "required": True,
+                "vehicle_ids": ["MV_ASSIGN_1", "CLV_ASSIGN_1", "CFV_ASSIGN_1"],
+                "match": {
+                    "assignment_valid": False,
+                    "invalid_reason": "cfv_not_lane_2",
+                    "assigned_cfv_id": "CFV_ASSIGN_1",
+                    "replacement_assignment_created": False,
+                },
+                "reason_code": "assignment_validation",
+                "source": "first_version_engineering_patch",
+            },
+            {
+                "event_type": "assignment_invalid",
+                "required": True,
+                "vehicle_ids": ["MV_ASSIGN_1", "CFV_ASSIGN_1"],
+                "match": {
+                    "reason": "cfv_not_lane_2",
+                    "Eq53_evaluated": False,
+                    "merge_command_created": False,
+                    "replacement_assignment_created": False,
+                },
+                "reason_code": "cfv_not_lane_2",
+                "source": "first_version_engineering_patch",
+            },
+            {
+                "event_type": "CMC",
+                "required": True,
+                "vehicle_ids": ["MV_ASSIGN_1"],
+                "match": {"merge_command_created": False, "longitudinal_mode": "cmc_waiting"},
+                "reason_code": "waiting_command",
+                "source": "first_version_engineering_patch",
+            },
+        ],
+        expected_event_counts=[
+            {
+                "event_type": "CMC",
+                "vehicle_ids": ["MV_ASSIGN_1"],
+                "match": {"eq53_pass": True},
+                "expected_count": 0,
+                "comparison": "exactly",
+            },
+            {
+                "event_type": "CMC",
+                "vehicle_ids": ["MV_ASSIGN_1"],
+                "match": {"init_or_continue_maneuver": "init"},
+                "expected_count": 0,
+                "comparison": "exactly",
+            },
+            {
+                "event_type": "APS",
+                "vehicle_ids": ["MV_ASSIGN_1"],
+                "expected_count": 0,
+                "comparison": "exactly",
+            },
+        ],
+        expected_sanity_checks=[
+            {
+                "check_type": "assignment_invalid",
+                "required": True,
+                "expected_status": "warning",
+                "vehicle_ids": ["MV_ASSIGN_1"],
+                "reason_code": "cfv_not_lane_2",
+            },
+            {
+                "check_type": "no_write_before_commit",
+                "required": True,
+                "expected_status": "pass",
+                "vehicle_ids": ["MV_ASSIGN_1"],
+            },
+            {
+                "check_type": "x_plot_used_in_algorithm_path",
+                "required": True,
+                "expected_status": "pass",
+                "vehicle_ids": ["MV_ASSIGN_1"],
+            },
+        ],
+        expected_png_features=[
+            *_p05_common_png("MV_ASSIGN_1", "CLV_ASSIGN_1", "CFV_ASSIGN_1"),
+            {
+                "feature_type": "assignment_invalid_marker",
+                "required": True,
+                "vehicle_ids": ["MV_ASSIGN_1", "CFV_ASSIGN_1"],
+                "expected_visibility": "visible",
+            },
+            {
+                "feature_type": "no_replacement_assignment_arrow",
+                "required": True,
+                "vehicle_ids": ["MV_ASSIGN_1", "ACTUAL_LANE2_FOLLOWER_ASSIGN_1"],
+                "expected_visibility": "not_visible",
+            },
+        ],
+    )
+
+
+def _p05_safe_1a_waiting_cap_scenario() -> dict[str, Any]:
+    return _p05_base_scenario(
+        "MVS-SAFE-1A_waiting_cap",
+        status="probe",
+        test_level="probe",
+        vehicles=[
+            _p05_vehicle(
+                "MV_SAFE_1A",
+                "on_ramp",
+                7235.0,
+                -3.5,
+                road_role="on_ramp_mv",
+                merge_state="waiting",
+            ),
+            _p05_vehicle("CLV_SAFE_1A", "lane_2", 7245.0, 0.0),
+            _p05_vehicle("CFV_SAFE_1A", "lane_2", 7200.0, 0.0),
+        ],
+        preloaded_assignments=[
+            _p05_assignment(mv_id="MV_SAFE_1A", clv_id="CLV_SAFE_1A", cfv_id="CFV_SAFE_1A")
+        ],
+        expected_events=[
+            {
+                "event_type": "CMC",
+                "required": True,
+                "vehicle_ids": ["MV_SAFE_1A"],
+                "match": {
+                    "cap_source": "boundary_collision_avoidance",
+                    "cap_reason": "normal_cap",
+                    "cap_feasible": True,
+                    "cap_binding": True,
+                },
+                "numeric_expectations": {
+                    "boundary_speed_cap": {"value": 2.6295, "tolerance": "derived_formula_abs"}
+                },
+                "reason_code": "boundary_speed_cap",
+                "source": "paper_formula",
+            },
+            {
+                "event_type": "CMC",
+                "required": True,
+                "vehicle_ids": ["MV_SAFE_1A"],
+                "match": {"eq53_pass": False, "fail_side": "CLV_gap"},
+                "reason_code": "eq53_gap",
+                "source": "paper_formula",
+            },
+        ],
+        expected_sanity_checks=[
+            {
+                "check_type": "boundary_violation",
+                "required": True,
+                "expected_status": "pass",
+                "vehicle_ids": ["MV_SAFE_1A"],
+            },
+            {
+                "check_type": "assignment_invalid",
+                "required": True,
+                "expected_status": "pass",
+                "vehicle_ids": ["MV_SAFE_1A"],
+            },
+        ],
+        expected_png_features=[
+            *_p05_common_png("MV_SAFE_1A", "CLV_SAFE_1A", "CFV_SAFE_1A"),
+            {
+                "feature_type": "waiting_marker",
+                "required": True,
+                "vehicle_ids": ["MV_SAFE_1A"],
+                "expected_visibility": "visible",
+            },
+        ],
+    )
+
+
+def _p05_executing_continuation_scenario() -> dict[str, Any]:
+    return _p05_base_scenario(
+        "P05-EXECUTING-CONTINUATION",
+        vehicles=[
+            _p05_vehicle(
+                "MV_EXECUTING",
+                "on_ramp",
+                7050.0,
+                -2.0,
+                road_role="on_ramp_mv",
+                merge_state="executing",
+            ),
+            _p05_vehicle("CLV_EXECUTING", "lane_2", 7085.0, 0.0),
+            _p05_vehicle("CFV_EXECUTING", "lane_2", 7015.0, 0.0),
+        ],
+        preloaded_assignments=[
+            _p05_assignment(
+                mv_id="MV_EXECUTING",
+                clv_id="CLV_EXECUTING",
+                cfv_id="CFV_EXECUTING",
+            )
+        ],
+        preloaded_maneuver_trajectory_states=[
+            {
+                "vehicle_id": "MV_EXECUTING",
+                "maneuver_type": "merge",
+                "start_t": -0.5,
+                "start_step": -5,
+                "start_x_global": 7035.0,
+                "start_y": -3.5,
+                "target_lane": "lane_2",
+                "target_y": 0.0,
+                "planned_length": 120.0,
+                "progress": 0.2,
+                "assigned_clv_id": "CLV_EXECUTING",
+                "assigned_cfv_id": "CFV_EXECUTING",
+            }
+        ],
+        expected_events=[
+            {
+                "event_type": "CMC",
+                "required": True,
+                "vehicle_ids": ["MV_EXECUTING"],
+                "match": {
+                    "branch": "cmc_executing_continuation",
+                    "merge_state": "executing",
+                },
+                "reason_code": "cmc_executing_continuation",
+                "source": "first_version_engineering_patch",
+            },
+            {
+                "event_type": "CMC",
+                "required": True,
+                "vehicle_ids": ["MV_EXECUTING"],
+                "match": {
+                    "init_or_continue_maneuver": "continue",
+                    "no_new_eq53_start_decision": True,
+                    "does_not_rejudge_merge_start": True,
+                },
+                "reason_code": "executing_continuation",
+                "source": "first_version_engineering_patch",
+            },
+            {
+                "event_type": "CMC",
+                "required": True,
+                "vehicle_ids": ["MV_EXECUTING"],
+                "match": {"cap_feasible": True},
+                "reason_code": "boundary_speed_cap",
+                "source": "paper_formula",
+            },
+        ],
+        expected_event_counts=[
+            {
+                "event_type": "CMC",
+                "vehicle_ids": ["MV_EXECUTING"],
+                "match": {"eq53_pass": True},
+                "expected_count": 0,
+                "comparison": "exactly",
+            },
+            {
+                "event_type": "CMC",
+                "vehicle_ids": ["MV_EXECUTING"],
+                "match": {"assignment_validation_evaluated": True},
+                "expected_count": 0,
+                "comparison": "exactly",
+            },
+        ],
+        expected_sanity_checks=[
+            {
+                "check_type": "no_write_before_commit",
+                "required": True,
+                "expected_status": "pass",
+                "vehicle_ids": ["MV_EXECUTING"],
+            },
+            {
+                "check_type": "boundary_violation",
+                "required": True,
+                "expected_status": "pass",
+                "vehicle_ids": ["MV_EXECUTING"],
+            },
+        ],
+        expected_png_features=[
+            {
+                "feature_type": "executing_continuation_marker",
+                "required": True,
+                "vehicle_ids": ["MV_EXECUTING"],
+                "expected_visibility": "visible",
+            },
+            {
+                "feature_type": "boundary_cap_marker",
+                "required": True,
+                "vehicle_ids": ["MV_EXECUTING"],
+                "expected_visibility": "visible",
+            },
+        ],
+    )
+
+
+BUILTIN_SCENARIOS.update(
+    {
+        "MVS-CMC-1": _p05_cmc_1_scenario(),
+        "MVS-CMC-2": _p05_cmc_2_scenario(),
+        "MVS-ASSIGN-1": _p05_assign_1_scenario(),
+        "MVS-SAFE-1A_waiting_cap": _p05_safe_1a_waiting_cap_scenario(),
+        "P05-EXECUTING-CONTINUATION": _p05_executing_continuation_scenario(),
+    }
+)

@@ -170,6 +170,8 @@ unexpected ordinary lane-change attempt
 | `sanity_check` | 碰撞、越界、状态机异常等检查 |
 | `engineering_patch` | first_APS、overlay、工程仲裁等补丁说明 |
 
+代码 v0 的 `ScenarioConfig.expected_events.event_type` 与运行结果 dict 当前沿用早期 runner 序列化约定，APS / CUC / CMC 模块事件写作 `"APS"`、`"CUC"`、`"CMC"`；语义上分别等价于本表的 `aps`、`cuc`、`cmc`。在统一迁移前，P04-P05 测试不得引入第三套写法；若后续收紧 enum 校验，必须先统一 loader、matcher、历史场景和文档，而不是在 P06 局部新增 casing。
+
 ### 3.3 `SanityCheckType`
 
 第一版 `SanityCheckType` 至少覆盖：
@@ -183,9 +185,12 @@ state_machine_inconsistency
 geometry_inconsistency
 unexpected_ordinary_lane_change_attempt
 multiple_commit_for_one_vehicle
+no_write_before_commit
+x_plot_used_in_algorithm_path
 ```
 
 其中 `assignment_invalid` 既可以作为 `EventType.assignment_invalid` 记录决策链，也可以作为 sanity check 的汇总结果。二者用途不同：event 记录发生过程，sanity check 记录验收状态。
+`no_write_before_commit` 复用 P03 提交边界守卫，表示模块只产生命令、事件、sanity 或派生结构，不直接改写冻结 `S(t)`；`x_plot_used_in_algorithm_path` 表示算法路径只使用 `x_global`，`x_plot` 只能留给 PNG / renderer 派生层。
 
 ### 3.4 辅助 reason 枚举
 
