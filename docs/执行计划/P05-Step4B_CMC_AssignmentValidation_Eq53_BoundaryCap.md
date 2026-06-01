@@ -148,12 +148,11 @@ P05 不提交真实车辆状态。它只能写 command、speed cap command、mer
 - `docs/执行计划/P03-Step9-10_Command_NextState_Commit_Event_Sanity_Trajectory闭环.md`
   - 引用 `CommandBuffer` / `NextStateBuffer` / `EventRecord` / `SanityCheckRecord` / `OutputHistory` 边界。
   - P05 不得直接提交车辆真实状态；它只写 command / event / sanity。
-- `docs/执行计划/P04-P07_总切片蓝图_dependency_sketch.md`
-  - 引用 P05 消费 P04 effective assignment / cache 的依赖。
-  - 该蓝图中若只写 P05 处理 `merge_state != executing`，P05 本文档按时间步总纲修正为 waiting / executing 分支全覆盖：`merge_state == executing` 必须继续 CMC merge command / boundary cap command，并记录 continuation event。
 - `docs/执行计划/P04-Step4A_APS_Cache_EffectiveAssignment.md`
   - 引用 P04 已提供 APS assignment / failure / cache action / `EffectiveAssignmentThisStep`。
   - P05 只能消费这些 assignment，不得重算 APS，不得偷换 leader / follower。
+  - P05 消费 P04 effective assignment / cache 的依赖，以 P00 追踪矩阵、总纲、当前 P04 / P05 完整 spec 为准。
+  - P05 按时间步总纲覆盖 waiting / executing 分支：`merge_state == executing` 必须继续 CMC merge command / boundary cap command，并记录 continuation event。
 - `docs/复现讨论/CORMC时间步执行顺序梳理.md`
   - 引用 Step 4 分流：MV 未进入 merging zone 执行 APS；MV 已进入 merging zone 执行 CMC。
   - 引用 `merge_state == executing` 后继续合流轨迹，不重新判断是否开始合流。
@@ -175,7 +174,7 @@ P05 不提交真实车辆状态。它只能写 command、speed cap command、mer
 - `docs/复现讨论/CORMC代码数据结构设计_整理版.md`
   - 引用 enum、dataclass、buffer、record、ScenarioConfig、expected_* 字段权威。
   - 当前该文档已登记 P05 所需概念：`AssignmentInvalidReason`、`BoundaryCapReason`、`CMCDecision`、`CommandBuffer.merge_commands`、`CommandBuffer.speed_cap_commands`、`MergeCommand`、`SpeedCapCommand`、`StateTransitionCommand`、`CacheUpdateCommand`、`EventRecord`、`SanityCheckRecord`、`ExpectedEventSpec`、`ExpectedSanityCheckSpec`、`ExpectedPNGFeatureSpec`。
-  - 本阶段引用该文档的 schema / enum / buffer / record 定义作为字段权威；其中 §10.2 的旧阶段拆分表若把 `APSAssignment`、`EffectiveAssignmentThisStep`、APS event 写到 P05，并把 `CMCDecision`、`MergeCommand`、`SpeedCapCommand` 写到 P07，则与当前阶段边界冲突。该拆分表在 P05 中视为过期的执行阶段建议；以当前 P04 implementation-ready 事实、P04-P07 蓝图中 P05 输入输出依赖、以及本文 P05 Step4B 行为契约为准。P05 不得因 §10.2 将 CMC command 延后到 P07。
+  - 本阶段引用该文档的 schema / enum / buffer / record 定义作为字段权威；其中 §10.2 的旧阶段拆分表若把 `APSAssignment`、`EffectiveAssignmentThisStep`、APS event 写到 P05，并把 `CMCDecision`、`MergeCommand`、`SpeedCapCommand` 写到 P07，则与当前阶段边界冲突。该拆分表在 P05 中视为过期的执行阶段建议；以 P00 追踪矩阵、总纲、当前 P04-P07 完整 spec，以及本文 P05 Step4B 行为契约为准。P05 不得因 §10.2 将 CMC command 延后到 P07。
   - 若后续实现发现 typed `CMCDecision` / command dataclass、scenario built-in、reason code 或 expected matcher 字段不足，必须先修订本上游文档或 loader 合同，不能在代码里暗增。
 - `docs/复现讨论/CORMC输出指标与日志验证规格_整理版.md`
   - 引用 Step 4 必须记录 MV 分支判断、CMC assignment validation、CMC gap decision、boundary speed cap、merge transition。

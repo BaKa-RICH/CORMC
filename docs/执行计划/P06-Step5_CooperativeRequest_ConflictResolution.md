@@ -137,15 +137,13 @@ P06 不能把 `MVS-CUC-1A_override_choice1`、`MVS-CUC-2`、`MVS-CUC-3`、`MVS-E
 - `docs/执行计划/P03-Step9-10_Command_NextState_Commit_Event_Sanity_Trajectory闭环.md`
   - 引用 CommandBuffer / OutputHistory / EventRecord / SanityCheckRecord / no-write-before-commit 边界。
   - P06 不得直接提交车辆真实状态，event / sanity / marker 不反写运动。
-- `docs/执行计划/P04-P07_总切片蓝图_dependency_sketch.md`
-  - 引用 P06 的输入输出依赖：读取 P04 / P05 effective assignment、`col_CLV / col_CFV`、`T*_MV`、MV region、active vehicle / CV 状态；写 cooperative_request event、conflict_resolution event、active cooperative request、conflict loser result、conflict sanity、PNG marker。
-  - 该蓝图中 P05-P07 maturity 仍是 skeleton / trace_registered 口径；P05 当前已有完整 spec 和实现测试，P06 本文档以 P04 / P05 已有 spec 与当前代码为上游事实。
 - `docs/执行计划/P04-Step4A_APS_Cache_EffectiveAssignment.md`
   - 引用 P04 提供的 `EffectiveAssignmentThisStep`、`col_CLV / col_CFV`、APS case、Eq.10 desired spacing source、cache reuse / APS updated source、failure 不产生活跃 request 的边界。
   - P06 只能消费这些结果，不得重算 APS。
 - `docs/执行计划/P05-Step4B_CMC_AssignmentValidation_Eq53_BoundaryCap.md`
   - 引用 P05 提供的 assignment validation、assignment invalid、CMC branch / zone evidence、no rerun APS evidence。
   - P06 应过滤 P05 已判 invalid 的 assignment，不得恢复为 active request。
+  - P06 的输入输出依赖以 P00 追踪矩阵、总纲、当前 P04-P07 完整 spec 为准：读取 P04 / P05 effective assignment、`col_CLV / col_CFV`、`T*_MV`、MV region、active vehicle / CV 状态；写 cooperative_request event、conflict_resolution event、active cooperative request、conflict loser result、conflict sanity、PNG marker。
 - `docs/复现讨论/CORMC时间步执行顺序梳理.md`
   - 引用 Step 5 主循环：对所有有效 APS assignment 收集 `col = 1` CLV / CFV 请求；同一 CV 多请求时按第一版工程安全仲裁消解。
   - 引用优先级：已在 merging zone 的 MV > `T*_MV` 更小 > 距离 `x0^m` 更近。
@@ -157,7 +155,7 @@ P06 不能把 `MVS-CUC-1A_override_choice1`、`MVS-CUC-2`、`MVS-CUC-3`、`MVS-E
 - `docs/复现讨论/CORMC代码数据结构设计_整理版.md`
   - 引用 `CooperativeRequest`、`ConflictResolutionResult`、`EventRecord`、`SanityCheckRecord`、`ExpectedEventSpec`、`ExpectedSanityCheckSpec`、`ExpectedPNGFeatureSpec`。
   - 引用 `EventType.cooperative_request` 与 `EventType.conflict_resolution` 的 canonical lower-case 语义。P04 / P05 当前代码仍使用 `"APS"` / `"CMC"` 兼容旧 runner；P06 不应引入第三套 casing。
-  - §10.2 的旧阶段拆分表把 `CUCDecision` / `LaneChangeCommand` 放在 P06，把 `CMCDecision` / `MergeCommand` / `SpeedCapCommand` 放在 P07。该拆分表与当前 P04-P07 执行计划边界冲突，在 P06 中视为过期的执行阶段建议：P06 只实现 `CooperativeRequest` / `ConflictResolutionResult`，CUC 与 lane-change command 属于 P07，CMC command 属于 P05。
+  - §10.2 的旧阶段拆分表把 `CUCDecision` / `LaneChangeCommand` 放在 P06，把 `CMCDecision` / `MergeCommand` / `SpeedCapCommand` 放在 P07。该拆分表与 P00 追踪矩阵、总纲、当前 P04-P07 完整 spec 固定的阶段边界冲突，在 P06 中视为过期的执行阶段建议：P06 只实现 `CooperativeRequest` / `ConflictResolutionResult`，CUC 与 lane-change command 属于 P07，CMC command 属于 P05。
 - `docs/复现讨论/CORMC输出指标与日志验证规格_整理版.md`
   - 引用 Step 5 日志需求：收集请求、冲突检测、仲裁结果、loser 状态、工程补丁标记。
   - 引用 conflict smoke 验收：多个 MV 请求同一 CV、winner / loser、仲裁依据、loser waiting / conflict、工程补丁标记。

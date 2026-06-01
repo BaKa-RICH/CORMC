@@ -57,6 +57,8 @@ def test_mvs_cuc_2_target_lane_unsafe_fallback_stay_lane2_and_spacing_handoff() 
     safety_event = _actual_event(result.actual_events, module="Step6TargetLaneSafety")
     assert safety_event["payload"]["target_lane_safe"] is False
     assert safety_event["payload"]["fallback_reason"] == "target_lane_unsafe"
+    assert safety_event["payload"]["target_lane_safety_method"] == "first_version_gap_over_cv_speed_proxy"
+    assert safety_event["payload"]["eq14_eq15_locked"] is False
 
 
 def test_mvs_cuc_3_non_compliant_chv_ignores_cuc_without_spacing_consumption() -> None:
@@ -92,6 +94,8 @@ def test_mvs_cuc_1b_real_utility_probe_logs_inputs_u1_u2_and_final_choice() -> N
 
     decision = result.cuc_decisions["CFV_X"]
     assert decision["utility_source"] == "real_CUC"
+    assert decision["utility_formula_status"] == "first_version_probe_not_eq11_eq12_locked"
+    assert decision["eq11_eq12_locked"] is False
     assert decision["utility_inputs_logged"] is True
     assert decision["U1"] is not None
     assert decision["U2"] is not None

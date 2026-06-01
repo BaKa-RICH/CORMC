@@ -19,6 +19,8 @@ from cormc.step9_11 import CommandBuffer
 ENGINEERING_PATCH_SOURCE = "first_version_engineering_patch"
 PAPER_FORMULA_SOURCE = "paper_formula"
 TEST_HARNESS_OVERRIDE_SOURCE = "test_harness_override"
+FIRST_VERSION_PROBE_SOURCE = "first_version_probe"
+FIRST_VERSION_SAFETY_PROXY_SOURCE = "first_version_safety_proxy"
 TT_MIN_SECONDS = 1.5
 
 
@@ -144,6 +146,8 @@ def run_step6_cuc_choice_compliance_lane_change_overlay(
                 "TT_CV_TLV": safety["TT_CV_TLV"],
                 "TT_TFV_CV": safety["TT_TFV_CV"],
                 "TT_min": TT_MIN_SECONDS,
+                "target_lane_safety_method": safety["target_lane_safety_method"],
+                "eq14_eq15_locked": safety["eq14_eq15_locked"],
                 "vehicle_type": cv_spec.vehicle_type,
                 "compliance_state": cv_spec.compliance_state,
                 "accepted_by_vehicle": accepted_by_vehicle,
@@ -396,6 +400,8 @@ def _evaluate_utility_or_override(
             "utility_source": TEST_HARNESS_OVERRIDE_SOURCE,
             "source": TEST_HARNESS_OVERRIDE_SOURCE,
             "override_reason": "override_choice1_for_required_gate",
+            "utility_formula_status": "test_harness_override_not_formula",
+            "eq11_eq12_locked": False,
             "utility_inputs_logged": True,
             "U1": float(override.get("U1", 1.0)),
             "U2": float(override.get("U2", 0.0)),
@@ -412,7 +418,9 @@ def _evaluate_utility_or_override(
     u2 = float(request.get("desired_spacing_override") or 0.0) / 10.0
     return {
         "utility_source": "real_CUC",
-        "source": PAPER_FORMULA_SOURCE,
+        "source": FIRST_VERSION_PROBE_SOURCE,
+        "utility_formula_status": "first_version_probe_not_eq11_eq12_locked",
+        "eq11_eq12_locked": False,
         "utility_inputs_logged": True,
         "U1": u1,
         "U2": u2,
@@ -444,6 +452,8 @@ def _evaluate_target_lane_safety(
         "TT_TFV_CV": tt_tfv_cv,
         "TT_min": TT_MIN_SECONDS,
         "target_lane_safe": target_lane_safe,
+        "target_lane_safety_method": "first_version_gap_over_cv_speed_proxy",
+        "eq14_eq15_locked": False,
         "cv_x_global": cv_state.x_global,
     }
 
@@ -594,7 +604,7 @@ def _target_lane_safety_event(
         ),
         scenario_id=state.scenario_config_ref or "unknown",
         reason="target_lane_safe" if safety["target_lane_safe"] else "target_lane_unsafe",
-        source=PAPER_FORMULA_SOURCE,
+        source=FIRST_VERSION_SAFETY_PROXY_SOURCE,
         is_engineering_patch=False,
         payload={
             **dict(safety),

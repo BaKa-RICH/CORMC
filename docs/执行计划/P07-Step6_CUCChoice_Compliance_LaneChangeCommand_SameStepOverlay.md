@@ -156,9 +156,6 @@ P07 需要产出：
 - `docs/执行计划/P03-Step9-10_Command_NextState_Commit_Event_Sanity_Trajectory闭环.md`
   - 引用 `CommandBuffer`、no-write-before-commit、`CUCDecision` non-persistent。
   - 当前代码中的 `CommandBuffer` 有 `cuc_decisions` 字段，但 `docs/复现讨论/CORMC代码数据结构设计_整理版.md` 的 `CommandBuffer` 权威字段表未列出该字段。P07 不得把 `CommandBuffer.cuc_decisions` 作为正式承载点，除非先修订数据结构规格；第一版默认把 `CUCDecision` 放在 Step6 derived result / CUC event payload，并在 lane-change / cooperation command 中只引用 `cuc_decision_id`。
-- `docs/执行计划/P04-P07_总切片蓝图_dependency_sketch.md`
-  - 引用 P07 输入：P06 active cooperative request、relations、VehicleSpec / compliance state、road / parameter config、test harness override 或 real utility probe 输入、P03 command boundary。
-  - 引用 P07 输出：CUC event、compliance event、lane-change command、cooperation command / desired spacing override、same-step overlay、CUC sanity、CUC PNG marker。
 - `docs/执行计划/P04-Step4A_APS_Cache_EffectiveAssignment.md`
   - 引用 APS assignment / Eq.10 desired spacing source。P07 不重算 APS，只消费经 P06 传递的 `desired_spacing_override`。
 - `docs/执行计划/P05-Step4B_CMC_AssignmentValidation_Eq53_BoundaryCap.md`
@@ -166,6 +163,7 @@ P07 需要产出：
 - `docs/执行计划/P06-Step5_CooperativeRequest_ConflictResolution.md`
   - 引用 P06 输出 active request / suppressed request / conflict result / `CommandBuffer.cooperation_commands`。
   - P07 只消费 active request；loser / suppressed request 只作为 audit evidence。
+  - P07 的输入输出边界以 P00 追踪矩阵、总纲、当前 P04-P07 完整 spec 为准：输入为 P06 active cooperative request、relations、VehicleSpec / compliance state、road / parameter config、test harness override 或 real utility probe 输入、P03 command boundary；输出为 CUC event、compliance event、lane-change command、cooperation command / desired spacing override、same-step overlay、CUC sanity、CUC PNG marker。
 - `docs/复现讨论/CORMC时间步执行顺序梳理.md`
   - 引用 Step 6：active lane-change 车辆跳过 CUC；尚未换道的 active CV 执行 CUC；choice 1 时检查目标车道 TT safety；non-compliant CHV 不执行 CUC 建议。
 - `docs/复现讨论/CORMC论文公式与实现映射.md`
@@ -178,7 +176,7 @@ P07 需要产出：
   - 引用 CUC 是 maneuver choice；choice 1 进入 lane-changing model；choice 2 将 Eq.10 desired spacing 交给后续纵向模型；non-compliant CHV 不接受 CUC 建议。
 - `docs/复现讨论/CORMC代码数据结构设计_整理版.md`
   - 引用 `CUCChoice`、`CUCFallbackReason`、`CUCDecision`、`CooperationCommand`、`LaneChangeCommand`、`SameStepManeuverRelationOverlay`、`CommandBuffer`。
-  - §10.2 旧阶段拆分表曾把 `CUCDecision` / `LaneChangeCommand` 放在 P06，把 `CMCDecision` / `MergeCommand` / `SpeedCapCommand` 放在 P07；该拆分与当前 P04-P07 执行计划冲突，视为过期口径。当前权威边界为：P05=CMC，P06=cooperative request / conflict，P07=CUC choice / command / overlay。
+  - §10.2 旧阶段拆分表曾把 `CUCDecision` / `LaneChangeCommand` 放在 P06，把 `CMCDecision` / `MergeCommand` / `SpeedCapCommand` 放在 P07；该拆分与 P00 追踪矩阵、总纲、当前 P04-P07 完整 spec 固定的阶段边界冲突，视为过期口径。当前权威边界为：P05=CMC，P06=cooperative request / conflict，P07=CUC choice / command / overlay。
 - `docs/复现讨论/CORMC输出指标与日志验证规格_整理版.md`
   - 引用 Step 6 日志：active lane-change skip CUC、active CV 判断、CUC utility / safety、final choice、compliance、CUC choice 不持久化。
 - `docs/复现讨论/CORMC参数规格.md`

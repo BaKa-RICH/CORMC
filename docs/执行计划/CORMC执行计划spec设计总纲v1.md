@@ -452,7 +452,7 @@ P04-P10 的 MVS scenario tests 必须是 targeted gate，绑定本阶段时间�
 
 **Step 覆盖**：Step 7。  
 **MVS Gate**：`MVS-CUC-2`、`MVS-CUC-3`、`MVS-SAFE-1A_waiting_cap`。  
-**目标**：实现 CAV cruising / gap-regulating、CHV / IDM、CFV 的 Eq.10 spacing override、MV boundary speed cap 合成。
+**目标**：围绕一次冻结 `S(t)` 的 Step 7 纵向候选生成，消费 P04 / P07 产生的 Eq.10 desired spacing handoff 与 P05 产生的 boundary speed cap command，实现 CAV cruising / gap-regulating、CHV / IDM、CFV spacing override 和 MV planning speed 合成。
 
 本阶段应落地：
 
@@ -463,6 +463,7 @@ P04-P10 的 MVS scenario tests 必须是 targeted gate，绑定本阶段时间�
 - MV on-ramp longitudinal behavior。
 - desired spacing override consumer。
 - speed cap composer。
+- front-collision / conservative speed fallback composer。
 - longitudinal candidate writer。
 - longitudinal_model event。
 - desired spacing override consumption event。
@@ -473,11 +474,13 @@ P04-P10 的 MVS scenario tests 必须是 targeted gate，绑定本阶段时间�
 - CAV 无 leader 或 spacing 足够大时使用 cruising。
 - CAV 跟驰时使用 gap-regulating / CPID。
 - CHV 使用 IDM；compliance 只影响是否接受 CUC 建议，不改变 IDM 本质。
+- `MVS-CUC-2` 在 P08 验完整纵向消费：P07 unsafe fallback 留在 lane 2 的 CFV 才消费 Eq.10 desired spacing override，并生成 longitudinal candidate / event。
 - case 2 / 4 中留在 lane 2 的 CFV 才消费 Eq.10。
 - case 3 不给 CLV 套 Eq.10。
 - non-compliant CHV 不消费 Eq.10。
-- boundary speed cap、front fallback、candidate speed 合成取最保守速度。
-- speed cap 先进入纵向 planning speed，再由横向轨迹消费。
+- `MVS-SAFE-1A_waiting_cap` 在 P08 验完整 planning speed 合成：P05 boundary speed cap、front fallback、candidate speed 合成取最保守速度。
+- P08 只写 longitudinal candidate / planning speed / event / sanity，不提交真实 `x / y / v / a / lane / state`。
+- speed cap 先进入纵向 planning speed，再由 P09 横向轨迹消费。
 
 ---
 
@@ -485,7 +488,7 @@ P04-P10 的 MVS scenario tests 必须是 targeted gate，绑定本阶段时间�
 
 **Step 覆盖**：Step 8。  
 **MVS Gate**：`MVS-SAFE-1B_executing_cap_lateral_consumption`、`MVS-SAFE-2`。  
-**目标**：实现 CUC lane 2 -> lane 1 与 MV on-ramp -> lane 2 的正弦轨迹更新，并消费 Step 7 得到的 planning speed。
+**目标**：围绕一次冻结 `S(t)` 与 P08 planning speed 的 Step 8 横向候选生成，消费 P07 lane-change command / same-step overlay 与 P05 merge command，实现 CUC lane 2 -> lane 1 与 MV on-ramp -> lane 2 的正弦轨迹更新、active maneuver progress 和 completion candidate。
 
 本阶段应落地：
 
@@ -494,7 +497,7 @@ P04-P10 的 MVS scenario tests 必须是 targeted gate，绑定本阶段时间�
 - candidate lateral kinematics。
 - candidate maneuver progress。
 - completion detector。
-- front-collision fallback hook。
+- front-collision fallback consumption / event hook。
 - boundary cap consumption in lateral trajectory。
 - lateral_trajectory event。
 - maneuver progress / completion sanity check。
@@ -506,8 +509,9 @@ P04-P10 的 MVS scenario tests 必须是 targeted gate，绑定本阶段时间�
 - CMC merge：on-ramp -> lane 2。
 - active maneuver 不因每步 relations 变化重置 `start_x/start_y/target_y`。
 - `MVS-SAFE-1B`：executing 状态横向轨迹消费 capped speed。
+- P09 消费 P08 planning speed 推进正弦轨迹，不重新计算 P08 纵向控制、不重跑 P07 CUC、不重判 P05 Eq.53。
 - 普通主线主动换道保持关闭。
-- 完成换道 / 合流只在 commit 阶段正式更新 lane / role / state。
+- completion detector 只生成 candidate / state transition request；完成换道 / 合流只在 commit 阶段正式更新 lane / role / state。
 
 ---
 
