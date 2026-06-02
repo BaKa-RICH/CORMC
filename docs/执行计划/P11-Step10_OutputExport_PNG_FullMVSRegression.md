@@ -1,6 +1,6 @@
 # P11 - Step10 Output Export / Formal PNG / Full MVS Regression Closure
 
-> 本文档是 P11 red-before-green implementation 的执行计划 spec。P11 只覆盖 Step 10 的交付级收口：导出 P01-P10 已产生的 trajectory / event / sanity / PNG marker evidence，渲染正式 PNG，生成 artifact manifest，聚合全部 required MVS smoke suite，并输出 regression report。P11 不是 P04-P10 算法、日志、sanity、targeted runner 或 PNG marker 的首次实现阶段。
+> 本文档是 P13.5 校准后的 P11 权威说明。P11 覆盖 Step 10 的交付级收口：导出 P01-P10 已产生的 trajectory / event / sanity / PNG marker evidence，渲染正式 PNG，生成 artifact manifest，聚合全部 required MVS smoke suite，并输出 regression report。P11 不是 P04-P10 算法、日志、sanity、targeted runner 或 PNG marker 的首次实现阶段；P14 才负责把这些基础能力升级为“跑一次仿真自然生成正式输出包”的交付路径。
 
 ## 1. Slice Identity
 
@@ -14,7 +14,7 @@
     - P10: P08/P09 component candidate assembly、唯一 commit、真实 `S(t+dt)`、state transition / active maneuver / cache lifecycle、commit event、OutputHistory、renderer-deferred P10 markers。
   - Explicit non-coverage:
     - 不重新实现 APS、CMC、P06 conflict、CUC、P08 longitudinal、P09 lateral、P10 candidate assembly / commit。
-    - 不实现 P12 random boundary generation、random vehicle attributes、paper-level capacity / aggregate metrics、SUMO comparison。
+    - 不实现 P16 seeded random simulation、random vehicle attributes、P17 paper-level experiment grid、SUMO comparison。
 
 - MVS Acceptance Gate:
   - required:
@@ -27,26 +27,22 @@
     - PNG visual quality diagnostics.
     - export format diagnostics.
     - smoke suite runtime / completeness diagnostics.
-    - `MVS-CUC-1B_real_utility_probe` and any additional diagnostic scenario explicitly marked probe by the upstream MVS index. A final required safety scenario must not be demoted to probe because of current loader status.
+    - `MVS-CUC-1B_real_utility_probe` and any additional diagnostic scenario explicitly marked probe by the upstream MVS index. A final required safety scenario must not be demoted to probe because of future loader drift.
   - deferred:
-    - P12 random generation and paper-level experiment grid.
+    - P16 seeded random generation.
+    - P17 paper-level experiment grid.
     - SUMO comparison.
     - strict paper-level capacity / aggregate metrics.
     - strict MPC tracking unless upstream specs promote it.
 
 - Current-state statement consumed by P11:
-  - P10 helper-targeted `MVS-E2E-1` chain is closed: P05 merge-start evidence -> P08 longitudinal candidate -> P09 lateral/progress candidate -> P10 commit into real `S(t+dt)`.
-  - P10 consumes P05/P08/P09 handoff and has evidence for true `S(t+dt)` commit.
-  - Built-in `MVS-E2E-1` runner / loader route is still not registered. P11 must not report "`P10 full runner route ready`" as fact.
-  - Duplicate final candidate currently produces `multiple_commit_for_one_vehicle` warning / sanity fail and no committed next vehicle for that failed fixture. A P11 runner must treat this as a blocking required failure, never as a state that may continue into later steps.
-
-- Current code / schema facts:
-  - Existing loadable built-in routes with code status `required` currently include APS, CMC, ASSIGN, CONFLICT, `MVS-COMMIT-1-lite`, and `P05-EXECUTING-CONTINUATION`. This is a code fact, not the P11 denominator: `P05-EXECUTING-CONTINUATION` is an extra P05 diagnostic / continuation route and must not count in the first-version required pass denominator unless an upstream authority spec promotes it.
-  - Current loader status marks `MVS-SAFE-1A_waiting_cap` as `probe`, but the upstream MVS index and master plan list it as required. P11 must treat this as a classification gap / blocker until reconciled, not move `MVS-SAFE-1A_waiting_cap` into probe.
-  - Several target required scenarios named by upstream specs are not yet registered as built-in runner routes or not registered with the required status needed by P11: `MVS-E2E-1`, `MVS-COMMIT-1-full`, `MVS-CUC-1A_override_choice1`, `MVS-CUC-2`, `MVS-CUC-3`, `MVS-SAFE-1A_waiting_cap`, `MVS-SAFE-1B_executing_cap_lateral_consumption`, `MVS-SAFE-2`.
-  - `OutputHistory.png_artifacts` exists, but formal `OutputArtifactRecord` / manifest schema and output path contract are not implemented as authoritative code objects.
-  - `OutputConfig` is described in data-structure documentation, but current code does not yet provide a strict file-output config object for P11.
-  - `information_integration` is accepted by current P03/P10 code and matcher tests, but authority docs may still need confirmation if strict enum validation is introduced.
+  - P11 exporter / renderer / manifest / regression report 基础能力已经实现，full required MVS smoke aggregation 已经能聚合 required / probe / deferred 分组。
+  - P12 deterministic full simulation loop 已完成：固定场景、关闭随机边界车辆生成，Step0-11 可连续推进多时间步，并能生成 demo PNG。
+  - P13 required MVS closure 已完成：`MVS-E2E-1`、`MVS-COMMIT-1-full`、CUC required 和 SAFE required 场景均通过 official loader、deterministic runner 和 P11 matcher 进入验收。
+  - 当前 suite fact：`suite_status="passed"`，20 required green，`required_failed=[]`，`required_blocked=[]`，`runner_gaps=[]`。
+  - 当前 probe 为 `MVS-CUC-1B_real_utility_probe`；当前 deferred 为 `MVS-CUC-1C_real_utility_choice1_locked`。
+  - `MVS-SAFE-1A_waiting_cap` 当前是 required green，不再是 probe/status mismatch。
+  - P11 与 P14 的边界：P11 提供 exporter / renderer / manifest / regression report 与 suite aggregation 基础；P14 才负责正式 artifact bundle 的自然输出路径，至少包含 trajectory / event / sanity / PNG / manifest / regression report，用作 P15 重构前后对比基线。
 
 ## 2. 本阶段目标
 
@@ -54,7 +50,7 @@ P11 的目标是把 P01-P10 已经逐步落地的 in-memory evidence 变成交�
 
 最小目标：
 
-1. 建立 full required MVS smoke suite registry，列出目标 required suite 与当前可执行状态。
+1. 维护 full required MVS smoke suite registry，列出目标 required suite 与当前可执行状态。
 2. 对 required / probe / deferred 做分层：
    - required: 任何缺场景、缺 runner route、matcher fail、required sanity fail 都阻塞 suite。
    - probe: 可执行并报告 observation / failure，但不阻塞 required suite。
@@ -66,7 +62,7 @@ P11 的目标是把 P01-P10 已经逐步落地的 in-memory evidence 变成交�
 7. 使用 trajectory / event / expected_png_features / road geometry 渲染正式 PNG；PNG 是人工复核证据，不反向影响算法。
 8. 生成 artifact manifest，记录每个 scenario 的 input config、run id、status、history exports、PNG paths、report paths、pass/fail/gap 状态。
 9. 生成 regression report，汇总 required pass/fail、probe observed、deferred skipped、schema gap、runner gap、artifact path。
-10. 明确 P11 完成后才允许进入 P12；P12 的随机边界生成、随机属性和论文级指标不应被 P11 偷偷引入。
+10. 明确 P11 不等同于 P14；P15 engine consolidation 需要先有 P14 正式 artifact baseline，P16 random generation 和 P17 paper experiment grid 不应被 P11 偷偷引入。
 
 P11 的交付流应形如：
 
@@ -112,7 +108,7 @@ P11 不得做以下事情：
 - 不把 formal PNG / artifact export 当成算法判断依据。
 - 不将缺失 required scenario / runner route 标记为 deferred 或 silent skip。
 - 不暗增字段、enum、ScenarioConfig 字段、OutputConfig 字段、OutputArtifactRecord 字段、EventRecord 字段、SanityCheckRecord 字段、TrajectoryRecord 字段、OutputHistory 字段或 expected_* 结构；若 schema 不足，先在 implementation report 中列为 schema gap。
-- 不实现 P12 random arrival、random vehicle attributes、capacity / aggregate metrics、paper-level experiment grid。
+- 不实现 P16 random arrival、random vehicle attributes、seeded random simulation、P17 capacity / aggregate metrics 或 paper-level experiment grid。
 
 ## 4. 上游 spec 引用
 
@@ -149,7 +145,7 @@ P11 不得做以下事情：
 
 - `docs/执行计划/P07-Step6_CUCChoice_Compliance_LaneChangeCommand_SameStepOverlay.md`
   - 引用 CUC required/probe/deferred cases、lane-change command、same-step overlay、no-CUC-rerun evidence。
-  - 当前 built-in CUC required routes 仍需 P11 registry guard 明确，不得 silent skip。
+  - P13 后 CUC required routes 已通过 official loader / deterministic runner / matcher 接入 P11 required suite；后续不得重新描述为 missing built-in route。
 
 - `docs/执行计划/P08-Step7_LongitudinalModel_Eq10SpacingOverride_SpeedCapComposition.md`
   - 引用 P08 longitudinal candidate、planning speed、constraints_applied、source_commands、PNG markers。
@@ -160,8 +156,8 @@ P11 不得做以下事情：
   - P11 不重算 lateral trajectory。
 
 - `docs/执行计划/P10-Step9_CandidateAssembly_Commit_StateTransition_Integration.md`
-  - 引用 P10 的 Step4-9 integration responsibility、helper-targeted E2E gate、MVS-COMMIT-1-full targeted subset、OutputHistory evidence、renderer-deferred P10 markers。
-  - P11 必须保留当前结论：P10 helper-targeted chain closed；built-in `MVS-E2E-1` full runner route not ready。
+  - 引用 P10 的 Step4-9 integration responsibility、official `MVS-E2E-1` / `MVS-COMMIT-1-full` deterministic route evidence、OutputHistory evidence、renderer-deferred P10 markers。
+  - P13 后 `MVS-E2E-1` 与 `MVS-COMMIT-1-full` 已接入 official runner route；后续不得重新描述为 helper-only 或 full route gap。
 
 - `docs/复现讨论/CORMC时间步执行顺序梳理.md`
   - 引用 Step 10 information integration 和 Step 11 time advance 的流程位置。
@@ -178,7 +174,7 @@ P11 不得做以下事情：
 
 - `docs/复现讨论/CORMC最小验证场景执行规格.md`
   - 引用 required / probe / deferred MVS 场景清单、setup、expected_events、expected_sanity_checks、expected_png_features。
-  - P11 implementation 必须对目标清单与当前 built-in registry 的差异给出 blocker / gap，而不是静默跳过。
+  - P11 当前以 20 required green 为事实基线；未来若目标清单与 built-in registry 再出现差异，必须报告为 blocker / gap，而不是静默跳过。
 
 ## 5. 行为契约 Given / When / Then
 
@@ -206,10 +202,10 @@ P11 不得做以下事情：
   - `MVS-CONFLICT-1B`
   - `MVS-COMMIT-1-full`
 - When: P11 builds the full smoke suite registry.
-- Then: every target required `scenario_id` must be present as loadable, executable, or explicitly reported as a required blocker.
+- Then: every target required `scenario_id` must be present, loadable and executable in the official deterministic runner.
 - Then: registry completeness is checked against the exact 20 IDs above; wildcard family labels are not sufficient evidence.
-- Then: missing built-in routes such as current `MVS-E2E-1` / `MVS-COMMIT-1-full` must fail the P11 required suite readiness gate, not be treated as deferred.
-- Then: `MVS-SAFE-1A_waiting_cap` must remain in required even if a current loader entry marks it as probe; that mismatch is a classification blocker.
+- Then: `MVS-E2E-1` and `MVS-COMMIT-1-full` are current official required routes; if a future change removes either route, that is a regression blocker.
+- Then: `MVS-SAFE-1A_waiting_cap` must remain in required; any future downgrade to probe is a classification regression.
 - Then: `P05-EXECUTING-CONTINUATION` may be reported as an extra regression / diagnostic route, but it is not in the 20-ID required pass denominator.
 
 ### 5.2 Required / probe / deferred partition
@@ -221,13 +217,13 @@ P11 不得做以下事情：
 - Then: deferred scenarios are reported as skipped / not required for first-version gate; current MVS deferred denominator includes `MVS-CUC-1C_real_utility_choice1_locked`.
 - Then: no scenario in the exact 20-ID required denominator may appear in probe or deferred groups unless an upstream authority spec explicitly revises the denominator.
 
-### 5.3 P10 prerequisite guard
+### 5.3 P10 / P13 closure guard
 
-- Given: P10 currently has helper-targeted `MVS-E2E-1` chain evidence but not a built-in full runner route.
+- Given: P10 has `MVS-E2E-1` chain evidence and P13 has promoted `MVS-E2E-1` / `MVS-COMMIT-1-full` into official deterministic required routes.
 - When: P11 evaluates readiness for `MVS-E2E-1`.
-- Then: P11 may cite the P10 helper-chain evidence as targeted evidence.
-- Then: P11 must still report built-in runner / loader route gap until `MVS-E2E-1` is registered and executable in the smoke suite.
-- Then: P11 must not claim "`P10 full runner route ready`".
+- Then: P11 must cite official loader / deterministic runner / matcher evidence, not helper-only evidence.
+- Then: P11 must report no runner gap for `MVS-E2E-1` or `MVS-COMMIT-1-full` in the current suite.
+- Then: if a future runner change breaks either route, regression report must surface the route loss as a blocker.
 
 ### 5.4 Duplicate commit fail-state guard
 
@@ -288,16 +284,16 @@ P11 不得做以下事情：
 - Then: input signatures are unchanged before and after P11.
 - Then: P11 writes files and manifest only.
 
-### 5.12 P12 boundary
+### 5.12 P16 / P17 boundary
 
-- Given: P12 owns random boundary generation, random vehicle attributes and paper-level experiments.
+- Given: P16 owns random boundary generation / random vehicle attributes / seeded random simulation, and P17 owns paper-level experiments.
 - When: P11 builds smoke suite and artifacts.
 - Then: random arrival and random vehicle attributes remain disabled for required smoke.
 - Then: capacity / aggregate metric outputs are not required P11 pass conditions.
 
-## 6. 允许实现的代码对象
+## 6. 代码对象边界
 
-P11 implementation may add or modify delivery-layer objects only. Allowed objects include:
+P11 已落地或后续维护时只允许触碰 delivery-layer objects。允许边界包括：
 
 - smoke aggregation:
   - `SmokeSuiteRegistry`
@@ -336,29 +332,29 @@ P11 implementation may add or modify delivery-layer objects only. Allowed object
 - tests:
   - P11 targeted tests for registry completeness, required/probe/deferred semantics, export, PNG rendering, artifact manifest, regression report, x_plot boundary and no-state-mutation.
 
-P11 implementation must not add algorithm objects for APS / CMC / P06 / CUC / P08 / P09 / P10. If existing `ScenarioConfig`、`OutputConfig`、`OutputArtifactRecord` or expected_* schema is insufficient, the red test should fail at a structured schema / contract gap, not at unknown field / loader crash.
+P11 must not add algorithm objects for APS / CMC / P06 / CUC / P08 / P09 / P10. If existing `ScenarioConfig`、`OutputConfig`、`OutputArtifactRecord` or expected_* schema becomes insufficient in a future change, the regression should surface a structured schema / contract gap, not an unknown field / loader crash.
 
-## 7. 先写失败测试
+## 7. 回归测试语义
 
-本次创建文档时不新增 P11 实际测试文件。未来 P11 implementation must follow this red-before-green order:
+历史 red-before-green implementation 已完成。后续维护 P11 时仍需保持以下回归顺序和失败语义：
 
-1. Add P11 failing tests / test skeletons first.
-2. Run P11 targeted tests and confirm red failures occur in smoke suite aggregation, export, PNG rendering, artifact manifest or regression report contract layers.
-3. Red failures must not be ImportError, AttributeError, unknown enum, unknown field, loader crash, or natural-language assertion.
-4. Implement minimal P11 export / renderer / suite aggregation / report in the same round.
-5. Run P11 targeted green tests and P00-P10 regression.
-6. Return red-before-green evidence with examples, not only pytest counts.
+1. Add or update P11 targeted tests before changing P11 behavior.
+2. Run P11 targeted tests and confirm failures, if any, occur in smoke suite aggregation, export, PNG rendering, artifact manifest or regression report contract layers.
+3. Failures must not be ImportError, AttributeError, unknown enum, unknown field, loader crash, or natural-language assertion.
+4. Keep implementation changes within P11 export / renderer / suite aggregation / report boundaries.
+5. Run P11 targeted green tests and P12 deterministic loop regression.
+6. Return evidence with examples and suite summary, not only pytest counts.
 
 Required test plan:
 
 - `test_p11_required_mvs_registry_contains_target_suite`
   - Asserts the exact 20 target required ids from section 5.1 are enumerated.
   - Asserts family wildcards / ellipsis are not accepted as registry completeness evidence.
-  - Missing built-in required routes are reported as blockers, not skipped.
+  - Any future missing built-in required route is reported as a blocker, not skipped.
 
 - `test_p11_safe_1a_waiting_cap_is_required_not_probe`
   - Asserts `MVS-SAFE-1A_waiting_cap` is in the required denominator.
-  - Asserts any current loader `probe` status for `MVS-SAFE-1A_waiting_cap` is reported as a classification blocker, not accepted as P11 probe grouping.
+  - Asserts current loader / runner / matcher classification keeps `MVS-SAFE-1A_waiting_cap` required green, not probe.
 
 - `test_p11_p05_executing_continuation_is_extra_diagnostic_not_required_denominator`
   - Asserts `P05-EXECUTING-CONTINUATION` may appear in extra regression / diagnostic output.
@@ -401,9 +397,9 @@ Required test plan:
 - `test_p11_export_png_report_do_not_mutate_state_or_history`
   - Compares signatures of input committed state and OutputHistory before/after P11.
 
-- `test_p11_p10_prerequisite_guard_reports_e2e_runner_gap`
-  - Asserts helper-targeted P10 E2E evidence can be referenced.
-  - Asserts missing built-in `MVS-E2E-1` runner route remains a blocker / gap.
+- `test_p11_p10_p13_closure_guard_keeps_e2e_official_route`
+  - Asserts official `MVS-E2E-1` deterministic route can be executed through loader / runner / matcher.
+  - Asserts `MVS-E2E-1` and `MVS-COMMIT-1-full` do not appear in `runner_gaps` in the current required suite.
 
 - `test_p11_duplicate_commit_sanity_blocks_runner_continuation`
   - Asserts `multiple_commit_for_one_vehicle=fail` blocks continuation rather than feeding missing-vehicle state to later steps.
@@ -419,7 +415,7 @@ Static / matcher tests:
 
 ## 8. 验收证据
 
-P11 implementation completion report must include at least:
+P11 completion evidence includes at least:
 
 - Full required MVS suite report sample:
 
@@ -446,17 +442,12 @@ required:
     - MVS-CONFLICT-1A
     - MVS-CONFLICT-1B
     - MVS-COMMIT-1-full
-  passed: <count>
-  failed: <count>
-  blocked: <count>
-  missing_runner_routes:
-    - MVS-E2E-1
-    - MVS-COMMIT-1-full
-  classification_blockers:
-    - MVS-SAFE-1A_waiting_cap: current loader status probe conflicts with required MVS index
-  extra_diagnostics_not_in_required_denominator:
-    - P05-EXECUTING-CONTINUATION
-  suite_status: failed_until_all_required_routes_registered
+  passed: 20
+  failed: 0
+  blocked: 0
+  missing_runner_routes: []
+  classification_blockers: []
+  suite_status: passed
 ```
 
 - Required / probe / deferred grouping sample:
@@ -486,19 +477,18 @@ required: [
 ]
 probe: [MVS-CUC-1B_real_utility_probe]
 deferred: [MVS-CUC-1C_real_utility_choice1_locked]
-extra_non_mvs_deferred_or_out_of_scope: [P12-paper-grid]
+extra_non_mvs_deferred_or_out_of_scope: [P16-seeded-random-simulation, P17-paper-grid]
 ```
 
 - `MVS-E2E-1` artifact sample:
-  - P10 helper-targeted chain evidence id.
-  - built-in runner gap statement until route is registered.
+  - official deterministic runner evidence id.
+  - P10 commit / state transition evidence id.
   - commit event / trajectory / sanity / PNG marker references.
 
 - `MVS-COMMIT-1-full` artifact sample:
   - one-commit-per-vehicle evidence.
   - duplicate sanity fail blocker sample.
   - active maneuver / cache lifecycle evidence.
-  - built-in route gap if still missing.
 
 - Trajectory export sample:
 
@@ -543,9 +533,9 @@ markers:
 ```text
 scenario_id: MVS-E2E-1
 run_id: p11-run
-status: required_blocked_until_runner_route_registered
+status: required_green
 inputs:
-  scenario_config: built-in-or-helper-reference
+  scenario_config: official built-in ScenarioConfig
 exports:
   trajectory: artifacts/MVS-E2E-1/p11-run/trajectory.csv
   events: artifacts/MVS-E2E-1/p11-run/events.jsonl
@@ -555,23 +545,20 @@ exports:
 reports:
   scenario: artifacts/MVS-E2E-1/p11-run/scenario_report.json
   regression: artifacts/regression_report.json
-gaps:
-  - built-in MVS-E2E-1 runner route not registered
+gaps: []
 ```
 
 - Regression report sample:
 
 ```text
 summary:
-  required_green: [...]
-  required_failed: [...]
-  required_blocked:
-    - scenario_id: MVS-E2E-1
-      reason: missing_runner_route
-  probe_observed: [...]
-  deferred_skipped: [...]
-  schema_gaps:
-    - OutputArtifactRecord authority missing in code
+  suite_status: passed
+  required_green: 20
+  required_failed: []
+  required_blocked: []
+  runner_gaps: []
+  probe_observed: [MVS-CUC-1B_real_utility_probe]
+  deferred_skipped: [MVS-CUC-1C_real_utility_choice1_locked]
 ```
 
 - Additional evidence:
@@ -585,11 +572,11 @@ summary:
 
 ## 9. 完成标准
 
-P11 may be called complete only when all are true:
+P11 is considered complete when all are true:
 
 - The exact 20 target required MVS ids from section 5.1 appear in the P11 suite registry; wildcard family names or ellipsis do not count as completeness evidence.
-- Every required MVS is executable or explicitly reported as a prerequisite blocker; no required scenario is silently skipped.
-- `MVS-SAFE-1A_waiting_cap` is counted as required, not probe; any loader status mismatch is reported as a classification blocker.
+- Every required MVS is executable in the official loader / deterministic runner / matcher path; no required scenario is silently skipped.
+- `MVS-SAFE-1A_waiting_cap` is counted as required green, not probe.
 - `P05-EXECUTING-CONTINUATION` is excluded from the required pass denominator unless an upstream authority spec promotes it.
 - Required suite pass/fail is determined by matcher results, sanity results and required evidence, not by log text.
 - Probe scenarios are reported but non-blocking.
@@ -602,9 +589,9 @@ P11 may be called complete only when all are true:
 - `x_plot` is renderer-only.
 - P11 does not first-generate P04-P10 logs, sanity checks, targeted MVS evidence or PNG markers.
 - P11 does not re-run or reimplement P04-P10 algorithms.
-- P11 does not implement P12 random vehicle generation or paper-level experiments.
+- P11 does not implement P16 random vehicle generation or P17 paper-level experiments.
 - Duplicate commit sanity fail blocks runner continuation.
-- P10 built-in full runner route readiness is not claimed until `MVS-E2E-1` and `MVS-COMMIT-1-full` are registered and executable in the suite.
+- `MVS-E2E-1` and `MVS-COMMIT-1-full` remain official required runner routes and do not appear in `runner_gaps`.
 - P11 implementation returns evidence samples, not only pytest counts.
 
 ## 10. 回归保护
@@ -616,31 +603,33 @@ Future changes must preserve these invariants:
 - P11 export, renderer and report are side-effect-free with respect to algorithm state.
 - Required scenario missing route is a blocker, never deferred by convenience.
 - The 20-ID required denominator cannot be replaced by wildcard family expansion or incomplete samples.
-- `MVS-SAFE-1A_waiting_cap` cannot be downgraded to probe by current loader status.
+- `MVS-SAFE-1A_waiting_cap` cannot be downgraded to probe by loader status drift.
 - `P05-EXECUTING-CONTINUATION` cannot inflate required pass counts.
 - Probe does not block required suite unless upstream promotes it.
 - Deferred does not enter first-version required pass criteria.
 - P11 cannot repair missing P04-P10 evidence by inventing new upstream events.
-- P11 cannot reinterpret P10 helper-targeted E2E evidence as built-in full runner readiness.
+- P11 cannot reinterpret official deterministic E2E evidence as helper-only runner gap.
 - P11 cannot continue from duplicate-commit fail-state.
 - P11 cannot introduce untracked schema fields; schema gaps must be explicit.
 - Formal PNG is a delivery artifact, not an algorithm input; its gate is expected_png_features marker evidence, not subjective visual approval.
 - Artifact manifest and regression report must be reproducible from structured records.
-- P12 remains separate: random boundary generation, random vehicle attributes and paper-level metrics must not become hidden P11 dependencies.
+- P16 / P17 remain separate: random boundary generation, random vehicle attributes and paper-level metrics must not become hidden P11 dependencies.
 
-## 11. 当前 P11 入口 gap 清单
+## 11. P13.5 当前状态校准
 
-This section records current project facts that P11 implementation must treat as blockers or explicit gaps:
+This section records current project facts after P12 / P13 closure:
 
-1. Built-in `MVS-E2E-1` runner / loader route is not registered. P10 helper-targeted chain evidence exists, but full runner route readiness is not established.
-2. Built-in `MVS-COMMIT-1-full` route is not registered. P10 targeted commit responsibility exists, but full route aggregation remains a P11 / later runner task.
-3. Several target required scenarios from upstream specs are not currently loadable built-ins: `MVS-CUC-1A_override_choice1`, `MVS-CUC-2`, `MVS-CUC-3`, `MVS-SAFE-1B_executing_cap_lateral_consumption`, `MVS-SAFE-2`.
-4. `MVS-SAFE-1A_waiting_cap` is loadable in current code but marked `probe`; upstream authority marks it required. P11 must report this classification mismatch as a blocker until loader / runner status is reconciled.
-5. `P05-EXECUTING-CONTINUATION` is loadable and currently marked required in code, but it is not part of the final 20-ID P11 required denominator. It may appear only as extra regression / diagnostic evidence.
-6. Current runner executes targeted routes by scenario family. A one-shot full required smoke suite aggregator is not implemented.
-7. Formal PNG renderer is not implemented; current expected_png_features are renderer-deferred.
-8. Artifact manifest / formal `OutputArtifactRecord` code schema is not implemented, although data-structure docs reserve `OutputHistory.png_artifacts`.
-9. OutputConfig exists as a documented concept, but current code does not yet expose a strict file-output config used by exporters / renderer.
-10. `information_integration` event string is current-code compatible; if strict enum validation is introduced, authority docs / loader / matcher must be reconciled before P11 writes strict expected events.
-11. Duplicate commit fail-state must be blocked by P11 suite logic; current P10 helper returns a fail-state fixture rather than raising.
-12. P11 must not use the current absence of full runner routes as a reason to pass required suite.
+1. `MVS-E2E-1` is registered through official loader / deterministic runner / matcher and is required green.
+2. `MVS-COMMIT-1-full` is registered through official loader / deterministic runner / matcher and is required green.
+3. CUC required scenarios are registered through official loader / deterministic runner / matcher and are required green.
+4. SAFE required scenarios, including `MVS-SAFE-1A_waiting_cap`, are registered through official loader / deterministic runner / matcher and are required green.
+5. Current suite status is `suite_status="passed"` with 20 required green, `required_failed=[]`, `required_blocked=[]` and `runner_gaps=[]`.
+6. Current probe list is `MVS-CUC-1B_real_utility_probe`.
+7. Current deferred list is `MVS-CUC-1C_real_utility_choice1_locked`.
+8. P11 is not the formal natural-output delivery phase. P14 must create the formal artifact bundle path and regression baseline before P15 engine consolidation starts.
+9. P11 must not introduce P16 random generation or P17 paper experiment grid as hidden dependencies.
+
+P13.5 verification record:
+
+- `python -m pytest tests\test_p11_output_export.py tests\test_p12_deterministic_simulation_loop.py` -> `30 passed`
+- P11 suite summary -> `suite_status=passed`, `required_green=20`, `required_failed=[]`, `required_blocked=[]`, `runner_gaps=[]`, `probe=[MVS-CUC-1B_real_utility_probe]`, `deferred=[MVS-CUC-1C_real_utility_choice1_locked]`

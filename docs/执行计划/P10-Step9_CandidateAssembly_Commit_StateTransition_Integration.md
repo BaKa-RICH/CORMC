@@ -1,6 +1,6 @@
 # P10 - Step4-9 Integration Slice: APS / CMC / CUC / Longitudinal / Lateral / Commit Closure
 
-> 本文档是 P10 red-before-green implementation 的执行计划 spec。执行者应按本文先写失败测试，再实现或修订 P10 范围内的 candidate assembly / commit closure / state transition consumption / in-memory OutputHistory evidence / targeted runner or helper gate，并返回红灯、绿灯和验收证据。
+> 本文档是 P13.5 校准后的 P10 执行计划 spec。P10 范围内的 candidate assembly / commit closure / state transition consumption / in-memory OutputHistory evidence 已由后续 P12 deterministic loop 与 P13 required MVS closure 证明闭合；历史 red-before-green 约束保留为回归语义，不再作为当前入口 blocker。
 >
 > P10 与总纲 `P10 - Step4-9 集成切片：APS / CMC / CUC / 纵向 / 横向 / commit 同步闭环` 对齐：它验证 P04-P09 多个时间步切片组合后仍保持冻结输入、command / next-state 分离、唯一 commit、cache 生命周期和 active trajectory 生命周期。P10 不新增或重写 APS、CMC、P06 conflict、P07 CUC、P08 longitudinal model 或 P09 lateral trajectory 的核心算法；它消费这些阶段已经产生的 command / candidate / event / sanity evidence，并把闭环提交、组合验收和回归保护落地。
 
@@ -18,7 +18,7 @@
     - 在 Step 10 记录 `OutputHistory`、`TrajectoryRecord`、`EventRecord`、`SanityCheckRecord` 和 renderer-deferred PNG markers，不反向修改已提交状态。
 - MVS Acceptance Gate:
   - required:
-    - `MVS-COMMIT-1-full` P10 targeted subset / P10 responsibility: 每车每步唯一 commit；非 APS 周期 cache reuse 可追踪；P08/P09 component candidates 被组装；active maneuver / cache / state transition / trajectory / event history 生命周期正确。P10 首轮不要求一次性补齐 full runner / full route。
+    - `MVS-COMMIT-1-full` official deterministic route: 每车每步唯一 commit；非 APS 周期 cache reuse 可追踪；active lane-change 不重跑 CUC；executing merge 不重判 Eq.53；active maneuver / cache / state transition / trajectory / event history 生命周期正确。
     - `MVS-E2E-1` P10 integration gate: APS case 1 -> no CUC -> CMC Eq.53 pass -> merge-start command -> P08 longitudinal candidate -> P09 lateral candidate -> P10 commit，主链路能在 P10 层形成真实 `S(t+dt)`。
     - `MVS-CUC-1A_override_choice1` P10 commit gate: P07 choice 1 + P09 lane-change candidate 被 P10 commit 成真实 `y` 和 active lane-change state / completion state，不重跑 CUC。
     - `MVS-SAFE-1B_executing_cap_lateral_consumption` P10 commit gate: P09 已消费 capped planning speed，P10 只提交该 candidate，不重新做 speed cap composition。
@@ -35,7 +35,8 @@
     - P11 full required smoke suite aggregation。
     - formal PNG renderer / artifact export / artifact record。
     - regression report。
-    - P12 random boundary generation、random vehicle attributes、paper-level experiment grid。
+    - P16 random boundary generation、random vehicle attributes、seeded random simulation。
+    - P17 paper-level experiment grid。
     - strict paper-level numeric equality / aggregate metric。
 - 本阶段解锁的能力:
   - P08 longitudinal component candidate 与 P09 lateral / progress / completion component candidates 可被稳定合成为 final `CandidateKinematics`。
@@ -46,14 +47,14 @@
   - Step 10 information integration 成为记录层，不是状态回写层。
 - 本阶段不要求通过的后续场景:
   - 不要求 P11 formal PNG 文件、artifact record 或 regression report 存在。
-  - 不要求 P12 随机边界生成或论文级实验入口。
-  - 不要求未完成的 MVS runner full route 在本 spec 写作阶段可直接加载 P08/P09/P10 handoff。
+  - 不要求 P16 随机边界生成或 P17 论文级实验入口。
+  - P13 后 `MVS-E2E-1` 与 `MVS-COMMIT-1-full` 已经通过 official loader / deterministic runner / matcher 接入 required suite；本文档不再保留 full route gap 作为当前事实。
 
 总纲一致性声明:
 
 - P10 是 Step4-9 integration / combination acceptance stage，不是 P04-P09 核心算法重写阶段。
-- P10 必须落地或以 helper-targeted 形式证明总纲列出的 E2E event chain matcher、cross-step sanity aggregation、`MVS-E2E-1` targeted regression runner、`MVS-COMMIT-1-full` targeted regression runner 和 engineering patch trace checker。
-- 如果当前 MVS runner / ScenarioConfig 尚不足以承载 full route，P10 首轮应使用 helper-based targeted tests 证明 handoff 和 commit closure，并把 runner / loader gap 作为后续修订项；不得让红灯落在 unknown field / loader 层。
+- P10 必须证明总纲列出的 E2E event chain matcher、cross-step sanity aggregation、`MVS-E2E-1` regression route、`MVS-COMMIT-1-full` regression route 和 engineering patch trace checker。
+- P13 后，`MVS-E2E-1` 与 `MVS-COMMIT-1-full` 不再是 helper-only 或 runner-gap 状态；后续实现不得重新把它们描述成未注册 full route。
 - P10 文档和后续 P10 tests 不得把 `on_ramp_mv` 当作 `RoadRole` 新枚举。权威 `RoadRole` 只有 `mainline` / `on_ramp`；MV 身份必须由 vehicle role / `physical_lane=on_ramp` / `merge_state` / source scenario 语义表达。
 
 P00 / 总纲消歧:
@@ -71,7 +72,7 @@ P10 的目标不是“实现一个新的仿真主循环”，而是按总纲验�
 - 将 P08 longitudinal candidate 与 P09 lateral / progress / completion candidates 组装为每车唯一 final `CandidateKinematics`。
 - 在 Step 9 commit 中生成真实 `S(t+dt)`，并正式应用 lane / role / state transition / active maneuver / cache lifecycle。
 - 产出 P10 所需 in-memory trajectory / event / sanity / PNG marker evidence，供 P11 formal artifact aggregation 使用。
-- 落地或以 helper-targeted 方式证明 `MVS-E2E-1`、`MVS-COMMIT-1-full`、active lane-change no-CUC-rerun、merge executing no-rejudge-start、active trajectory continuation 和 engineering patch trace。
+- 证明 `MVS-E2E-1`、`MVS-COMMIT-1-full`、active lane-change no-CUC-rerun、merge executing no-rejudge-start、active trajectory continuation 和 engineering patch trace。
 
 ```text
 freeze S(t)
@@ -148,7 +149,7 @@ P10 不得实现或重做以下内容:
 - 不用 `VehicleState.v / y` 偷代缺失的 P08/P09 candidate，除非走已批准 identity fallback，并且 event / warning / sanity 可追踪。
 - 不在 Step 10 OutputHistory 中反向修改已提交状态。
 - 不实现 P11 formal PNG renderer、artifact export、full smoke suite aggregation 或 regression report。
-- 不实现 P12 随机边界生成、随机车辆属性或论文级实验。
+- 不实现 P16 随机边界生成、随机车辆属性或 P17 论文级实验。
 - 不使用 `x_plot` 做任何算法判断。
 - 不暗增字段、enum、ScenarioConfig 字段或 expected_* 结构。
 - 不把 P03 `test_harness_preloaded_candidate` 借用为真实 P08/P09 模型输出 source。
@@ -335,7 +336,7 @@ P10 是唯一允许把 candidates 写成真实 `S(t+dt)` 的阶段；这个权�
 - When: P10 commit。
 - Then: MV 的真实 `S(t+dt)` 反映 P08/P09 candidates。
 - Then: commit / trajectory / sanity / PNG marker 能证明主链路已在 P10 层闭合。
-- Then: 如果当前 MVS runner / ScenarioConfig 不足以 full route，首轮 P10 implementation 必须使用 helper-based targeted gate，并明确 runner / loader gap。
+- Then: P13 后该链路已通过 official deterministic runner / matcher 接入 required suite；后续不得重新记录为 helper-only 或 runner / loader gap。
 
 ### 4.16 Step 10 OutputHistory
 
@@ -426,7 +427,7 @@ Event / sanity schema guard:
 
 ### 5.5 scenario / runner strategy
 
-P10 首轮不应依赖尚未登记的 full built-in `MVS-E2E-1` / `MVS-COMMIT-1-full` route。可以先用 Python helper 构造:
+P10 的历史首轮可以用 helper 构造以下输入来证明 candidate assembly / commit 责任:
 
 - frozen `SimulationState`
 - `CommandBuffer`
@@ -437,7 +438,7 @@ P10 首轮不应依赖尚未登记的 full built-in `MVS-E2E-1` / `MVS-COMMIT-1-
 - P09 `candidate_state_transitions`
 - optional `candidate_cache_updates`
 
-然后直接调用 P10 assembly / commit runner。将 fixtures 登记进 MVS runner / built-in scenario 是独立后续修订项，不是首轮 P10 green 的必要条件。
+然后直接调用 P10 assembly / commit runner。P13 后，`MVS-E2E-1` 与 `MVS-COMMIT-1-full` 已通过 official deterministic runner / matcher 接入 required suite；后续不得再把“登记进 MVS runner / built-in scenario”列为当前缺口。
 
 ### 5.6 regression tests
 
@@ -519,10 +520,10 @@ P10 首轮不应依赖尚未登记的 full built-in `MVS-E2E-1` / `MVS-COMMIT-1-
   - 断言 P10 final candidate / commit 引用 P08/P09 candidates。
   - 断言 P10 不产生新的 `speed_cap` / `longitudinal_model` / `lateral_trajectory` 计算事件。
 
-- `test_p10_mvs_e2e_1_helper_chain_commits_merge_start_handoff`
-  - 若 runner route 不足，使用 helper chain 构造 P05/P08/P09/P10 handoff。
+- `test_p10_mvs_e2e_1_deterministic_route_commits_merge_start_handoff`
+  - 使用 official `MVS-E2E-1` deterministic route 证明 P05/P08/P09/P10 handoff。
   - 断言 MV 在 P10 后产生真实 `S(t+dt)`。
-  - 断言报告中列 runner / loader gap。
+  - 断言报告不再列 runner / loader gap。
 
 - `test_p10_step10_output_history_records_commit_trajectory_event_sanity`
   - 断言 `TrajectoryRecord` 记录 commit 后 state。
@@ -542,10 +543,7 @@ P10 首轮不应依赖尚未登记的 full built-in `MVS-E2E-1` / `MVS-COMMIT-1-
 - P10 expected_sanity_checks 缺失时，失败必须为 `missing_sanity_check` / `sanity_check_mismatch`。
 - P10 expected_png_features 必须可注册为 renderer deferred，不要求真实 PNG。
 - P10 首轮红灯不得由 unknown `EventType` / `SanityCheckType` 触发；若需要新的 canonical enum，必须先单独完成 schema revision。
-- 如果正式接入 MVS runner:
-  - `_is_p10_commit_integration_scenario(...)` route 或等价机制必须明确。
-  - `ScenarioConfig` 若需要 preloaded command / P08 / P09 candidates，必须先修订 loader contract。
-  - `MVS-E2E-1` 的 upstream algorithm evidence 与 P10 commit evidence 不得互相覆盖。
+- `MVS-E2E-1` 与 `MVS-COMMIT-1-full` 已经通过 deterministic loop 接入 MVS runner；upstream algorithm evidence 与 P10 commit evidence 不得互相覆盖。
 
 ## 7. 验收证据
 
@@ -566,7 +564,6 @@ P10 implementation 完成后，不能只返回 pytest 数字，必须返回以�
   - final `CandidateKinematics` sample。
   - `CommitResult` sample。
   - `S(t)` vs `S(t+dt)` diff sample。
-  - If runner route is unavailable, helper-based targeted gate plus runner / loader gap statement。
   - 不要求 P11 formal artifact、full smoke aggregation report 或正式 PNG 文件；只要求 P10 层 commit / trajectory / sanity / marker evidence 证明闭合。
 
 - `MVS-CUC-1A_override_choice1` P10 commit evidence:
@@ -784,8 +781,8 @@ P10 只有同时满足以下条件，才能声称完成:
 - active maneuver state 能正确 persistence / cleanup。
 - CandidateStateTransition / CandidateLaneState 被正确应用，或明确列为 schema gap。
 - APS cache cleanup / invalidation 被正确应用，或明确列为 schema gap。
-- `MVS-COMMIT-1-full` 的 P10 targeted subset / P10 responsibility 被清晰处理；不要求首轮补齐 full runner / full route。
-- `MVS-E2E-1` 的 P10 responsibility 被清晰处理；若 full runner route 仍不足，必须列 gap 与 targeted 替代证据。
+- `MVS-COMMIT-1-full` 的 P10 responsibility 已通过 official deterministic route 清晰处理。
+- `MVS-E2E-1` 的 P10 responsibility 已通过 official deterministic route 清晰处理；不得再列 full runner route gap 作为当前事实。
 - OutputHistory / TrajectoryRecord / EventRecord / SanityCheckRecord 能记录 P10 结果。
 - P10 不重做 APS。
 - P10 不重做 CMC / Eq.53 / boundary cap calculation。
@@ -822,59 +819,19 @@ P10 只有同时满足以下条件，才能声称完成:
 - P10 commit event / sanity / PNG marker 必须在本阶段产生，不得等待 P11 补齐。
 - P11 只做 aggregation / formal artifact，不补 P10 首次证据。
 
-## 10. 当前代码 / schema gap 清单
+## 10. P13.5 当前状态校准
 
-这些 gap 是进入 P10 implementation 前必须处理或显式降级的事项:
+P10 的历史 implementation-entry blocker 已由后续 P12 / P13 工作关闭，不再作为当前计划入口：
 
-1. `select_final_candidate_per_vehicle(...)` 当前只读取 `NextStateBuffer.candidate_kinematics`，不会自动从 P08 `candidate_longitudinal` 和 P09 `candidate_lateral` 组装 final candidate。
-2. `assemble_candidate_kinematics(...)` 当前默认 source 为 `test_harness_preloaded_candidate`，真实 P10 implementation 需要正式 source contract，例如批准 `step9_candidate_assembly`。
-3. P03 component source guard 当前拒绝 P08 `step7_longitudinal_model` 和 P09 `step8_lateral_trajectory`；P10 必须先修订 `ALLOWED_CANDIDATE_SOURCES` / source policy 或列为 blocker。
-4. `build_next_simulation_state(...)` 当前不会根据 `CandidateManeuverProgress` 更新 `active_maneuvers`；它直接保留 `state.active_maneuvers`。
-5. `CandidateManeuverProgress` 当前字段较薄，缺少 `start_x_global`、`start_y`、`target_lane`、`planned_length`、`last_planning_speed` 等持久化所需字段。P10 可从 existing active maneuver + progress candidate 合成；如不足必须修订 schema。
-6. `ManeuverTrajectoryState` 有 `last_planning_speed` 字段，但当前 P09 没有直接输出持久化候选结构；P10 需要定义如何从 P09 progress candidate 更新它。
-7. merge completion cache cleanup 需要 `CandidateCacheUpdate` 或 approved command source；当前 P09 不自动生成 cache cleanup candidate，P10 / P05 / P03 需明确来源。
-8. commit event 当前有 `cache_cleanup_vehicle_ids`，但没有正式 `active_maneuver_cleanup_vehicle_ids` 字段；可先放 payload，若要 schema 化需修订数据结构。
-9. 权威 `RoadRole` 只有 `mainline` / `on_ramp`，但当前 loader / 历史 fixtures / 上游代码中仍存在 `road_role=on_ramp_mv` 漂移。P10 新样例和新测试必须使用 `road_role=on_ramp` 表达匝道身份；不得暗增 `on_ramp_mv` enum。
-10. `information_integration` event_type 当前由 P03 code 写入，且 P03 tests / P01 matcher 能消费；但权威数据结构文档可能未列为正式 `EventType`。P10 若写入 strict expected_events，应先确认当前兼容口径或修订权威文档；否则将 Step 10 record-only 语义放入 commit payload。
-11. `information_integration_does_not_rewrite_state` 当前由 P03 code 使用，但数据结构文档的正式 `SanityCheckType` 列表可能未列出。若 P10 将其写入 ScenarioConfig expected_sanity_checks，应先确认 / 修订权威文档。
-12. MVS runner 当前没有 P08 / P09 / P10 full route；`MVS-E2E-1` 与 `MVS-COMMIT-1-full` 首轮可能需要 helper-based targeted tests。
-13. `ScenarioConfig` 当前没有 preloaded command buffer、preloaded P08 candidate、preloaded P09 candidate、preloaded cache update candidate 字段；不得让 red test 失败在 unknown field / loader 层。
-14. `expected_events` / `expected_sanity_checks` 当前只支持有限字段；P10 新语义应放 payload match 中，或先修订 loader / matcher。
-15. `MVS-COMMIT-1-full` built-in route 尚未与 P04-P09 helper outputs 串接；P10 首轮只要求 targeted subset / P10 responsibility。
-16. `MVS-E2E-1` 端到端 runner route 尚不足以证明 APS->CMC->P08->P09->P10 full chain；P10 spec 允许首轮 targeted helper 替代，但必须报告 gap。
-17. full collision / near-collision post-commit sanity 若需要精确矩形碰撞，当前可能仍是 baseline / probe；不得把它伪装为 P10 required full safety policy。
+1. `MVS-E2E-1` 已通过 deterministic loop 接入 official runner route。
+2. `MVS-COMMIT-1-full` 已通过 deterministic loop 接入 official runner route。
+3. P08 / P09 component source、Step9 candidate assembly、active maneuver persistence、cache lifecycle 和 Step10 information integration 已在 deterministic loop 与 required MVS closure 中形成回归证据。
+4. 当前 20 个 required MVS 均 green，`runner_gaps=[]`。
 
-## 11. Implementation Entry Checklist
+后续只需保留 P10 的边界约束：
 
-本节是执行 P10 red-before-green implementation 的硬前置，不是建议清单。执行 prompt 必须显式复制或等价回答本节的每个决策；若缺失，implementation agent 应先停止并补齐决策，再写测试或代码。
-
-默认进入策略如下；除非人工审阅明确改写，否则按这些默认值执行:
-
-Implementation decision locks:
-
-- Lock 1 - source guard: P10 首轮必须先修订 / 明确 P03 candidate source policy，使真实 P08/P09/P10 handoff source `step7_longitudinal_model`、`step8_lateral_trajectory`、`step9_candidate_assembly` 能被合法消费；若不修订，则该实现轮必须停在 source-contract blocker。不得用 `test_harness_preloaded_candidate` 表示真实 P08/P09 model output。
-- Lock 2 - active maneuver lifecycle: P10 首轮必须实现或显式结构化降级 active maneuver in-progress persistence 与 completion cleanup。实现时优先用现有 `ManeuverTrajectoryState` + P09 `CandidateManeuverProgress` 更新 progress / source command / last planning speed；若字段不足以无损持久化，必须返回 schema gap，不能只写 event payload 冒充跨步 state。
-- Lock 3 - merge completion cache cleanup source: merge completion 后 APS cache cleanup / invalidation 只能由 `CandidateCacheUpdate`、approved cache / state transition command source 或显式 diagnostic gap 承载。P09 不自动生成 cleanup candidate 时，P10 不得静默 cleanup，也不得静默保留错误 cache。
-- Lock 4 - runner route vs helper tests: P10 首轮使用 Python helper targeted tests 直接构造 frozen state、CommandBuffer、P08 component candidates、P09 component candidates 和 P10 fixtures；不先扩展 `ScenarioConfig` / loader 接受未登记 preloaded fields，不让红灯落在 unknown field / loader 层。full MVS runner route 留给后续单独修订。
-
-- runner 路线: 按 Lock 4。
-- source guard: 按 Lock 1。
-- candidate assembly: 先实现 component -> final `CandidateKinematics` 的最小 assembly，不重写 P08/P09。
-- missing candidate policy: 普通 no-lateral 可以保留 current y；missing longitudinal 只能 identity fallback with evidence 或 fail，不透明偷代。
-- active maneuver lifecycle: 按 Lock 2。
-- cache cleanup: 按 Lock 3。
-- event / sanity enum: 首轮直接使用 canonical `commit`；`information_integration` 只能作为 P03 code / matcher 已接受的兼容 event string 使用，不得声称已登记为权威 `EventType`。若 strict schema 不接受，改放 commit payload 或先修订权威数据结构。`information_integration_does_not_rewrite_state` 同理只能沿用已接受检查或先修订 `SanityCheckType`。
-- P11 boundary: 不实现 formal PNG / artifact export / regression report。
-- P12 boundary: 不实现随机边界或论文级实验。
-
-开始 P10 red-before-green implementation 前，执行者还必须确认:
-
-- 已阅读本文档和所有上游 spec。
-- 已确认 P10 是 Step4-9 integration validation；具体实现触点集中在 Step9/10 commit closure、targeted runner / matcher aggregation 和 evidence chain，不重跑 P04-P09。
-- 已确认 P03 lite 与 P10 full 的差距。
-- 已决定 candidate source guard 修订策略。
-- 已决定 runner route vs helper targeted tests。
-- 已决定 active maneuver persistence / cleanup schema。
-- 已决定 APS cache cleanup source。
-- 已确认 P08/P09 当前 candidate payload 足以覆盖 required P10 gate，或已列 schema gap。
-- 已准备好在完成后返回 final candidate / CommitResult / S(t) vs S(t+dt) / event / sanity / trajectory / PNG marker 样例，而不仅是 pytest 数字。
+- P10 不重跑 APS / CMC / cooperative request / CUC / longitudinal / lateral。
+- P10 不实现 P14 formal artifact bundle。
+- P10 不实现 P16 random generation。
+- P10 不实现 P17 paper experiment grid。
+- 若后续严格化 enum / schema，必须同步修订权威数据结构、loader、matcher 和文档，不能在 P10 局部暗增字段。

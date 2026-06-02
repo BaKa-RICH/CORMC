@@ -189,6 +189,21 @@ P04-P10 的 MVS scenario tests 必须是 targeted gate，绑定本阶段时间�
 
 ## 4. 建议执行计划拆分
 
+P13.5 后，执行计划路线按当前代码事实重新校准：
+
+- P11 已具备输出 / PNG / artifact manifest / regression report 的基础函数，以及 full required MVS suite aggregation 基础。
+- P12 已完成 deterministic CORMC full simulation loop：固定场景、关闭随机边界生成，按 Step0-11 多步推进并能生成 demo PNG。
+- P13 已完成 required MVS closure：20 个 required MVS 通过 official `MVS-*` ID、official loader、统一 deterministic runner 和 P11 matcher 进入验收，当前 suite 为 20 green。
+- P14 是下一步正式 artifact bundle 阶段，把“测试中能生成输出”升级为“一次仿真自然生成正式输出包”。
+- P15 是 engine core consolidation，但必须等 P14 产出可比较的 trajectory / event / sanity / PNG / manifest / regression report baseline 后再启动。
+- P16 才进入 seeded random simulation：边界车辆生成、arrival headway、随机车型、随机 CHV compliance。
+- P17 才进入论文实验网格、批量运行、统计指标和复现报告。
+
+P13.5 复核命令与结果摘要：
+
+- `python -m pytest tests\test_p11_output_export.py tests\test_p12_deterministic_simulation_loop.py` -> `30 passed`
+- P11 suite summary -> `suite_status=passed`，`required_green=20`，`required_failed=[]`，`required_blocked=[]`，`runner_gaps=[]`，`probe=[MVS-CUC-1B_real_utility_probe]`，`deferred=[MVS-CUC-1C_real_utility_choice1_locked]`
+
 ### P00 - Spec 宪法、权威边界与二维追踪矩阵
 
 **Step 覆盖**：全局，不实现代码。  
@@ -541,6 +556,8 @@ P04-P10 的 MVS scenario tests 必须是 targeted gate，绑定本阶段时间�
 - 每车每步只提交一次。
 - 所有工程补丁 event 可追溯。
 
+当前状态：P10 的集成责任已由后续 P12 deterministic loop 和 P13 required MVS closure 证明闭合。后续文档和实现不得再声称 `MVS-E2E-1` 或 `MVS-COMMIT-1-full` 仍缺 full runner route。
+
 ---
 
 ### P11 - Step10：交付级日志导出、PNG 渲染与全量 MVS 回归收口
@@ -582,32 +599,61 @@ P04-P10 的 MVS scenario tests 必须是 targeted gate，绑定本阶段时间�
 - probe 场景可以执行并报告，但不阻塞 required suite。
 - deferred 场景不进入第一版强验收。
 
+当前状态：P11 的 exporter / renderer / manifest / regression report 基础能力和 full required MVS aggregation 基础已实现；P13 后当前 suite summary 为 `suite_status="passed"`、20 required green、`required_failed=[]`、`required_blocked=[]`、`runner_gaps=[]`。P11 不等同于 P14：P14 才负责让一次仿真自然生成正式输出包。
+
 ---
 
-### P12 - Step1 扩展：边界车辆生成、随机属性与论文级实验入口
+### P12 - Deterministic Full Simulation Loop
 
-**Step 覆盖**：Step 1；论文级实验入口。  
-**MVS Gate**：不进入第一版 required smoke；回归要求是所有 MVS 在关闭 random / boundary 后仍稳定。  
-**目标**：在主链路与 smoke suite 通过后，再实现边界车辆生成、随机属性、arrival headway、实验网格入口。
+**Step 覆盖**：Step 0-11 deterministic 主循环。
+**MVS Gate**：`MVS-E2E-1` deterministic loop，多步推进；P12 branch scenarios 观察 CUC / SAFE / active continuation。
+**目标**：在关闭随机边界生成的固定场景中，让车辆从 `S(t)` 连续进入 `S(t+dt)`、`S(t+2dt)`，并能生成 demo PNG。
 
-本阶段应落地：
+当前状态：P12 已完成。`run_deterministic_simulation()` / `run_one_deterministic_step()` 已按 Step0-11 串联 APS、CMC、cooperative request、CUC、纵向、横向、commit、history 和 time advance；随机 boundary generation、random attributes、paper grid 仍未进入本阶段。
 
-- boundary vehicle queue。
-- arrival headway sampler。
-- vehicle type sampler。
-- CHV compliance sampler。
-- CHV desired speed sampler。
-- CAV inertial lag sampler。
-- entry safety gap checker。
-- experiment grid config。
-- paper-level metric entry points。
+---
 
-**验证点**：
+### P13 - Required MVS Closure
 
-- boundary generation 必须是 pre-freeze population update。
-- boundary generation 不修改已冻结的本步 `S(t)`。
-- MVS smoke scenario 可关闭 random arrival / random attributes。
-- 论文级指标只预留入口，不作为第一版强验收。
+**Step 覆盖**：MVS loader / runner / matcher closure。
+**MVS Gate**：全部 20 个 required MVS；probe / deferred 非阻塞。
+**目标**：把原先 blocked 的 required CUC / SAFE / COMMIT-full 等路线接入 official `MVS-*` scenario id、official loader、deterministic runner 和 P11 matcher。
+
+当前状态：P13 已完成。当前 required suite 为 20 green，`suite_status="passed"`，`required_failed=[]`，`required_blocked=[]`，`runner_gaps=[]`。
+
+---
+
+### P14 - Formal Artifact Bundle Baseline
+
+**Step 覆盖**：Step 10 交付输出路径，以 P11 基础能力和 P12/P13 deterministic loop 为输入。
+**MVS Gate**：deterministic scenario run 能自然生成正式输出包；required suite regression report 能引用 artifact paths。
+**目标**：把 trajectory CSV、event JSONL、sanity JSONL、PNG、manifest、scenario report、regression report 串成一次仿真的正式 artifact bundle。
+
+P14 是 P15 的硬前置。没有 P14 输出基线，不得启动 engine consolidation。
+
+---
+
+### P15 - Engine Core Consolidation
+
+**Step 覆盖**：engine / workspace / recorder / output 边界整理。
+**MVS Gate**：P14 artifact baseline 前后可比较，20 required MVS 仍 green。
+**目标**：在 P12/P13/P14 保护下逐步让 `simulation_loop.py` 变薄，不推倒重来，不引入随机性。
+
+---
+
+### P16 - Seeded Random Simulation
+
+**Step 覆盖**：Step 1 boundary generation 扩展与 seeded random simulation。
+**MVS Gate**：随机入口关闭时不得破坏全部 required MVS；seeded random run 可复现。
+**目标**：实现边界车辆生成、arrival headway、随机车型、随机 CHV compliance 和 seed 管理。
+
+---
+
+### P17 - Paper Experiment Grid
+
+**Step 覆盖**：论文实验网格、批量运行、统计指标、复现报告。
+**MVS Gate**：不替代 deterministic required MVS；基于 P16 seeded random simulation 批量运行。
+**目标**：实现论文级 grid、重复种子、统计指标和复现报告，不与 P16 混在一起。
 
 ## 5. 最终验收标准
 

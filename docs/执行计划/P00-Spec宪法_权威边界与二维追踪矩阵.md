@@ -4,7 +4,7 @@
 
 - Algorithm-Step Coverage:
   - Primary Steps: 全局；不实现任何运行时代码；覆盖 Step 0-11 的权威边界、状态写入规则、MVS 追踪矩阵和证据链口径。
-  - Secondary Steps: 为 P01-P12 分配 Step 范围、MVS gate、上游 spec、event / sanity / PNG 证据责任；建立工程补丁分类表。
+  - Secondary Steps: 为 P01-P17 分配 Step 范围、MVS gate、上游 spec、event / sanity / PNG / artifact 证据责任；建立工程补丁分类表。
 - MVS Acceptance Gate:
   - required:
     - 静态追踪检查：每个后续 Pxx 至少绑定一个 Step 范围。
@@ -49,7 +49,7 @@
 
 ### 1.1 Pxx 成熟度状态与当前执行边界
 
-P00 的追踪矩阵必须覆盖 P01-P12，但不同 Pxx 在不同阶段具有不同成熟度状态。P00 必须区分以下三类状态：
+P00 的追踪矩阵必须覆盖 P01-P17，但不同 Pxx 在不同阶段具有不同成熟度状态。P00 必须区分以下四类状态：
 
 ```text
 trace_registered:
@@ -63,6 +63,9 @@ spec_ready:
 implementation_ready:
     表示该 Pxx 已允许进入代码实现。
     进入 implementation_ready 前，必须确认前置 Pxx 已完成，所需 schema / enum / record / buffer 已由上游规格定义，所需 MVS runner / matcher / event / sanity 能表达本阶段验收，并且不需要临时发明核心字段、参数、公式或工程补丁语义。
+
+implemented_green:
+    表示该 Pxx 已有对应实现或文档交付，并已有当前回归证据证明目标 gate 通过。
 ```
 
 当前阶段执行边界：
@@ -76,12 +79,17 @@ P01-P03:
     必须达到 spec_ready 与 implementation_ready。
     允许按各自 spec 完整执行；不得以“薄切片”替代 spec 中要求的 runner、matcher、geometry、freeze、relations、commit、event、sanity、trajectory 和 Step 11 time advance 最小闭环。
 
-P04-P12:
-    当前只要求 trace_registered。
-    不要求已有完整执行计划；P00 不代替 P04-P12 的后续完整执行计划，也不允许实现 APS、CMC、cooperative request、CUC、纵向模型、横向轨迹、正式 PNG、全量 smoke suite 或论文级实验入口。
+P04-P11:
+    当前已完成对应算法切片、输出基础能力或 full required smoke suite aggregation 基础，不再只是 trace_registered。
+
+P12-P13:
+    P12 deterministic full simulation loop 已完成；P13 official required MVS closure 已完成。
+
+P14-P17:
+    当前只登记后续路线：P14 formal artifact bundle baseline、P15 engine core consolidation、P16 seeded random simulation、P17 paper experiment grid。
 ```
 
-P00 的追踪矩阵不得因为 P04-P12 仅处于 trace_registered 状态而判定失败；但如果 P04-P12 未进入矩阵，或缺少总纲级 Step / MVS / evidence 占位，则 P00 静态追踪失败。
+P00 的追踪矩阵必须反映当前事实：P04-P13 已有完成证据，P14-P17 是后续路线。不得把 P04-P13 继续写成早期占位，也不得把 P16/P17 的随机和论文实验职责回填到 P12。
 
 
 ## 2. 非目标 / 禁止事项
@@ -177,32 +185,37 @@ P00 的追踪矩阵不得因为 P04-P12 仅处于 trace_registered 状态而判�
 
 ### 7.1 Step × MVS × Pxx × evidence × maturity 追踪矩阵
 
-本矩阵是 P00 的静态追踪入口。P01-P03 必须达到 spec_ready / implementation_ready；P04-P12 在当前阶段只要求 trace_registered。后续 P04-P12 的完整执行计划必须在对应阶段另行编写，不能由 P00 代替。
+本矩阵是 P00 的静态追踪入口。P01-P13 反映当前已完成或已实现事实；P14-P17 只登记后续路线，不能由 P00 代替后续完整执行计划。
 
 | Pxx | Step 覆盖 | Required Gate | Probe | Deferred | 主要 event evidence | 主要 sanity evidence | PNG / artifact evidence | 主要上游 spec | 成熟度状态 | 当前阶段是否可执行 | 阻塞条件 / 后续补全点 |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | P01 | MVS Runner / ScenarioConfig / matcher 执行层 | `MVS-APS-FAIL-EMPTY` failing contract；`MVS-COMMIT-1-lite` failing contract；required / probe / deferred 分类可表达 | probe 场景非阻塞报告 | deferred 场景不进入 required suite | scenario load / matcher report / forbidden event report | expected_sanity matcher / baseline sanity matcher | expected_png_features 口径注册，不要求真实 PNG | 最小验证场景、代码数据结构、日志验证 | spec_ready + implementation_ready | 是 | 必须按 P01 spec 完整实现，不得仅做薄 runner |
 | P02 | Step 0-3：cleanup、pre-freeze hook、freeze `S(t)`、relations snapshot、geometry 口径 | geometry / freeze / relations static+targeted sanity；为 `MVS-APS-*`、`MVS-CUC-*` 提供正确空间和关系底座 | active maneuver relations 细粒度检查可后续增强 | 随机边界生成完整机制交给 P12 | cleanup / freeze / relation_refresh event candidate | `x_plot_used_in_algorithm_path=false`、geometry consistency、relations consistency | 可渲染 lane / zone / candidate window 数据，不要求真实 PNG | 时间步总纲、道路几何、参数、状态接口、代码数据结构 | spec_ready + implementation_ready | 是 | P02 可产出 matcher-consumable event/sanity candidate；OutputHistory v0 由 P03 收口 |
 | P03 | Step 9-10 + Step 11 最小闭环：Command / NextState / Commit / Event / Sanity / Trajectory / time advance | `MVS-COMMIT-1-lite`；每车每步一次 commit；commit 后 Step10 information integration；Step11 time advance | `MVS-COMMIT-1-full` 的部分前置能力 | 正式导出、正式 PNG、全量 regression report 交给 P11 | commit event、state transition event、test harness candidate event | multiple_commit、state machine consistency、no write-before-commit、time advance consistency | TrajectoryRecord v0；OutputHistory in-memory v0；不要求正式 artifact | 时间步总纲、状态接口、代码数据结构、日志验证、最小验证场景 | spec_ready + implementation_ready | 是 | `MVS-COMMIT-1-lite` 的 candidate 只能来自 test harness 或 identity infrastructure，不得隐藏实现车辆模型 |
-| P04 | Step 4A：MV 未入 merging zone 时的 APS / cache / effective assignment | `MVS-APS-FAIL-EMPTY`、`MVS-APS-FAIL-CACHE`、`MVS-APS-1/2/3/4` | APS 覆盖粒度可继续细分 | 无 | APS trigger / failure / assignment / cache event | no fake assignment、cache retain、Eq.10 target sanity | APS candidate window、assignment marker 数据 | 公式映射、道路几何、参数、状态接口、代码数据结构、最小验证场景 | trace_registered | 否 | 等 P04 完整 spec；依赖 P01-P03 完成 |
-| P05 | Step 4B：MV 在 merging zone 的 CMC / assignment validation / Eq.53 / boundary cap command | `MVS-CMC-1`、`MVS-CMC-2`、`MVS-ASSIGN-1` | CMC 数值诊断可观测 | CMC platoon 关闭 | CMC decision、assignment_invalid、merge command、speed cap event | Eq.53 pass/fail、no actual leader substitution、boundary cap sanity | merge start / waiting / boundary marker 数据 | 公式映射、车辆模型、道路几何、参数、状态接口、日志验证、最小验证场景 | trace_registered | 否 | 等 P05 完整 spec；不得在 P00 定义 CMC 字段 |
-| P06 | Step 5：cooperative request 汇总与多 MV / CV conflict resolution | `MVS-CONFLICT-1A`、`MVS-CONFLICT-1B` | conflict priority basis 诊断 | 全局多 MV gap 优化关闭 | cooperative_request、conflict_resolution event | one active request per CV、loser waiting sanity | conflict marker 数据 | 时间步总纲、公式映射、状态接口、代码数据结构、日志验证、复现讨论 | trace_registered | 否 | 等 P06 完整 spec；冲突仲裁必须标记工程补丁 |
-| P07 | Step 6：CUC choice / compliance / lane-change command / same-step overlay | `MVS-CUC-1A_override_choice1`、`MVS-CUC-2`、`MVS-CUC-3` | `MVS-CUC-1B_real_utility_probe` | `MVS-CUC-1C_real_utility_choice1_locked` | CUC choice、lane-change command、spacing override、overlay event | non-compliant no action、unsafe fallback、CUCChoice not persistent | lane-change intent / overlay marker 数据 | 公式映射、车辆模型、状态接口、代码数据结构、日志验证、最小验证场景 | trace_registered | 否 | 等 P07 完整 spec；same-step overlay 必须标记工程实现约束 |
-| P08 | Step 7：纵向模型 / Eq.10 spacing override / speed cap 合成 | `MVS-CUC-2`、`MVS-CUC-3`、`MVS-SAFE-1A_waiting_cap` | CPID memory 与裁剪诊断 | 论文级全量数值实验 | longitudinal_model、speed_cap consumption event | Eq.10 only CFV、non-compliant no Eq.10、planning_speed=min caps | longitudinal trace 可渲染数据 | 车辆模型、参数、公式映射、状态接口、代码数据结构、日志验证 | trace_registered | 否 | 等 P08 完整 spec；不得提前实现隐藏纵向模型 |
-| P09 | Step 8：正弦横向轨迹 / active maneuver progress / safety correction | `MVS-SAFE-1B_executing_cap_lateral_consumption`、`MVS-SAFE-2` | front-collision fallback 诊断 | 严格 MPC tracking 关闭 | lateral_trajectory、maneuver progress、completion candidate event | no reset active trajectory、no ordinary lane-change、boundary risk sanity | lane-change / merge trajectory marker 数据 | 车辆模型、道路几何、时间步总纲、日志验证、最小验证场景 | trace_registered | 否 | 等 P09 完整 spec；不得把 completion 提前写入真实状态 |
-| P10 | Step 4-9 集成：APS / CMC / CUC / longitudinal / lateral / commit 同步闭环 | `MVS-E2E-1`、`MVS-COMMIT-1-full` | 跨步 cache / trajectory lifecycle 诊断 | 无 | end-to-end event chain、cache lifecycle、active maneuver event | one commit per vehicle、no rerun CUC、executing merge no rejudge | full chain quicklook 数据 | 时间步总纲、状态接口、代码数据结构、日志验证、最小验证场景 | trace_registered | 否 | 等 P10 完整 spec；依赖 P04-P09 |
-| P11 | 交付级收口：正式导出、PNG、artifact、required smoke suite、regression report | 全部 required MVS 聚合执行与报告 | probe 场景非阻塞报告 | deferred 场景不进入第一版强验收 | exported event history、regression event summary | exported sanity summary、suite result | 正式 PNG、artifact record、regression report | 输出日志、代码数据结构、最小验证场景、道路几何 | trace_registered | 否 | P11 不是首次实现日志 / sanity / MVS runner / PNG 口径；只做交付级聚合 |
-| P12 | Step 1 扩展：边界车辆生成、随机属性、论文级实验入口 | 随机入口关闭时不得破坏全部 required MVS | 论文级实验入口可观测 | 论文级数值复刻不作为第一版强验收 | boundary_generation、random attribute、experiment config event | pre-freeze only、random disabled in smoke、entry safety sanity | 宏观指标 artifact 入口 | 时间步总纲、公式映射、参数、代码数据结构、输出指标 | trace_registered | 否 | 等 P12 完整 spec；只在主链路稳定后实现 |
+| P04 | Step 4A：MV 未入 merging zone 时的 APS / cache / effective assignment | `MVS-APS-FAIL-EMPTY`、`MVS-APS-FAIL-CACHE`、`MVS-APS-1/2/3/4` | APS 覆盖粒度可继续细分 | 无 | APS trigger / failure / assignment / cache event | no fake assignment、cache retain、Eq.10 target sanity | APS candidate window、assignment marker 数据 | 公式映射、道路几何、参数、状态接口、代码数据结构、最小验证场景 | implemented_green | 是 | APS required gate 已进入当前 20 green required suite |
+| P05 | Step 4B：MV 在 merging zone 的 CMC / assignment validation / Eq.53 / boundary cap command | `MVS-CMC-1`、`MVS-CMC-2`、`MVS-ASSIGN-1` | CMC 数值诊断可观测 | CMC platoon 关闭 | CMC decision、assignment_invalid、merge command、speed cap event | Eq.53 pass/fail、no actual leader substitution、boundary cap sanity | merge start / waiting / boundary marker 数据 | 公式映射、车辆模型、道路几何、参数、状态接口、日志验证、最小验证场景 | implemented_green | 是 | CMC / ASSIGN required gate 已进入当前 20 green required suite |
+| P06 | Step 5：cooperative request 汇总与多 MV / CV conflict resolution | `MVS-CONFLICT-1A`、`MVS-CONFLICT-1B` | conflict priority basis 诊断 | 全局多 MV gap 优化关闭 | cooperative_request、conflict_resolution event | one active request per CV、loser waiting sanity | conflict marker 数据 | 时间步总纲、公式映射、状态接口、代码数据结构、日志验证、复现讨论 | implemented_green | 是 | conflict required gate 已进入当前 20 green required suite；仲裁仍标记工程补丁 |
+| P07 | Step 6：CUC choice / compliance / lane-change command / same-step overlay | `MVS-CUC-1A_override_choice1`、`MVS-CUC-2`、`MVS-CUC-3` | `MVS-CUC-1B_real_utility_probe` | `MVS-CUC-1C_real_utility_choice1_locked` | CUC choice、lane-change command、spacing override、overlay event | non-compliant no action、unsafe fallback、CUCChoice not persistent | lane-change intent / overlay marker 数据 | 公式映射、车辆模型、状态接口、代码数据结构、日志验证、最小验证场景 | implemented_green | 是 | CUC required routes 已由 P13 接入 official MVS / deterministic runner；probe/deferred 仍非阻塞 |
+| P08 | Step 7：纵向模型 / Eq.10 spacing override / speed cap 合成 | `MVS-CUC-2`、`MVS-CUC-3`、`MVS-SAFE-1A_waiting_cap` | CPID memory 与裁剪诊断 | 论文级全量数值实验 | longitudinal_model、speed_cap consumption event | Eq.10 only CFV、non-compliant no Eq.10、planning_speed=min caps | longitudinal trace 可渲染数据 | 车辆模型、参数、公式映射、状态接口、代码数据结构、日志验证 | implemented_green | 是 | SAFE-1A required route 已是 required green，不再是 probe/status mismatch |
+| P09 | Step 8：正弦横向轨迹 / active maneuver progress / safety correction | `MVS-SAFE-1B_executing_cap_lateral_consumption`、`MVS-SAFE-2` | front-collision fallback 诊断 | 严格 MPC tracking 关闭 | lateral_trajectory、maneuver progress、completion candidate event | no reset active trajectory、no ordinary lane-change、boundary risk sanity | lane-change / merge trajectory marker 数据 | 车辆模型、道路几何、时间步总纲、日志验证、最小验证场景 | implemented_green | 是 | SAFE-1B / SAFE-2 required routes 已由 P13 接入 official MVS / deterministic runner |
+| P10 | Step 4-9 集成：APS / CMC / CUC / longitudinal / lateral / commit 同步闭环 | `MVS-E2E-1`、`MVS-COMMIT-1-full` | 跨步 cache / trajectory lifecycle 诊断 | 无 | end-to-end event chain、cache lifecycle、active maneuver event | one commit per vehicle、no rerun CUC、executing merge no rejudge | full chain quicklook 数据 | 时间步总纲、状态接口、代码数据结构、日志验证、最小验证场景 | implemented_green | 是 | P10 集成责任已由 P12 deterministic loop 与 P13 closure 证明闭合；不再存在 full runner route gap |
+| P11 | 交付级收口：导出、PNG、artifact 基础、required smoke suite、regression report | 全部 required MVS 聚合执行与报告 | probe 场景非阻塞报告 | deferred 场景不进入第一版强验收 | exported event history、regression event summary | exported sanity summary、suite result | PNG / artifact manifest / regression report 基础能力 | 输出日志、代码数据结构、最小验证场景、道路几何 | implemented_green | 是 | 当前 suite `passed`、20 green、无 required blocked / runner gaps；正式自然输出包交给 P14 |
+| P12 | Deterministic full simulation loop：Step0-11 多步推进 | `MVS-E2E-1` deterministic loop；P12 branch scenarios | deterministic demo PNG | 随机边界生成关闭 | full loop event chain、cache reuse、active maneuver continuation | multi-step commit / time advance consistency | demo PNG、expected_png_features | 时间步总纲、状态接口、代码数据结构、输出日志、最小验证场景 | implemented_green | 是 | 固定场景、关闭随机，已能从 `S(t)` 推进到后续时间步 |
+| P13 | Required MVS closure：official loader / deterministic runner / matcher | 20 个 required MVS 全部 green | `MVS-CUC-1B_real_utility_probe` | `MVS-CUC-1C_real_utility_choice1_locked` | official required scenario events | required sanity checks | required PNG feature evidence | 最小验证场景、P11 output、P12 loop | implemented_green | 是 | `suite_status=passed`、`required_failed=[]`、`required_blocked=[]`、`runner_gaps=[]` |
+| P14 | Formal artifact bundle baseline | deterministic run 自然生成正式输出包 | PNG / export diagnostics | paper-level metrics | scenario report / manifest references | sanity export / regression summary | trajectory CSV、events JSONL、sanity JSONL、PNG、manifest、regression report | 输出日志、代码数据结构、P11、P12、P13 | trace_registered | 否 | P15 启动前必须完成的输出基线 |
+| P15 | Engine core consolidation | P14 artifact baseline 前后可比较；20 required MVS 仍 green | engine boundary diagnostics | 随机生成关闭 | engine / recorder / output handoff events as needed | regression equivalence sanity | artifact baseline comparison | P12 loop、P13 suite、P14 artifacts | trace_registered | 否 | 不推倒重来；不在 P14 baseline 前启动 |
+| P16 | Seeded random simulation：边界生成、arrival headway、随机车型、随机 compliance | random disabled 时 required suite 仍 green；seeded run 可复现 | random diagnostics | paper grid 不在本阶段 | boundary_generation / random attribute event | pre-freeze only、entry safety sanity | random run artifact entry | 时间步总纲、参数、车辆生成、输出日志 | trace_registered | 否 | 只在 deterministic loop 和 engine 稳定后进入 |
+| P17 | Paper experiment grid：批量运行、统计指标、复现报告 | 基于 P16 seeded random simulation 的批量实验 | metric diagnostics | SUMO comparison 可后续决定 | experiment config / run summary event | batch sanity summary | metrics CSV / report / plots | 参数、输出指标、论文实验规格 | trace_registered | 否 | 不与 P16 混在一起；不替代 deterministic required suite |
 
 ## 8. 完成标准
 
 - P00 文档完成，并可作为后续 Pxx 的审阅 checklist。
 - P01-P03 的追踪条目存在，且必须达到 spec_ready / implementation_ready。
-- P04-P12 的追踪条目存在，且至少达到 trace_registered。
+- P04-P13 的追踪条目反映当前已完成事实；P14-P17 的追踪条目存在，且至少达到 trace_registered。
 - 每个后续 Pxx 至少有一个 Step 范围、一个 gate、一个上游 spec、一个 event / sanity / PNG 证据入口。
-- P00 不得因为 P04-P12 尚未完整 spec_ready / implementation_ready 而失败；P04-P12 的完整执行计划在对应阶段另行编写。
+- P00 不得把 P04-P13 继续写成早期占位；P14-P17 的完整执行计划在对应阶段另行编写。
 - 所有工程补丁均被分类为工程补丁或第一版实现约束，并要求保留 `source`、`reason`、`is_engineering_patch`。
-- required MVS 不在本阶段运行，但全部能在追踪矩阵中找到后续承接阶段。
+- 当前 20 个 required MVS 已全部进入 P13 closure，并在追踪矩阵中有对应承接阶段。
 - probe 场景只要求可配置、可观测，不阻塞 required suite。
 - deferred 场景不进入第一版强验收。
 - P11 只被定义为交付级导出、正式 PNG、artifact record、全部 required smoke suite 聚合和 regression report。
@@ -221,4 +234,4 @@ P00 的追踪矩阵不得因为 P04-P12 仅处于 trace_registered 状态而判�
 - 执行计划不得首次决定核心字段、参数、公式或 schema。
 - P04-P10 不得以“等待 P11 统一补日志 / sanity / PNG”为完成理由。
 - P01-P03 不得以“薄切片”方式削减已经写入 spec 的完成标准。
-- P04-P12 在 P00 中只允许 trace_registered，不得由 P00 代替后续完整执行计划。
+- P14-P17 在 P00 中只登记后续路线，不得由 P00 代替后续完整执行计划。
