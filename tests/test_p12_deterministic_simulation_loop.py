@@ -288,17 +288,51 @@ def test_p12_png_created_nonblank_and_contains_feature_evidence(tmp_path: Path) 
     }.issubset(features)
 
 
-def test_p12_does_not_claim_full_required_ready() -> None:
+def test_p13_closes_full_required_mvs_suite() -> None:
     suite = run_full_required_mvs_smoke_suite()
     report = build_regression_report(suite, run_id="p12-suite")
     by_id = {result.scenario_id: result for result in suite.scenario_results}
 
     assert by_id["MVS-E2E-1"].classification == "required_passed"
     assert "MVS-E2E-1" in report.required_green
-    assert by_id["MVS-COMMIT-1-full"].classification == "required_blocked"
-    assert any(item["scenario_id"] == "MVS-COMMIT-1-full" for item in report.required_blocked)
-    assert report.suite_status == "failed_until_required_blockers_resolved"
-    assert "MVS-COMMIT-1-full" in report.runner_gaps
+    assert by_id["MVS-COMMIT-1-full"].classification == "required_passed"
+    assert by_id["MVS-SAFE-1A_waiting_cap"].classification == "required_passed"
+    assert len(report.required_green) == 20
+    assert report.required_blocked == ()
+    assert report.required_failed == ()
+    assert report.runner_gaps == ()
+    assert report.classification_blockers == ()
+    assert report.suite_status == "passed"
+
+
+def test_p13_commit_full_advances_active_maneuvers_and_step11_once() -> None:
+    result = run_deterministic_simulation(
+        SimulationLoopConfig(
+            scenario_id="MVS-COMMIT-1-full",
+            run_id="p13-commit-full",
+            max_steps=1,
+            render_png=False,
+        )
+    )
+    events = result.history.event_dicts()
+
+    assert result.initial_state.step == 20
+    assert result.final_state.step == 21
+    assert result.final_state.t == 2.1
+    assert (
+        result.final_state.active_maneuvers["CV_ACTIVE_LC"].progress
+        > result.initial_state.active_maneuvers["CV_ACTIVE_LC"].progress
+    )
+    assert (
+        result.final_state.active_maneuvers["MV_ACTIVE_MERGE"].progress
+        > result.initial_state.active_maneuvers["MV_ACTIVE_MERGE"].progress
+    )
+    assert _has_event(events, "APS", vehicle_id="MV_CACHE", reason="reuse_cache")
+    assert _has_event(events, "CMC", vehicle_id="MV_ACTIVE_MERGE", reason="cmc_executing_continuation")
+    assert not _has_event(events, "CMC", vehicle_id="MV_ACTIVE_MERGE", reason="eq53_gap")
+    assert _has_event(events, "lateral_trajectory", vehicle_id="CV_ACTIVE_LC", reason="lane_change_continuation")
+    assert _has_event(events, "lateral_trajectory", vehicle_id="MV_ACTIVE_MERGE", reason="merge_continuation")
+    assert not _has_event(events, "CUC", vehicle_id="CV_ACTIVE_LC", reason="final_choice_change_to_lane_1")
 
 
 def _has_event(

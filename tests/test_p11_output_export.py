@@ -23,6 +23,7 @@ from cormc.p11_output import (
     write_artifact_manifest,
     write_regression_report,
 )
+from cormc.mvs.runner import MVS_SCENARIO_ROUTE_MATRIX
 from cormc.step9_11 import EventRecord, OutputHistory, SanityCheckRecord, TrajectoryRecord
 
 
@@ -59,17 +60,16 @@ def test_p11_required_mvs_registry_contains_exact_target_suite() -> None:
     assert registry.deferred_ids == ("MVS-CUC-1C_real_utility_choice1_locked",)
 
 
-def test_p11_safe_1a_waiting_cap_is_required_not_probe() -> None:
-    assert load_builtin_scenario("MVS-SAFE-1A_waiting_cap")["status"] == "probe"
+def test_p11_safe_1a_waiting_cap_required_route_passes() -> None:
+    assert load_builtin_scenario("MVS-SAFE-1A_waiting_cap")["status"] == "required"
 
     suite = run_full_required_mvs_smoke_suite()
 
     safe_1a = _scenario_result(suite.scenario_results, "MVS-SAFE-1A_waiting_cap")
     assert safe_1a.suite_group == "required"
-    assert safe_1a.classification == "required_blocked"
-    assert safe_1a.blocks_required_suite is True
-    assert safe_1a.blockers[0].reason == "classification_mismatch"
-    assert "loader status probe" in safe_1a.blockers[0].detail
+    assert safe_1a.classification == "required_passed"
+    assert safe_1a.blocks_required_suite is False
+    assert safe_1a.blockers == ()
     assert "MVS-SAFE-1A_waiting_cap" not in [probe.scenario_id for probe in suite.probe_observed]
 
 
@@ -85,7 +85,7 @@ def test_p11_p05_executing_continuation_is_extra_diagnostic_not_required_denomin
     ]
 
 
-def test_p11_missing_required_routes_are_blockers_not_deferred_or_passed() -> None:
+def test_p11_required_routes_are_registered_not_deferred_or_blocked() -> None:
     suite = run_full_required_mvs_smoke_suite()
 
     e2e = _scenario_result(suite.scenario_results, "MVS-E2E-1")
@@ -96,11 +96,11 @@ def test_p11_missing_required_routes_are_blockers_not_deferred_or_passed() -> No
     assert e2e.blockers == ()
 
     commit_full = _scenario_result(suite.scenario_results, "MVS-COMMIT-1-full")
-    assert commit_full.classification == "required_blocked"
-    assert commit_full.blocks_required_suite is True
-    assert commit_full.passed is False
+    assert commit_full.classification == "required_passed"
+    assert commit_full.blocks_required_suite is False
+    assert commit_full.passed is True
     assert commit_full.status == "required"
-    assert commit_full.blockers[0].reason == "missing_runner_route"
+    assert commit_full.blockers == ()
 
 
 def test_p11_probe_and_deferred_groups_are_nonblocking() -> None:
@@ -116,6 +116,24 @@ def test_p11_probe_and_deferred_groups_are_nonblocking() -> None:
     assert suite.deferred_skipped[0].classification == "skipped_deferred"
     assert suite.p12_random_generation_enabled is False
     assert suite.paper_metrics_required is False
+
+
+def test_p13_route_matrix_documents_22_mvs_route_policy() -> None:
+    registry = build_p11_smoke_suite_registry()
+    expected_ids = set(registry.required_ids + registry.probe_ids + registry.deferred_ids)
+
+    assert set(MVS_SCENARIO_ROUTE_MATRIX) == expected_ids
+    assert len(MVS_SCENARIO_ROUTE_MATRIX) == 22
+    for scenario_id in (
+        "MVS-CUC-1A_override_choice1",
+        "MVS-CUC-2",
+        "MVS-CUC-3",
+        "MVS-SAFE-1A_waiting_cap",
+        "MVS-SAFE-1B_executing_cap_lateral_consumption",
+        "MVS-SAFE-2",
+        "MVS-COMMIT-1-full",
+    ):
+        assert MVS_SCENARIO_ROUTE_MATRIX[scenario_id] == "deterministic_loop"
 
 
 def test_p11_exports_trajectory_history_for_committed_vehicles(tmp_path) -> None:
@@ -286,20 +304,19 @@ def test_p11_regression_report_groups_required_probe_deferred_and_gaps(tmp_path)
     path = write_regression_report(report, tmp_path / "regression_report.json")
 
     data = json.loads(path.read_text(encoding="utf-8"))
-    assert data["suite_status"] == "failed_until_required_blockers_resolved"
+    assert data["suite_status"] == "passed"
     assert "MVS-E2E-1" in data["required_green"]
     assert "MVS-COMMIT-1-lite" in data["required_green"]
+    assert "MVS-COMMIT-1-full" in data["required_green"]
+    assert "MVS-SAFE-1A_waiting_cap" in data["required_green"]
     assert not any(item["scenario_id"] == "MVS-E2E-1" for item in data["required_blocked"])
-    assert any(item["scenario_id"] == "MVS-COMMIT-1-full" for item in data["required_blocked"])
-    assert any(
-        item["scenario_id"] == "MVS-SAFE-1A_waiting_cap"
-        for item in data["classification_blockers"]
-    )
+    assert data["required_blocked"] == []
+    assert data["classification_blockers"] == []
     assert data["probe_observed"][0]["scenario_id"] == "MVS-CUC-1B_real_utility_probe"
     assert data["deferred_skipped"] == ["MVS-CUC-1C_real_utility_choice1_locked"]
     assert data["schema_gaps"] == ["OutputArtifactRecord authority missing in code"]
     assert "MVS-E2E-1" not in data["runner_gaps"]
-    assert "MVS-COMMIT-1-full" in data["runner_gaps"]
+    assert data["runner_gaps"] == []
 
 
 def test_p11_p12_route_reports_e2e_runner_ready() -> None:

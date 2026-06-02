@@ -20,6 +20,43 @@ from cormc.step5_cooperative_request import (
 from cormc.step9_11 import run_mvs_commit_1_lite
 
 
+DETERMINISTIC_SCENARIO_ROUTES: dict[str, dict[str, Any]] = {
+    "MVS-E2E-1": {"max_steps": 70},
+    "MVS-CUC-1A_override_choice1": {"max_steps": 1},
+    "MVS-CUC-2": {"max_steps": 1},
+    "MVS-CUC-3": {"max_steps": 1},
+    "MVS-SAFE-1A_waiting_cap": {"max_steps": 1},
+    "MVS-SAFE-1B_executing_cap_lateral_consumption": {"max_steps": 1},
+    "MVS-SAFE-2": {"max_steps": 1},
+    "MVS-COMMIT-1-full": {"max_steps": 1},
+}
+
+MVS_SCENARIO_ROUTE_MATRIX: dict[str, str] = {
+    "MVS-APS-FAIL-EMPTY": "aps_helper",
+    "MVS-APS-FAIL-CACHE": "aps_helper",
+    "MVS-APS-1": "aps_helper",
+    "MVS-APS-2": "aps_helper",
+    "MVS-APS-3": "aps_helper",
+    "MVS-APS-4": "aps_helper",
+    "MVS-E2E-1": "deterministic_loop",
+    "MVS-COMMIT-1-lite": "commit_lite_helper",
+    "MVS-CMC-1": "cmc_helper",
+    "MVS-CMC-2": "cmc_helper",
+    "MVS-CUC-1A_override_choice1": "deterministic_loop",
+    "MVS-CUC-2": "deterministic_loop",
+    "MVS-CUC-3": "deterministic_loop",
+    "MVS-SAFE-1A_waiting_cap": "deterministic_loop",
+    "MVS-SAFE-1B_executing_cap_lateral_consumption": "deterministic_loop",
+    "MVS-SAFE-2": "deterministic_loop",
+    "MVS-ASSIGN-1": "cmc_helper",
+    "MVS-CONFLICT-1A": "cooperative_request_helper",
+    "MVS-CONFLICT-1B": "cooperative_request_helper",
+    "MVS-COMMIT-1-full": "deterministic_loop",
+    "MVS-CUC-1B_real_utility_probe": "probe_registered_no_required_route",
+    "MVS-CUC-1C_real_utility_choice1_locked": "deferred_skipped",
+}
+
+
 @dataclass(frozen=True)
 class ScenarioRuntimeContext:
     config: dict[str, Any]
@@ -100,6 +137,16 @@ def run_targeted_scenario(
     if (
         actual_events is None
         and actual_sanity_checks is None
+        and context.scenario_id in DETERMINISTIC_SCENARIO_ROUTES
+    ):
+        return _run_deterministic_route(
+            context,
+            max_steps=int(DETERMINISTIC_SCENARIO_ROUTES[context.scenario_id]["max_steps"]),
+        )
+
+    if (
+        actual_events is None
+        and actual_sanity_checks is None
         and _is_p04_aps_scenario(context.scenario_id)
     ):
         aps_result = run_step4a_aps_for_scenario(config)
@@ -144,30 +191,6 @@ def run_targeted_scenario(
     if (
         actual_events is None
         and actual_sanity_checks is None
-        and context.scenario_id == "MVS-E2E-1"
-    ):
-        from cormc.simulation_loop import SimulationLoopConfig, run_deterministic_simulation
-
-        loop_result = run_deterministic_simulation(
-            SimulationLoopConfig(
-                scenario=config,
-                run_id="MVS-E2E-1",
-                max_steps=70,
-                render_png=False,
-            )
-        )
-        return build_scenario_report(
-            context,
-            ScenarioRunResult(
-                actual_events=loop_result.history.event_dicts(),
-                actual_sanity_checks=loop_result.history.sanity_dicts(),
-                actual_png_artifacts=list(loop_result.expected_png_features),
-            ),
-        )
-
-    if (
-        actual_events is None
-        and actual_sanity_checks is None
         and context.scenario_id == "MVS-COMMIT-1-lite"
     ):
         commit_result = run_mvs_commit_1_lite()
@@ -194,13 +217,37 @@ def _is_p05_cmc_scenario(scenario_id: str) -> bool:
     return (
         scenario_id.startswith("MVS-CMC")
         or scenario_id.startswith("MVS-ASSIGN")
-        or scenario_id == "MVS-SAFE-1A_waiting_cap"
         or scenario_id.startswith("P05-")
     )
 
 
 def _is_p06_cooperative_request_scenario(scenario_id: str) -> bool:
     return scenario_id.startswith("MVS-CONFLICT") or scenario_id.startswith("P06-")
+
+
+def _run_deterministic_route(
+    context: ScenarioRuntimeContext,
+    *,
+    max_steps: int,
+) -> ScenarioReport:
+    from cormc.simulation_loop import SimulationLoopConfig, run_deterministic_simulation
+
+    loop_result = run_deterministic_simulation(
+        SimulationLoopConfig(
+            scenario=context.config,
+            run_id=context.scenario_id,
+            max_steps=max_steps,
+            render_png=False,
+        )
+    )
+    return build_scenario_report(
+        context,
+        ScenarioRunResult(
+            actual_events=loop_result.history.event_dicts(),
+            actual_sanity_checks=loop_result.history.sanity_dicts(),
+            actual_png_artifacts=list(loop_result.expected_png_features),
+        ),
+    )
 
 
 def build_scenario_report(

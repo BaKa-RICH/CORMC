@@ -38,7 +38,8 @@ def test_waiting_boundary_speed_cap_command_for_safe_1a_prereq_contract() -> Non
     report = run_targeted_scenario("MVS-SAFE-1A_waiting_cap")
 
     assert report.scenario_id == "MVS-SAFE-1A_waiting_cap"
-    assert report.status == "probe"
+    assert report.status == "required"
+    assert report.classification == "required_passed"
     assert report.passed is True
     assert report.blocks_required_suite is False
     assert report.failure_reasons == []
