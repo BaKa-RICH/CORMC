@@ -5,6 +5,7 @@ from types import MappingProxyType
 from typing import Any, Mapping
 
 from cormc.step0_3 import (
+    ManeuverTrajectoryState,
     SimulationState,
     VehicleState,
     assert_x_plot_not_used_in_algorithm_path,
@@ -15,10 +16,22 @@ from cormc.step0_3 import (
 
 IDENTITY_CANDIDATE_SOURCE = "identity_candidate_for_commit_infrastructure"
 TEST_HARNESS_CANDIDATE_SOURCE = "test_harness_preloaded_candidate"
+STEP7_LONGITUDINAL_SOURCE = "step7_longitudinal_model"
+STEP8_LATERAL_SOURCE = "step8_lateral_trajectory"
+STEP9_CANDIDATE_ASSEMBLY_SOURCE = "step9_candidate_assembly"
 ALLOWED_CANDIDATE_SOURCES = {
     IDENTITY_CANDIDATE_SOURCE,
     TEST_HARNESS_CANDIDATE_SOURCE,
+    STEP7_LONGITUDINAL_SOURCE,
+    STEP8_LATERAL_SOURCE,
+    STEP9_CANDIDATE_ASSEMBLY_SOURCE,
 }
+ALLOWED_FINAL_CANDIDATE_SOURCES = {
+    IDENTITY_CANDIDATE_SOURCE,
+    TEST_HARNESS_CANDIDATE_SOURCE,
+    STEP9_CANDIDATE_ASSEMBLY_SOURCE,
+}
+ALLOWED_COMPONENT_CANDIDATE_SOURCES = ALLOWED_CANDIDATE_SOURCES
 
 
 @dataclass(frozen=True)
@@ -390,9 +403,19 @@ def select_final_candidate_per_vehicle(
     final_candidates: dict[str, CandidateKinematics] = {}
     warnings: list[CommitWarning] = list(next_state_buffer.commit_warnings)
     for vehicle_id in state.active_vehicle_ids:
-        candidates = tuple(next_state_buffer.candidate_kinematics.get(vehicle_id, ()))
+        candidates = list(next_state_buffer.candidate_kinematics.get(vehicle_id, ()))
+        assembled, component_warnings = assemble_final_candidate_from_components(
+            state,
+            vehicle_id,
+            next_state_buffer,
+        )
+        warnings.extend(component_warnings)
+        if assembled is not None:
+            candidates.append(assembled)
         if not candidates:
-            candidates = (_identity_candidate_for_vehicle(state.vehicle_states[vehicle_id], state=state),)
+            candidates = [
+                _identity_candidate_for_vehicle(state.vehicle_states[vehicle_id], state=state)
+            ]
         for candidate in candidates:
             _assert_allowed_candidate_source(candidate)
         if len(candidates) > 1:
@@ -406,7 +429,56 @@ def select_final_candidate_per_vehicle(
             )
             continue
         final_candidates[vehicle_id] = candidates[0]
+    warnings.extend(_state_transition_warnings(state, next_state_buffer))
     return final_candidates, tuple(warnings)
+
+
+def assemble_final_candidate_from_components(
+    state: SimulationState,
+    vehicle_id: str,
+    next_state_buffer: NextStateBuffer,
+) -> tuple[CandidateKinematics | None, tuple[CommitWarning, ...]]:
+    longitudinal = next_state_buffer.candidate_longitudinal.get(vehicle_id)
+    lateral = next_state_buffer.candidate_lateral.get(vehicle_id)
+    progress = next_state_buffer.candidate_maneuver_progress.get(vehicle_id)
+    if longitudinal is None and lateral is None and progress is None:
+        return None, ()
+
+    if longitudinal is None:
+        candidate_ids = tuple(
+            item
+            for item in (
+                lateral.candidate_id if lateral is not None else None,
+                progress.candidate_id if progress is not None else None,
+            )
+            if item is not None
+        )
+        return (
+            _identity_candidate_for_vehicle(state.vehicle_states[vehicle_id], state=state),
+            (
+                CommitWarning(
+                    vehicle_id=vehicle_id,
+                    warning_type="missing_longitudinal_candidate",
+                    reason="p10_component_assembly_requires_p08_longitudinal_candidate",
+                    candidate_ids=candidate_ids,
+                ),
+            ),
+        )
+
+    return (
+        assemble_candidate_kinematics(
+            state,
+            vehicle_id,
+            longitudinal=longitudinal,
+            lateral=lateral,
+            maneuver_progress=progress,
+            state_transition=_primary_state_transition(next_state_buffer, vehicle_id),
+            cache_update=_primary_cache_update(next_state_buffer, vehicle_id),
+            source=STEP9_CANDIDATE_ASSEMBLY_SOURCE,
+            candidate_id=f"p10:{state.step}:{vehicle_id}:final",
+        ),
+        (),
+    )
 
 
 def run_duplicate_commit_guard(
@@ -520,6 +592,8 @@ def build_next_simulation_state(
     state: SimulationState,
     final_candidates: Mapping[str, CandidateKinematics],
     next_state_buffer: NextStateBuffer,
+    *,
+    command_buffer: CommandBuffer | None = None,
 ) -> SimulationState:
     next_vehicle_states: dict[str, VehicleState] = {}
     for vehicle_id in state.active_vehicle_ids:
@@ -528,11 +602,23 @@ def build_next_simulation_state(
         if candidate is None:
             continue
         lane_state = next_state_buffer.candidate_lane_state.get(vehicle_id)
+        command_transitions = tuple(
+            command_buffer.state_transition_commands.get(vehicle_id, ())
+            if command_buffer is not None
+            else ()
+        )
         transitions = next_state_buffer.candidate_state_transitions.get(vehicle_id, ())
         physical_lane = lane_state.physical_lane if lane_state is not None else current.physical_lane
         road_role = lane_state.road_role if lane_state is not None else current.road_role
         lane_change_state = current.lane_change_state
         merge_state = current.merge_state
+        for transition in command_transitions:
+            state_name = _transition_field(transition, "state_name")
+            new_state = _transition_field(transition, "new_state")
+            if state_name == "lane_change_state":
+                lane_change_state = str(new_state)
+            elif state_name == "merge_state":
+                merge_state = str(new_state)
         for transition in transitions:
             if transition.state_name == "lane_change_state":
                 lane_change_state = transition.new_state
@@ -562,6 +648,13 @@ def build_next_simulation_state(
         elif cache_update.operation in {"update", "invalidate"}:
             next_cache[cache_update.owner_vehicle_id] = dict(cache_update.new_value or {})
 
+    next_active_maneuvers = apply_maneuver_progress_lifecycle(
+        state,
+        final_candidates,
+        next_state_buffer,
+        command_buffer=command_buffer,
+    )
+
     return SimulationState(
         t=state.t,
         step=state.step,
@@ -572,11 +665,102 @@ def build_next_simulation_state(
         aps_assignment_cache=MappingProxyType(
             {key: MappingProxyType(value) for key, value in next_cache.items()}
         ),
-        active_maneuvers=state.active_maneuvers,
+        active_maneuvers=MappingProxyType(next_active_maneuvers),
         road_config_ref=state.road_config_ref,
         parameter_config_ref=state.parameter_config_ref,
         scenario_config_ref=state.scenario_config_ref,
         output_config_ref=state.output_config_ref,
+    )
+
+
+def apply_maneuver_progress_lifecycle(
+    state: SimulationState,
+    final_candidates: Mapping[str, CandidateKinematics],
+    next_state_buffer: NextStateBuffer,
+    *,
+    command_buffer: CommandBuffer | None = None,
+) -> dict[str, ManeuverTrajectoryState]:
+    next_active = dict(state.active_maneuvers)
+    for vehicle_id, progress in next_state_buffer.candidate_maneuver_progress.items():
+        _assert_component_matches_candidate_vehicle(progress, vehicle_id)
+        if vehicle_id not in final_candidates:
+            continue
+        if progress.completed:
+            next_active.pop(vehicle_id, None)
+            continue
+        next_active[vehicle_id] = _persist_maneuver_progress(
+            state,
+            vehicle_id,
+            progress,
+            next_state_buffer,
+            command_buffer=command_buffer,
+        )
+    return next_active
+
+
+def _persist_maneuver_progress(
+    state: SimulationState,
+    vehicle_id: str,
+    progress: CandidateManeuverProgress,
+    next_state_buffer: NextStateBuffer,
+    *,
+    command_buffer: CommandBuffer | None,
+) -> ManeuverTrajectoryState:
+    existing = state.active_maneuvers.get(vehicle_id)
+    longitudinal = next_state_buffer.candidate_longitudinal.get(vehicle_id)
+    last_planning_speed = (
+        longitudinal.planning_speed
+        if longitudinal is not None
+        else (existing.last_planning_speed if existing is not None else None)
+    )
+    command = _maneuver_command(command_buffer, vehicle_id, progress.maneuver_type)
+    source_command_id = (
+        progress.source_command_id
+        or _command_id(command)
+        or (existing.source_command_id if existing is not None else None)
+    )
+    if existing is not None:
+        return replace(
+            existing,
+            progress=progress.progress,
+            source_command_id=source_command_id,
+            last_planning_speed=last_planning_speed,
+            assigned_clv_id=_command_optional_str(command, "assigned_clv_id")
+            or existing.assigned_clv_id,
+            assigned_cfv_id=_command_optional_str(command, "assigned_cfv_id")
+            or existing.assigned_cfv_id,
+        )
+
+    current = state.vehicle_states[vehicle_id]
+    lateral = next_state_buffer.candidate_lateral.get(vehicle_id)
+    lane_state = next_state_buffer.candidate_lane_state.get(vehicle_id)
+    target_y = _command_optional_float(command, "target_y")
+    if target_y is None and lateral is not None:
+        target_y = lateral.target_y
+    if target_y is None and lane_state is not None:
+        target_y = _lane_centerline_y(lane_state.physical_lane, fallback=current.y)
+    if target_y is None:
+        target_y = current.y
+    target_lane = (
+        _command_optional_str(command, "target_lane")
+        or (lane_state.physical_lane if lane_state is not None else None)
+        or _target_lane_from_y(target_y, fallback=current.physical_lane)
+    )
+    return ManeuverTrajectoryState(
+        vehicle_id=vehicle_id,
+        maneuver_type=progress.maneuver_type,
+        start_step=state.step,
+        start_t=state.t,
+        start_x_global=current.x_global,
+        start_y=current.y,
+        target_lane=target_lane,
+        target_y=float(target_y),
+        source_command_id=source_command_id,
+        planned_length=_command_optional_float(command, "planned_length"),
+        progress=progress.progress,
+        last_planning_speed=last_planning_speed,
+        assigned_clv_id=_command_optional_str(command, "assigned_clv_id"),
+        assigned_cfv_id=_command_optional_str(command, "assigned_cfv_id"),
     )
 
 
@@ -591,7 +775,12 @@ def commit_step(
     scenario_id = scenario_id or state.scenario_config_ref or "unknown_scenario"
     pre_commit_signature = _state_signature(state)
     final_candidates, warnings = select_final_candidate_per_vehicle(state, next_state_buffer)
-    next_state = build_next_simulation_state(state, final_candidates, next_state_buffer)
+    next_state = build_next_simulation_state(
+        state,
+        final_candidates,
+        next_state_buffer,
+        command_buffer=command_buffer,
+    )
     if _state_signature(state) != pre_commit_signature:
         warnings = warnings + (
             CommitWarning(
@@ -664,22 +853,7 @@ def commit_step(
         final_candidates=MappingProxyType(dict(final_candidates)),
         warnings=warnings,
         history=history,
-        expected_png_features=[
-            {
-                "feature_type": "commit_marker",
-                "required": False,
-                "vehicle_ids": list(final_candidates),
-                "expected_visibility": "optional",
-                "notes": "registered only; renderer deferred",
-            },
-            {
-                "feature_type": "trajectory_quicklook",
-                "required": False,
-                "vehicle_ids": list(final_candidates),
-                "expected_visibility": "optional",
-                "notes": "registered only; renderer deferred",
-            },
-        ],
+        expected_png_features=register_p10_png_features(final_candidates, next_state_buffer),
     )
 
 
@@ -696,11 +870,21 @@ def emit_commit_event(
     final_state = next_state.vehicle_states[candidate.vehicle_id]
     prior_state = previous_state.vehicle_states[candidate.vehicle_id]
     transitions = tuple(next_state_buffer.candidate_state_transitions.get(candidate.vehicle_id, ()))
+    command_transitions = tuple(command_buffer.state_transition_commands.get(candidate.vehicle_id, ()))
+    progress = next_state_buffer.candidate_maneuver_progress.get(candidate.vehicle_id)
+    longitudinal = next_state_buffer.candidate_longitudinal.get(candidate.vehicle_id)
+    lateral = next_state_buffer.candidate_lateral.get(candidate.vehicle_id)
     cache_cleanup = [
         update.owner_vehicle_id
         for update in next_state_buffer.candidate_cache_updates
-        if update.operation == "cleanup"
+        if update.operation == "cleanup" and update.owner_vehicle_id == candidate.vehicle_id
     ]
+    active_maneuver_cleanup = (
+        [candidate.vehicle_id] if progress is not None and progress.completed else []
+    )
+    active_maneuver_persisted = (
+        [candidate.vehicle_id] if progress is not None and not progress.completed else []
+    )
     return EventRecord(
         event_id=f"{run_id}:{previous_state.step}:commit:{candidate.vehicle_id}",
         run_id=run_id,
@@ -721,7 +905,14 @@ def emit_commit_event(
             "final_state": _vehicle_state_payload(final_state),
             "previous_state": _vehicle_state_payload(prior_state),
             "state_transitions": [_dataclass_to_plain(transition) for transition in transitions],
+            "state_transition_commands": [
+                _plain_transition_payload(transition) for transition in command_transitions
+            ],
             "cache_cleanup_vehicle_ids": cache_cleanup,
+            "active_maneuver_cleanup_vehicle_ids": active_maneuver_cleanup,
+            "active_maneuver_persisted_vehicle_ids": active_maneuver_persisted,
+            "active_maneuver_progress": progress.progress if progress is not None else None,
+            "active_maneuver_completed": progress.completed if progress is not None else None,
             "each_active_vehicle_has_exactly_one_final_next_state": True,
             "no_module_writes_committed_state_before_commit": True,
             "command_buffer_and_next_state_buffer_are_separated": True,
@@ -731,8 +922,13 @@ def emit_commit_event(
             "source_lateral_candidate": candidate.source_lateral_candidate,
             "source_maneuver_progress": candidate.source_maneuver_progress,
             "source_state_transition": candidate.source_state_transition,
+            "source_state_transition_command": _first_transition_command_id(command_transitions),
             "source_cache_update": candidate.source_cache_update,
             "constraints_applied": list(candidate.constraints_applied),
+            "p08_source_commands": (
+                list(longitudinal.source_commands) if longitudinal is not None else []
+            ),
+            "p09_source_commands": list(lateral.source_commands) if lateral is not None else [],
         },
     )
 
@@ -907,12 +1103,213 @@ def run_mvs_commit_1_lite() -> CommitResult:
     return result
 
 
+def register_p10_png_features(
+    final_candidates: Mapping[str, CandidateKinematics],
+    next_state_buffer: NextStateBuffer,
+) -> list[dict[str, Any]]:
+    vehicle_ids = tuple(final_candidates)
+    features = [
+        _png_feature("commit_marker", vehicle_ids, required=False),
+        _png_feature("trajectory_quicklook", vehicle_ids, required=False),
+    ]
+    lane_change_completed = [
+        vehicle_id
+        for vehicle_id, progress in next_state_buffer.candidate_maneuver_progress.items()
+        if vehicle_id in final_candidates
+        and progress.completed
+        and progress.maneuver_type == "lane_change"
+    ]
+    merge_completed = [
+        vehicle_id
+        for vehicle_id, progress in next_state_buffer.candidate_maneuver_progress.items()
+        if vehicle_id in final_candidates and progress.completed and progress.maneuver_type == "merge"
+    ]
+    active_maneuver = [
+        vehicle_id
+        for vehicle_id, progress in next_state_buffer.candidate_maneuver_progress.items()
+        if vehicle_id in final_candidates and not progress.completed
+    ]
+    cache_cleanup = [
+        update.owner_vehicle_id
+        for update in next_state_buffer.candidate_cache_updates
+        if update.operation == "cleanup" and update.owner_vehicle_id in final_candidates
+    ]
+    source_chain = [
+        vehicle_id
+        for vehicle_id, candidate in final_candidates.items()
+        if candidate.source_longitudinal_candidate is not None
+        or candidate.source_lateral_candidate is not None
+    ]
+    if lane_change_completed:
+        features.append(_png_feature("lane_change_completed_marker", lane_change_completed))
+    if merge_completed:
+        features.append(_png_feature("merge_completed_marker", merge_completed))
+    if active_maneuver:
+        features.append(_png_feature("active_maneuver_marker", active_maneuver, required=False))
+    if cache_cleanup:
+        features.append(_png_feature("cache_cleanup_marker", cache_cleanup, required=False))
+    if source_chain:
+        features.append(_png_feature("source_chain_marker", source_chain, required=False))
+    return features
+
+
 def assert_event_records(records: list[EventRecord], event_type: str) -> bool:
     return any(record.event_type == event_type for record in records)
 
 
 def assert_sanity_records(records: list[SanityCheckRecord], check_type: str) -> bool:
     return any(record.check_type == check_type for record in records)
+
+
+def _primary_state_transition(
+    next_state_buffer: NextStateBuffer,
+    vehicle_id: str,
+) -> CandidateStateTransition | None:
+    transitions = tuple(next_state_buffer.candidate_state_transitions.get(vehicle_id, ()))
+    return transitions[0] if transitions else None
+
+
+def _primary_cache_update(
+    next_state_buffer: NextStateBuffer,
+    vehicle_id: str,
+) -> CandidateCacheUpdate | None:
+    for update in next_state_buffer.candidate_cache_updates:
+        if update.owner_vehicle_id == vehicle_id:
+            return update
+    return None
+
+
+def _state_transition_warnings(
+    state: SimulationState,
+    next_state_buffer: NextStateBuffer,
+) -> tuple[CommitWarning, ...]:
+    warnings: list[CommitWarning] = []
+    for vehicle_id, transitions in next_state_buffer.candidate_state_transitions.items():
+        if vehicle_id not in state.vehicle_states:
+            continue
+        by_state_name: dict[str, list[CandidateStateTransition]] = {}
+        for transition in transitions:
+            _assert_component_matches_candidate_vehicle(transition, vehicle_id)
+            by_state_name.setdefault(transition.state_name, []).append(transition)
+            current_value = getattr(state.vehicle_states[vehicle_id], transition.state_name, None)
+            if current_value is not None and str(current_value) != transition.old_state:
+                warnings.append(
+                    CommitWarning(
+                        vehicle_id=vehicle_id,
+                        warning_type="state_machine_inconsistency",
+                        reason="state_transition_old_state_mismatch",
+                        candidate_ids=(transition.candidate_id,),
+                    )
+                )
+        for same_state_transitions in by_state_name.values():
+            if len(same_state_transitions) > 1:
+                warnings.append(
+                    CommitWarning(
+                        vehicle_id=vehicle_id,
+                        warning_type="state_machine_inconsistency",
+                        reason="duplicate_state_transition",
+                        candidate_ids=tuple(
+                            transition.candidate_id for transition in same_state_transitions
+                        ),
+                    )
+                )
+    return tuple(warnings)
+
+
+def _transition_field(transition: Any, field_name: str) -> Any:
+    if isinstance(transition, Mapping):
+        return transition.get(field_name)
+    return getattr(transition, field_name)
+
+
+def _plain_transition_payload(transition: Any) -> dict[str, Any]:
+    if isinstance(transition, Mapping):
+        return dict(transition)
+    return _dataclass_to_plain(transition)
+
+
+def _first_transition_command_id(transitions: tuple[Any, ...]) -> str | None:
+    if not transitions:
+        return None
+    command_id = _transition_field(transitions[0], "command_id")
+    if command_id in (None, ""):
+        return None
+    return str(command_id)
+
+
+def _maneuver_command(
+    command_buffer: CommandBuffer | None,
+    vehicle_id: str,
+    maneuver_type: str,
+) -> Any:
+    if command_buffer is None:
+        return None
+    if maneuver_type == "merge":
+        return command_buffer.merge_commands.get(vehicle_id)
+    if maneuver_type == "lane_change":
+        return command_buffer.lane_change_commands.get(vehicle_id)
+    return None
+
+
+def _command_id(command: Any) -> str | None:
+    if isinstance(command, Mapping) and command.get("command_id") is not None:
+        return str(command["command_id"])
+    return None
+
+
+def _command_optional_str(command: Any, key: str) -> str | None:
+    if not isinstance(command, Mapping):
+        return None
+    value = command.get(key)
+    if value in (None, ""):
+        return None
+    return str(value)
+
+
+def _command_optional_float(command: Any, key: str) -> float | None:
+    if not isinstance(command, Mapping):
+        return None
+    value = command.get(key)
+    if value in (None, ""):
+        return None
+    return float(value)
+
+
+def _target_lane_from_y(value: float, *, fallback: str) -> str:
+    y = float(value)
+    if abs(y - 3.5) <= 1e-9:
+        return "lane_1"
+    if abs(y) <= 1e-9:
+        return "lane_2"
+    if abs(y + 3.5) <= 1e-9:
+        return "on_ramp"
+    return fallback
+
+
+def _lane_centerline_y(lane_id: str, *, fallback: float) -> float:
+    if lane_id == "lane_1":
+        return 3.5
+    if lane_id == "lane_2":
+        return 0.0
+    if lane_id == "on_ramp":
+        return -3.5
+    return fallback
+
+
+def _png_feature(
+    feature_type: str,
+    vehicle_ids: Any,
+    *,
+    required: bool = True,
+) -> dict[str, Any]:
+    ids = sorted(str(vehicle_id) for vehicle_id in vehicle_ids)
+    return {
+        "feature_type": feature_type,
+        "required": required,
+        "vehicle_ids": ids,
+        "expected_visibility": "visible" if required else "optional",
+        "notes": "registered only; renderer deferred",
+    }
 
 
 def _identity_candidate_for_vehicle(
@@ -932,19 +1329,19 @@ def _identity_candidate_for_vehicle(
 
 
 def _assert_allowed_candidate_source(candidate: CandidateKinematics) -> None:
-    if candidate.source not in ALLOWED_CANDIDATE_SOURCES:
+    if candidate.source not in ALLOWED_FINAL_CANDIDATE_SOURCES:
         raise ValueError(
-            "P03 candidate source must be test_harness_preloaded_candidate "
-            "or identity_candidate_for_commit_infrastructure"
+            "candidate source must be test_harness_preloaded_candidate, "
+            "identity_candidate_for_commit_infrastructure, "
+            "or step9_candidate_assembly"
         )
 
 
 def _assert_allowed_component_source(component: Any) -> None:
     source = getattr(component, "source", None)
-    if source is not None and source not in ALLOWED_CANDIDATE_SOURCES:
+    if source is not None and source not in ALLOWED_COMPONENT_CANDIDATE_SOURCES:
         raise ValueError(
-            "P03 candidate component source must be test_harness_preloaded_candidate "
-            "or identity_candidate_for_commit_infrastructure"
+            "candidate component source must be approved for P10 handoff"
         )
 
 
@@ -1027,6 +1424,26 @@ def _state_signature(state: SimulationState) -> tuple[Any, ...]:
         tuple(
             (vehicle_id, _vehicle_state_payload(state.vehicle_states[vehicle_id]))
             for vehicle_id in state.active_vehicle_ids
+        ),
+        tuple(
+            (
+                vehicle_id,
+                state.active_maneuvers[vehicle_id].maneuver_type,
+                state.active_maneuvers[vehicle_id].start_step,
+                state.active_maneuvers[vehicle_id].start_t,
+                state.active_maneuvers[vehicle_id].start_x_global,
+                state.active_maneuvers[vehicle_id].start_y,
+                state.active_maneuvers[vehicle_id].target_lane,
+                state.active_maneuvers[vehicle_id].target_y,
+                state.active_maneuvers[vehicle_id].source_command_id,
+                state.active_maneuvers[vehicle_id].source_event_id,
+                state.active_maneuvers[vehicle_id].planned_length,
+                state.active_maneuvers[vehicle_id].progress,
+                state.active_maneuvers[vehicle_id].last_planning_speed,
+                state.active_maneuvers[vehicle_id].assigned_clv_id,
+                state.active_maneuvers[vehicle_id].assigned_cfv_id,
+            )
+            for vehicle_id in sorted(state.active_maneuvers)
         ),
         tuple((key, tuple(sorted(value.items()))) for key, value in state.aps_assignment_cache.items()),
     )
