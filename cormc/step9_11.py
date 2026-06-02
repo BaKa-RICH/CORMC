@@ -1218,6 +1218,8 @@ def _state_transition_warnings(
 
 def _transition_field(transition: Any, field_name: str) -> Any:
     if isinstance(transition, Mapping):
+        if field_name == "new_state" and field_name not in transition:
+            return transition.get("requested_new_state")
         return transition.get(field_name)
     return getattr(transition, field_name)
 

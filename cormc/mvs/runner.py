@@ -144,6 +144,30 @@ def run_targeted_scenario(
     if (
         actual_events is None
         and actual_sanity_checks is None
+        and context.scenario_id == "MVS-E2E-1"
+    ):
+        from cormc.simulation_loop import SimulationLoopConfig, run_deterministic_simulation
+
+        loop_result = run_deterministic_simulation(
+            SimulationLoopConfig(
+                scenario=config,
+                run_id="MVS-E2E-1",
+                max_steps=70,
+                render_png=False,
+            )
+        )
+        return build_scenario_report(
+            context,
+            ScenarioRunResult(
+                actual_events=loop_result.history.event_dicts(),
+                actual_sanity_checks=loop_result.history.sanity_dicts(),
+                actual_png_artifacts=list(loop_result.expected_png_features),
+            ),
+        )
+
+    if (
+        actual_events is None
+        and actual_sanity_checks is None
         and context.scenario_id == "MVS-COMMIT-1-lite"
     ):
         commit_result = run_mvs_commit_1_lite()

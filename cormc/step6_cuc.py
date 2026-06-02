@@ -514,6 +514,7 @@ def _build_lane_change_command(
         "cuc_decision_id": decision["cuc_decision_id"],
         "overlay_id": overlay_id,
         "init_maneuver": True,
+        "source_scenario_id": state.scenario_config_ref or "unknown",
     }
 
 
@@ -556,6 +557,7 @@ def _build_same_step_overlay(
             "TFV_id": decision.get("TFV_id"),
         },
         "cuc_decision_id": decision["cuc_decision_id"],
+        "source_scenario_id": state.scenario_config_ref or "unknown",
     }
 
 

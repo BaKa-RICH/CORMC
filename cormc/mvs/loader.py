@@ -2047,3 +2047,501 @@ BUILTIN_SCENARIOS.update(
         "MVS-CONFLICT-1B": _p06_conflict_1b_scenario(),
     }
 )
+
+
+def _p12_vehicle(
+    vehicle_id: str,
+    lane: str,
+    x_global: float,
+    y: float,
+    *,
+    road_role: str = "mainline",
+    vehicle_type: str = "CAV",
+    compliance_state: str = "not_applicable",
+    initial_v: float = 20.0,
+    lane_change_state: str = "normal",
+    merge_state: str = "none",
+    desired_speed: float | None = 20.0,
+) -> dict[str, Any]:
+    spec_overrides: dict[str, Any] = {}
+    if desired_speed is not None:
+        spec_overrides["desired_speed"] = desired_speed
+    return {
+        "vehicle_id": vehicle_id,
+        "vehicle_type": vehicle_type,
+        "compliance_state": compliance_state,
+        "initial_x_global": x_global,
+        "initial_y": y,
+        "initial_v": initial_v,
+        "initial_a": 0.0,
+        "physical_lane": lane,
+        "road_role": road_role,
+        "lane_change_state": lane_change_state,
+        "merge_state": merge_state,
+        "spec_overrides": spec_overrides,
+    }
+
+
+def _p12_module_overrides(
+    *,
+    cuc_utility_overrides: dict[str, dict[str, Any]] | None = None,
+) -> dict[str, Any]:
+    return {
+        "boundary_generation_enabled": False,
+        "random_arrival_enabled": False,
+        "random_vehicle_attributes_enabled": False,
+        "ordinary_mainline_lane_change_enabled": False,
+        "platoon_cmc_enabled": False,
+        "mpc_lateral_tracking_enabled": False,
+        "test_harness_overrides": {
+            "source": "test_harness_override",
+            "cuc_utility_overrides": cuc_utility_overrides or {},
+        },
+    }
+
+
+def _p12_assignment(
+    *,
+    mv_id: str,
+    clv_id: str,
+    cfv_id: str,
+    aps_case: str,
+    col_clv: bool,
+    col_cfv: bool,
+    desired_spacing_override: float | None,
+    t_mv_star: float = 5.0,
+    created_at_t: float = 0.0,
+    created_at_step: int = 0,
+) -> dict[str, Any]:
+    return {
+        "mv_id": mv_id,
+        "clv_id": clv_id,
+        "cfv_id": cfv_id,
+        "aps_case": aps_case,
+        "col_clv": col_clv,
+        "col_cfv": col_cfv,
+        "desired_spacing_override": desired_spacing_override,
+        "t_mv_star": t_mv_star,
+        "t_star_mv": t_mv_star,
+        "status": "valid",
+        "created_at_t": created_at_t,
+        "created_at_step": created_at_step,
+        "source": "test_preload",
+        "valid_until_next_aps": True,
+        "staleness_policy": "valid_until_next_aps",
+    }
+
+
+def _p12_e2e_1_scenario() -> dict[str, Any]:
+    return {
+        "scenario_id": "MVS-E2E-1",
+        "scenario_name": "Deterministic APS CMC merge loop",
+        "purpose": "P12 deterministic runner route for APS case 1 through CMC/P08/P09/P10.",
+        "test_level": "smoke",
+        "status": "required",
+        "derivation_ref": ["CORMC minimal validation scenario spec #6.1"],
+        "initial_time": {"t": 0.0, "step": 0, "dt": 0.1},
+        "initial_vehicles": [
+            _p12_vehicle(
+                "MV_DEMO",
+                "on_ramp",
+                6830.0,
+                -3.5,
+                road_role="on_ramp_mv",
+                merge_state="not_started",
+            ),
+            _p12_vehicle(
+                "CLV_DEMO",
+                "lane_2",
+                6870.0,
+                0.0,
+                vehicle_type="CHV",
+                compliance_state="compliant",
+            ),
+            _p12_vehicle(
+                "CFV_DEMO",
+                "lane_2",
+                6800.0,
+                0.0,
+                vehicle_type="CHV",
+                compliance_state="compliant",
+            ),
+            _p12_vehicle("BG_LANE1_DEMO", "lane_1", 6840.0, 3.5),
+        ],
+        "module_overrides": _p12_module_overrides(),
+        "preloaded_assignments": [],
+        "preloaded_state_machine_states": [],
+        "preloaded_maneuver_trajectory_states": [],
+        "expected_events": [
+            {
+                "event_type": "APS",
+                "required": True,
+                "vehicle_ids": ["MV_DEMO", "CLV_DEMO", "CFV_DEMO"],
+                "match": {
+                    "trigger": "first_APS",
+                    "aps_case": "case_1",
+                    "clv_id": "CLV_DEMO",
+                    "cfv_id": "CFV_DEMO",
+                    "col_clv": False,
+                    "col_cfv": False,
+                },
+                "reason_code": "first_aps",
+                "source": "paper_formula",
+            },
+            {
+                "event_type": "CMC",
+                "required": True,
+                "vehicle_ids": ["MV_DEMO", "CLV_DEMO", "CFV_DEMO"],
+                "match": {"assignment_valid": True, "assigned_clv_id": "CLV_DEMO", "assigned_cfv_id": "CFV_DEMO"},
+                "reason_code": "assignment_validation",
+                "source": "first_version_engineering_patch",
+            },
+            {
+                "event_type": "CMC",
+                "required": True,
+                "vehicle_ids": ["MV_DEMO", "CLV_DEMO", "CFV_DEMO"],
+                "match": {"eq53_pass": True, "fail_side": None},
+                "reason_code": "eq53_gap",
+                "source": "paper_formula",
+            },
+            {
+                "event_type": "CMC",
+                "required": True,
+                "vehicle_ids": ["MV_DEMO"],
+                "match": {
+                    "init_or_continue_maneuver": "init",
+                    "target_lane": "lane_2",
+                    "target_y": 0.0,
+                    "state_transition_request": "executing",
+                },
+                "reason_code": "merge_start",
+                "source": "first_version_engineering_patch",
+            },
+            {
+                "event_type": "longitudinal_model",
+                "required": True,
+                "vehicle_ids": ["MV_DEMO"],
+                "match": {"longitudinal_mode": "mv_on_ramp"},
+                "source": "first_version_engineering_patch",
+            },
+            {
+                "event_type": "lateral_trajectory",
+                "required": True,
+                "vehicle_ids": ["MV_DEMO"],
+                "match": {"maneuver_type": "merge"},
+                "source": "paper_formula",
+            },
+            {
+                "event_type": "commit",
+                "required": True,
+                "vehicle_ids": ["MV_DEMO"],
+                "match": {
+                    "each_active_vehicle_has_exactly_one_final_next_state": True,
+                    "commit_is_unique_state_writer": True,
+                },
+                "source": "first_version_engineering_patch",
+            },
+            {
+                "event_type": "information_integration",
+                "required": True,
+                "vehicle_ids": ["MV_DEMO"],
+                "match": {"step10_does_not_rewrite_committed_state": True},
+                "source": "first_version_engineering_patch",
+            },
+            {
+                "event_type": "time_advance",
+                "required": True,
+                "vehicle_ids": ["MV_DEMO"],
+                "match": {"advanced_after_commit": True},
+                "source": "first_version_engineering_patch",
+            },
+        ],
+        "forbidden_events": [],
+        "expected_event_counts": [
+            {
+                "event_type": "cooperative_request",
+                "vehicle_ids": ["MV_DEMO"],
+                "expected_count": 0,
+                "comparison": "exactly",
+            }
+        ],
+        "expected_sanity_checks": [
+            {
+                "check_type": "multiple_commit_for_one_vehicle",
+                "required": True,
+                "expected_status": "pass",
+                "vehicle_ids": ["MV_DEMO"],
+            },
+            {
+                "check_type": "state_machine_inconsistency",
+                "required": True,
+                "expected_status": "pass",
+                "vehicle_ids": ["MV_DEMO"],
+            },
+            {
+                "check_type": "p12_command_namespace_conflict",
+                "required": True,
+                "expected_status": "pass",
+                "vehicle_ids": ["MV_DEMO"],
+            },
+            {
+                "check_type": "x_plot_used_in_algorithm_path",
+                "required": True,
+                "expected_status": "pass",
+                "vehicle_ids": ["MV_DEMO"],
+            },
+        ],
+        "expected_png_features": [
+            {
+                "feature_type": "aps_assignment_marker",
+                "required": True,
+                "vehicle_ids": ["MV_DEMO", "CLV_DEMO", "CFV_DEMO"],
+                "expected_visibility": "visible",
+            },
+            {
+                "feature_type": "merge_start_marker",
+                "required": True,
+                "vehicle_ids": ["MV_DEMO"],
+                "expected_visibility": "visible",
+            },
+            {
+                "feature_type": "merge_trajectory_marker",
+                "required": True,
+                "vehicle_ids": ["MV_DEMO"],
+                "expected_visibility": "visible",
+            },
+            {
+                "feature_type": "commit_marker",
+                "required": True,
+                "vehicle_ids": ["MV_DEMO"],
+                "expected_visibility": "visible",
+            },
+        ],
+        "tolerances": deepcopy(DEFAULT_TOLERANCES),
+    }
+
+
+def _p12_cuc_lanechange_scenario() -> dict[str, Any]:
+    return {
+        "scenario_id": "P12-BRANCH-CUC-LANECHANGE",
+        "scenario_name": "P12 CUC lane-change branch",
+        "purpose": "Deterministic CUC override starts a lane-change through the full loop.",
+        "test_level": "integration",
+        "status": "probe",
+        "derivation_ref": ["P12 deterministic branch scenario"],
+        "initial_time": {"t": 0.0, "step": 0, "dt": 0.1},
+        "initial_vehicles": [
+            _p12_vehicle("MV_CUC", "on_ramp", 6850.0, -3.5, road_role="on_ramp_mv", merge_state="not_started"),
+            _p12_vehicle("CFV_X", "lane_2", 6844.0, 0.0),
+            _p12_vehicle("CLV_Y", "lane_2", 6884.0, 0.0),
+            _p12_vehicle("TLV", "lane_1", 6920.0, 3.5),
+            _p12_vehicle("TFV", "lane_1", 6750.0, 3.5),
+        ],
+        "module_overrides": _p12_module_overrides(
+            cuc_utility_overrides={"CFV_X": {"recommended_choice": "change_to_lane_1", "U1": 1.0, "U2": 0.0}}
+        ),
+        "preloaded_assignments": [],
+        "preloaded_state_machine_states": [],
+        "preloaded_maneuver_trajectory_states": [],
+        "expected_events": [],
+        "forbidden_events": [],
+        "expected_event_counts": [],
+        "expected_sanity_checks": [],
+        "expected_png_features": [
+            {"feature_type": "lane_change_intent_marker", "required": True, "vehicle_ids": ["CFV_X"], "expected_visibility": "visible"},
+            {"feature_type": "lane_change_trajectory_marker", "required": True, "vehicle_ids": ["CFV_X"], "expected_visibility": "visible"},
+        ],
+        "tolerances": deepcopy(DEFAULT_TOLERANCES),
+    }
+
+
+def _p12_demo_e2e_scenario() -> dict[str, Any]:
+    scenario = _p12_e2e_1_scenario()
+    scenario["scenario_id"] = "P12-DEMO-E2E"
+    scenario["status"] = "probe"
+    scenario["test_level"] = "integration"
+    scenario["scenario_name"] = "P12 deterministic E2E demo"
+    return scenario
+
+
+def _p12_cuc_fallback_scenario(*, non_compliant: bool = False) -> dict[str, Any]:
+    scenario_id = "P12-BRANCH-CUC-NONCOMPLIANT" if non_compliant else "P12-BRANCH-CUC-FALLBACK"
+    vehicle_type = "CHV" if non_compliant else "CAV"
+    compliance = "non_compliant" if non_compliant else "not_applicable"
+    return {
+        "scenario_id": scenario_id,
+        "scenario_name": scenario_id,
+        "purpose": "Deterministic CUC unsafe fallback and optional non-compliant branch.",
+        "test_level": "integration",
+        "status": "probe",
+        "derivation_ref": ["P12 deterministic branch scenario"],
+        "initial_time": {"t": 0.0, "step": 0, "dt": 0.1},
+        "initial_vehicles": [
+            _p12_vehicle("MV_CUC", "on_ramp", 6850.0, -3.5, road_role="on_ramp_mv", merge_state="not_started"),
+            _p12_vehicle("CFV_X", "lane_2", 6844.0, 0.0, vehicle_type=vehicle_type, compliance_state=compliance, initial_v=25.0, desired_speed=25.0),
+            _p12_vehicle("CLV_Y", "lane_2", 6884.0, 0.0),
+            _p12_vehicle("TLV", "lane_1", 6853.0, 3.5),
+            _p12_vehicle("TFV", "lane_1", 6750.0, 3.5),
+        ],
+        "module_overrides": _p12_module_overrides(
+            cuc_utility_overrides={"CFV_X": {"recommended_choice": "change_to_lane_1", "U1": 1.0, "U2": 0.0}}
+        ),
+        "preloaded_assignments": [
+            _p12_assignment(
+                mv_id="MV_CUC",
+                clv_id="CLV_Y",
+                cfv_id="CFV_X",
+                aps_case="case_2",
+                col_clv=False,
+                col_cfv=True,
+                desired_spacing_override=58.0,
+            )
+        ],
+        "preloaded_state_machine_states": [],
+        "preloaded_maneuver_trajectory_states": [],
+        "expected_events": [],
+        "forbidden_events": [],
+        "expected_event_counts": [],
+        "expected_sanity_checks": [],
+        "expected_png_features": [
+            {"feature_type": "target_lane_unsafe_fallback_marker", "required": not non_compliant, "vehicle_ids": ["CFV_X"], "expected_visibility": "visible"},
+            {"feature_type": "non_compliant_ignored_marker", "required": non_compliant, "vehicle_ids": ["CFV_X"], "expected_visibility": "visible"},
+        ],
+        "tolerances": deepcopy(DEFAULT_TOLERANCES),
+    }
+
+
+def _p12_safe_cap_scenario() -> dict[str, Any]:
+    return {
+        "scenario_id": "P12-BRANCH-SAFE-CAP",
+        "scenario_name": "P12 safe cap branch",
+        "purpose": "Waiting, executing, and infeasible boundary-cap branches in one deterministic route.",
+        "test_level": "integration",
+        "status": "probe",
+        "derivation_ref": ["P12 deterministic branch scenario"],
+        "initial_time": {"t": 0.0, "step": 0, "dt": 0.1},
+        "initial_vehicles": [
+            _p12_vehicle("MV_SAFE_WAIT", "on_ramp", 7235.0, -3.5, road_role="on_ramp_mv", merge_state="waiting", initial_v=16.0, desired_speed=16.0),
+            _p12_vehicle("CLV_SAFE_WAIT", "lane_2", 7245.0, 0.0, initial_v=16.0, desired_speed=16.0),
+            _p12_vehicle("CFV_SAFE_WAIT", "lane_2", 7200.0, 0.0, initial_v=16.0, desired_speed=16.0),
+            _p12_vehicle("MV_SAFE_EXEC", "on_ramp", 7235.0, -3.5, road_role="on_ramp_mv", merge_state="executing", initial_v=16.0, desired_speed=16.0),
+            _p12_vehicle("CLV_SAFE_EXEC", "lane_2", 7270.0, 0.0, initial_v=16.0, desired_speed=16.0),
+            _p12_vehicle("CFV_SAFE_EXEC", "lane_2", 7190.0, 0.0, initial_v=16.0, desired_speed=16.0),
+            _p12_vehicle("MV_SAFE_RISK", "on_ramp", 7248.0, -3.5, road_role="on_ramp_mv", merge_state="waiting", initial_v=16.0, desired_speed=16.0),
+            _p12_vehicle("CLV_SAFE_RISK", "lane_2", 7290.0, 0.0, initial_v=16.0, desired_speed=16.0),
+            _p12_vehicle("CFV_SAFE_RISK", "lane_2", 7220.0, 0.0, initial_v=16.0, desired_speed=16.0),
+        ],
+        "module_overrides": _p12_module_overrides(),
+        "preloaded_assignments": [
+            _p12_assignment(mv_id="MV_SAFE_WAIT", clv_id="CLV_SAFE_WAIT", cfv_id="CFV_SAFE_WAIT", aps_case="case_1", col_clv=False, col_cfv=False, desired_spacing_override=None),
+            _p12_assignment(mv_id="MV_SAFE_EXEC", clv_id="CLV_SAFE_EXEC", cfv_id="CFV_SAFE_EXEC", aps_case="case_1", col_clv=False, col_cfv=False, desired_spacing_override=None),
+            _p12_assignment(mv_id="MV_SAFE_RISK", clv_id="CLV_SAFE_RISK", cfv_id="CFV_SAFE_RISK", aps_case="case_1", col_clv=False, col_cfv=False, desired_spacing_override=None),
+        ],
+        "preloaded_state_machine_states": [],
+        "preloaded_maneuver_trajectory_states": [
+            {
+                "vehicle_id": "MV_SAFE_EXEC",
+                "maneuver_type": "merge",
+                "start_t": -0.8,
+                "start_step": -8,
+                "start_x_global": 7220.0,
+                "start_y": -3.5,
+                "target_lane": "lane_2",
+                "target_y": 0.0,
+                "planned_length": 100.0,
+                "progress": 0.30,
+                "assigned_clv_id": "CLV_SAFE_EXEC",
+                "assigned_cfv_id": "CFV_SAFE_EXEC",
+            }
+        ],
+        "expected_events": [],
+        "forbidden_events": [],
+        "expected_event_counts": [],
+        "expected_sanity_checks": [],
+        "expected_png_features": [
+            {"feature_type": "boundary_cap_marker", "required": True, "vehicle_ids": ["MV_SAFE_WAIT", "MV_SAFE_EXEC"], "expected_visibility": "visible"},
+            {"feature_type": "boundary_risk_marker", "required": True, "vehicle_ids": ["MV_SAFE_RISK"], "expected_visibility": "visible"},
+            {"feature_type": "merge_trajectory_marker", "required": True, "vehicle_ids": ["MV_SAFE_EXEC"], "expected_visibility": "visible"},
+        ],
+        "tolerances": deepcopy(DEFAULT_TOLERANCES),
+    }
+
+
+def _p12_active_continuation_scenario() -> dict[str, Any]:
+    return {
+        "scenario_id": "P12-BRANCH-ACTIVE-CONTINUATION",
+        "scenario_name": "P12 active continuation branch",
+        "purpose": "Cache reuse, active lane-change, and active merge continue without rerunning start decisions.",
+        "test_level": "integration",
+        "status": "probe",
+        "derivation_ref": ["P12 deterministic branch scenario"],
+        "initial_time": {"t": 2.0, "step": 20, "dt": 0.1},
+        "initial_vehicles": [
+            _p12_vehicle("MV_CACHE", "on_ramp", 6840.0, -3.5, road_role="on_ramp_mv", merge_state="not_started"),
+            _p12_vehicle("CLV_CACHE", "lane_2", 6890.0, 0.0),
+            _p12_vehicle("CFV_CACHE", "lane_2", 6810.0, 0.0),
+            _p12_vehicle("CFV_ACTIVE", "lane_2", 6860.0, 0.3, lane_change_state="executing"),
+            _p12_vehicle("TLV_ACTIVE", "lane_1", 6900.0, 3.5),
+            _p12_vehicle("TFV_ACTIVE", "lane_1", 6780.0, 3.5),
+            _p12_vehicle("MV_ACTIVE", "on_ramp", 7050.0, -2.0, road_role="on_ramp_mv", merge_state="executing"),
+            _p12_vehicle("CLV_ACTIVE_M", "lane_2", 7100.0, 0.0),
+            _p12_vehicle("CFV_ACTIVE_M", "lane_2", 7000.0, 0.0),
+        ],
+        "module_overrides": _p12_module_overrides(),
+        "preloaded_assignments": [
+            _p12_assignment(mv_id="MV_CACHE", clv_id="CLV_CACHE", cfv_id="CFV_CACHE", aps_case="case_1", col_clv=False, col_cfv=False, desired_spacing_override=None, created_at_t=1.0, created_at_step=10),
+            _p12_assignment(mv_id="MV_ACTIVE", clv_id="CLV_ACTIVE_M", cfv_id="CFV_ACTIVE_M", aps_case="case_1", col_clv=False, col_cfv=False, desired_spacing_override=None, created_at_t=1.0, created_at_step=10),
+        ],
+        "preloaded_state_machine_states": [],
+        "preloaded_maneuver_trajectory_states": [
+            {
+                "vehicle_id": "CFV_ACTIVE",
+                "maneuver_type": "lane_change",
+                "start_t": 1.5,
+                "start_step": 15,
+                "start_x_global": 6850.0,
+                "start_y": 0.0,
+                "target_lane": "lane_1",
+                "target_y": 3.5,
+                "planned_length": 100.0,
+                "progress": 0.20,
+            },
+            {
+                "vehicle_id": "MV_ACTIVE",
+                "maneuver_type": "merge",
+                "start_t": 1.0,
+                "start_step": 10,
+                "start_x_global": 7035.0,
+                "start_y": -3.5,
+                "target_lane": "lane_2",
+                "target_y": 0.0,
+                "planned_length": 100.0,
+                "progress": 0.20,
+                "assigned_clv_id": "CLV_ACTIVE_M",
+                "assigned_cfv_id": "CFV_ACTIVE_M",
+            },
+        ],
+        "expected_events": [],
+        "forbidden_events": [],
+        "expected_event_counts": [],
+        "expected_sanity_checks": [],
+        "expected_png_features": [
+            {"feature_type": "active_maneuver_marker", "required": True, "vehicle_ids": ["CFV_ACTIVE", "MV_ACTIVE"], "expected_visibility": "visible"},
+            {"feature_type": "lane_change_trajectory_marker", "required": True, "vehicle_ids": ["CFV_ACTIVE"], "expected_visibility": "visible"},
+            {"feature_type": "merge_trajectory_marker", "required": True, "vehicle_ids": ["MV_ACTIVE"], "expected_visibility": "visible"},
+        ],
+        "tolerances": deepcopy(DEFAULT_TOLERANCES),
+    }
+
+
+BUILTIN_SCENARIOS.update(
+    {
+        "MVS-E2E-1": _p12_e2e_1_scenario(),
+        "P12-DEMO-E2E": _p12_demo_e2e_scenario(),
+        "P12-BRANCH-CUC-LANECHANGE": _p12_cuc_lanechange_scenario(),
+        "P12-BRANCH-CUC-FALLBACK": _p12_cuc_fallback_scenario(),
+        "P12-BRANCH-CUC-NONCOMPLIANT": _p12_cuc_fallback_scenario(non_compliant=True),
+        "P12-BRANCH-SAFE-CAP": _p12_safe_cap_scenario(),
+        "P12-BRANCH-ACTIVE-CONTINUATION": _p12_active_continuation_scenario(),
+    }
+)
