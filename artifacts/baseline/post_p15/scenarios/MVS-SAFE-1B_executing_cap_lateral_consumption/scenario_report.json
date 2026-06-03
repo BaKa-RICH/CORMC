@@ -1,0 +1,323 @@
+{
+  "exports": {
+    "events": "artifacts\\baseline\\post_p15\\scenarios\\MVS-SAFE-1B_executing_cap_lateral_consumption\\events.jsonl",
+    "sanity": "artifacts\\baseline\\post_p15\\scenarios\\MVS-SAFE-1B_executing_cap_lateral_consumption\\sanity.jsonl",
+    "state_snapshot": "artifacts\\baseline\\post_p15\\scenarios\\MVS-SAFE-1B_executing_cap_lateral_consumption\\state_snapshot.json",
+    "trajectory": "artifacts\\baseline\\post_p15\\scenarios\\MVS-SAFE-1B_executing_cap_lateral_consumption\\trajectory.csv"
+  },
+  "formula_status_summary": {
+    "core_formula_status": {
+      "cav_eq17_eq27": "locked_formula",
+      "chv_eq28_eq29": "not_observed",
+      "cuc_eq11_eq16": "not_observed",
+      "front_collision_eq42_eq46": "locked_formula"
+    },
+    "evidence_event_count_by_key": {
+      "cav_cpid_eq21_eq27": 0,
+      "cav_cruising_eq20": 2,
+      "cav_eq17_eq27": 2,
+      "chv_eq28_eq29": 0,
+      "chv_idm_eq28_eq29": 0,
+      "cuc_eq11_eq16": 0,
+      "cuc_eq14_eq15": 0,
+      "front_collision_eq42_eq46": 2,
+      "front_collision_speed_constraint": 2
+    },
+    "evidence_events_by_key": {
+      "cav_cpid_eq21_eq27": [],
+      "cav_cruising_eq20": [
+        {
+          "event_id": "post_p15:0:precommit_event:12",
+          "event_type": "longitudinal_model",
+          "module": "Step7LongitudinalModel",
+          "reason": "cav_cruising",
+          "step": 0,
+          "vehicle_id": "CLV_SAFE_EXEC"
+        },
+        {
+          "event_id": "post_p15:0:precommit_event:13",
+          "event_type": "longitudinal_model",
+          "module": "Step7LongitudinalModel",
+          "reason": "cav_cruising",
+          "step": 0,
+          "vehicle_id": "CFV_SAFE_EXEC"
+        }
+      ],
+      "cav_eq17_eq27": [
+        {
+          "event_id": "post_p15:0:precommit_event:12",
+          "event_type": "longitudinal_model",
+          "module": "Step7LongitudinalModel",
+          "reason": "cav_cruising",
+          "step": 0,
+          "vehicle_id": "CLV_SAFE_EXEC"
+        },
+        {
+          "event_id": "post_p15:0:precommit_event:13",
+          "event_type": "longitudinal_model",
+          "module": "Step7LongitudinalModel",
+          "reason": "cav_cruising",
+          "step": 0,
+          "vehicle_id": "CFV_SAFE_EXEC"
+        }
+      ],
+      "chv_eq28_eq29": [],
+      "chv_idm_eq28_eq29": [],
+      "cuc_eq11_eq16": [],
+      "cuc_eq14_eq15": [],
+      "front_collision_eq42_eq46": [
+        {
+          "event_id": "post_p15:0:precommit_event:10",
+          "event_type": "speed_cap",
+          "module": "Step7SpeedCapComposition",
+          "reason": "speed_cap_consumed",
+          "step": 0,
+          "vehicle_id": "MV_SAFE_EXEC"
+        },
+        {
+          "event_id": "post_p15:0:precommit_event:11",
+          "event_type": "longitudinal_model",
+          "module": "Step7LongitudinalModel",
+          "reason": "mv_on_ramp",
+          "step": 0,
+          "vehicle_id": "MV_SAFE_EXEC"
+        }
+      ],
+      "front_collision_speed_constraint": [
+        {
+          "event_id": "post_p15:0:precommit_event:10",
+          "event_type": "speed_cap",
+          "module": "Step7SpeedCapComposition",
+          "reason": "speed_cap_consumed",
+          "step": 0,
+          "vehicle_id": "MV_SAFE_EXEC"
+        },
+        {
+          "event_id": "post_p15:0:precommit_event:11",
+          "event_type": "longitudinal_model",
+          "module": "Step7LongitudinalModel",
+          "reason": "mv_on_ramp",
+          "step": 0,
+          "vehicle_id": "MV_SAFE_EXEC"
+        }
+      ]
+    },
+    "legacy_proxy_marker_count": 0,
+    "legacy_proxy_markers_present": [],
+    "status_values_seen_by_field": {
+      "formula_status": [
+        "engineering_patch",
+        "locked_formula"
+      ],
+      "front_collision_formula_status": [
+        "locked_formula"
+      ],
+      "longitudinal_formula_status": [
+        "engineering_patch",
+        "locked_formula"
+      ]
+    },
+    "subformula_status": {
+      "cav_cpid_eq21_eq27": "not_observed",
+      "cav_cruising_eq20": "locked_formula",
+      "chv_idm_eq28_eq29": "not_observed",
+      "cuc_eq14_eq15": "not_observed",
+      "front_collision_speed_constraint": "locked_formula"
+    }
+  },
+  "gaps": [],
+  "input_config_ref": "builtin:MVS-SAFE-1B_executing_cap_lateral_consumption",
+  "key_event_summary": {
+    "APS": true,
+    "CMC": true,
+    "CUC": true,
+    "commit": true,
+    "lateral_trajectory": true,
+    "longitudinal_model": true,
+    "time_advance": true
+  },
+  "png_feature_statuses": [
+    {
+      "evidence_source": "expected_png_features",
+      "expected_visibility": "optional",
+      "feature_type": "lane_centerline_quicklook",
+      "passed": true,
+      "renderer_status": "optional",
+      "required": false,
+      "vehicle_ids": []
+    },
+    {
+      "evidence_source": "expected_png_features",
+      "expected_visibility": "visible",
+      "feature_type": "merging_zone_boundary_quicklook",
+      "passed": true,
+      "renderer_status": "visible",
+      "required": true,
+      "vehicle_ids": []
+    },
+    {
+      "evidence_source": "expected_png_features",
+      "expected_visibility": "visible",
+      "feature_type": "executing_continuation_marker",
+      "passed": true,
+      "renderer_status": "visible",
+      "required": true,
+      "vehicle_ids": [
+        "MV_SAFE_EXEC"
+      ]
+    },
+    {
+      "evidence_source": "expected_png_features",
+      "expected_visibility": "visible",
+      "feature_type": "boundary_cap_marker",
+      "passed": true,
+      "renderer_status": "visible",
+      "required": true,
+      "vehicle_ids": [
+        "MV_SAFE_EXEC"
+      ]
+    },
+    {
+      "evidence_source": "expected_png_features",
+      "expected_visibility": "visible",
+      "feature_type": "cooperative_request_marker",
+      "passed": true,
+      "renderer_status": "visible",
+      "required": true,
+      "vehicle_ids": []
+    },
+    {
+      "evidence_source": "expected_png_features",
+      "expected_visibility": "visible",
+      "feature_type": "longitudinal_candidate_marker",
+      "passed": true,
+      "renderer_status": "visible",
+      "required": true,
+      "vehicle_ids": [
+        "CFV_SAFE_EXEC",
+        "CLV_SAFE_EXEC",
+        "MV_SAFE_EXEC"
+      ]
+    },
+    {
+      "evidence_source": "expected_png_features",
+      "expected_visibility": "optional",
+      "feature_type": "planning_speed_marker",
+      "passed": true,
+      "renderer_status": "optional",
+      "required": false,
+      "vehicle_ids": [
+        "CFV_SAFE_EXEC",
+        "CLV_SAFE_EXEC",
+        "MV_SAFE_EXEC"
+      ]
+    },
+    {
+      "evidence_source": "expected_png_features",
+      "expected_visibility": "visible",
+      "feature_type": "speed_cap_consumption_marker",
+      "passed": true,
+      "renderer_status": "visible",
+      "required": true,
+      "vehicle_ids": [
+        "MV_SAFE_EXEC"
+      ]
+    },
+    {
+      "evidence_source": "expected_png_features",
+      "expected_visibility": "visible",
+      "feature_type": "merge_trajectory_marker",
+      "passed": true,
+      "renderer_status": "visible",
+      "required": true,
+      "vehicle_ids": [
+        "MV_SAFE_EXEC"
+      ]
+    },
+    {
+      "evidence_source": "expected_png_features",
+      "expected_visibility": "visible",
+      "feature_type": "maneuver_progress_marker",
+      "passed": true,
+      "renderer_status": "visible",
+      "required": true,
+      "vehicle_ids": [
+        "MV_SAFE_EXEC"
+      ]
+    },
+    {
+      "evidence_source": "expected_png_features",
+      "expected_visibility": "optional",
+      "feature_type": "planning_speed_consumption_marker",
+      "passed": true,
+      "renderer_status": "optional",
+      "required": false,
+      "vehicle_ids": [
+        "MV_SAFE_EXEC"
+      ]
+    },
+    {
+      "evidence_source": "expected_png_features",
+      "expected_visibility": "optional",
+      "feature_type": "commit_marker",
+      "passed": true,
+      "renderer_status": "optional",
+      "required": false,
+      "vehicle_ids": [
+        "CFV_SAFE_EXEC",
+        "CLV_SAFE_EXEC",
+        "MV_SAFE_EXEC"
+      ]
+    },
+    {
+      "evidence_source": "expected_png_features",
+      "expected_visibility": "optional",
+      "feature_type": "trajectory_quicklook",
+      "passed": true,
+      "renderer_status": "optional",
+      "required": false,
+      "vehicle_ids": [
+        "CFV_SAFE_EXEC",
+        "CLV_SAFE_EXEC",
+        "MV_SAFE_EXEC"
+      ]
+    },
+    {
+      "evidence_source": "expected_png_features",
+      "expected_visibility": "optional",
+      "feature_type": "active_maneuver_marker",
+      "passed": true,
+      "renderer_status": "optional",
+      "required": false,
+      "vehicle_ids": [
+        "MV_SAFE_EXEC"
+      ]
+    },
+    {
+      "evidence_source": "expected_png_features",
+      "expected_visibility": "optional",
+      "feature_type": "source_chain_marker",
+      "passed": true,
+      "renderer_status": "optional",
+      "required": false,
+      "vehicle_ids": [
+        "CFV_SAFE_EXEC",
+        "CLV_SAFE_EXEC",
+        "MV_SAFE_EXEC"
+      ]
+    }
+  ],
+  "png_paths": [
+    "artifacts\\baseline\\post_p15\\scenarios\\MVS-SAFE-1B_executing_cap_lateral_consumption\\time_space.png"
+  ],
+  "run_id": "post_p15",
+  "sanity_summary": {
+    "fail_count": 0,
+    "failed_check_ids": [],
+    "pass_count": 40,
+    "total_count": 42
+  },
+  "scenario_id": "MVS-SAFE-1B_executing_cap_lateral_consumption",
+  "state_snapshot_path": "artifacts\\baseline\\post_p15\\scenarios\\MVS-SAFE-1B_executing_cap_lateral_consumption\\state_snapshot.json",
+  "status": "max_steps_reached"
+}

@@ -32,19 +32,24 @@ def test_p01_to_p03_are_spec_ready_and_implementation_ready() -> None:
         assert rows[pxx][10] == "是"
 
 
-def test_p04_to_p12_are_only_trace_registered() -> None:
+def test_p04_to_p13_are_implemented_green_after_required_closure() -> None:
     rows = _traceability_rows()
 
-    for index in range(4, 13):
+    for index in range(4, 14):
+        pxx = f"P{index:02d}"
+        assert pxx in rows
+        assert rows[pxx][9] == "implemented_green"
+        assert rows[pxx][10] == "是"
+
+
+def test_p14_to_p17_remain_registered_future_route() -> None:
+    rows = _traceability_rows()
+
+    for index in range(14, 18):
         pxx = f"P{index:02d}"
         assert pxx in rows
         assert rows[pxx][9] == "trace_registered"
         assert rows[pxx][10] == "否"
-        assert "spec_ready" not in rows[pxx][9]
-        assert "implementation_ready" not in rows[pxx][9]
-    assert "P12" in rows
-    assert rows["P12"][9] == "trace_registered"
-    assert rows["P12"][10] == "否"
 
 
 def test_every_pxx_has_step_gate_upstream_spec_and_evidence() -> None:
@@ -67,24 +72,24 @@ def test_p11_is_delivery_aggregation_not_first_log_sanity_mvs_or_png_stage() -> 
 
     assert "交付级" in p11[1]
     assert "Step 10" not in p11[1]
-    assert "正式 PNG" in p11[7]
-    assert "P11 不是首次实现日志 / sanity / MVS runner / PNG 口径" in p11[11]
+    assert "PNG / artifact manifest / regression report" in p11[7]
+    assert "正式自然输出包交给 P14" in p11[11]
     assert "不允许 P11 作为 P04-P10 日志、sanity、targeted MVS 或 PNG 口径的首次实现阶段" in text
 
 
-def test_p12_is_explicitly_registered_after_p11_and_not_collapsed_into_delivery() -> None:
+def test_p12_is_implemented_after_p11_and_not_collapsed_into_delivery() -> None:
     rows = _traceability_rows()
     text = _p00_text()
 
     assert list(rows).index("P12") > list(rows).index("P11")
     p12 = rows["P12"]
-    assert "Step 1 扩展" in p12[1]
-    assert "论文级实验入口" in p12[1]
-    assert "宏观指标 artifact 入口" in p12[7]
-    assert p12[9] == "trace_registered"
-    assert p12[10] == "否"
-    assert "P01-P12" in text
-    assert "P04-P12 的追踪条目存在" in text
+    assert "Deterministic full simulation loop" in p12[1]
+    assert "Step0-11 多步推进" in p12[1]
+    assert "demo PNG" in p12[7]
+    assert p12[9] == "implemented_green"
+    assert p12[10] == "是"
+    assert "P12 deterministic full simulation loop 已完成" in text
+    assert "P13 official required MVS closure 已完成" in text
 
 
 def test_engineering_patches_require_source_reason_and_engineering_patch_flag() -> None:
@@ -104,13 +109,13 @@ def test_engineering_patches_require_source_reason_and_engineering_patch_flag() 
         assert patch_name in text
 
 
-def test_p04_to_p12_do_not_need_full_spec_but_must_be_trace_registered() -> None:
+def test_p04_to_p13_current_facts_do_not_backslide_to_registered_only() -> None:
     text = _p00_text()
     rows = _traceability_rows()
 
     assert "P04-P12 缺完整执行计划不应导致 P00 失败" not in text
-    assert "P04-P12 在当前阶段只要求 trace_registered" in text
-    assert "不要求已有完整执行计划" in text
-    assert "P00 不代替 P04-P12 的后续完整执行计划" in text
-    assert "P04-P12 未进入 trace_registered 矩阵占位时失败" in text
-    assert all(rows[f"P{index:02d}"][9] == "trace_registered" for index in range(4, 13))
+    assert "P04-P13 的追踪条目反映当前已完成事实" in text
+    assert "当前 20 个 required MVS 已全部进入 P13 closure" in text
+    assert "P14-P17 的完整执行计划在对应阶段另行编写" in text
+    assert "P14-P17 在 P00 中只登记后续路线" in text
+    assert all(rows[f"P{index:02d}"][9] == "implemented_green" for index in range(4, 14))

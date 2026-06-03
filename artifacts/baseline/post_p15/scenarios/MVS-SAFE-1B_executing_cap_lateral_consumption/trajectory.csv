@@ -1,0 +1,4 @@
+scenario_id,run_id,step,t,vehicle_id,vehicle_type,compliance_state,x_global,y,v,a,physical_lane,road_role,primary_leader_id,lane_change_state,merge_state,active_event_tags
+MVS-SAFE-1B_executing_cap_lateral_consumption,post_p15,0,0.0,MV_SAFE_EXEC,cav,not_applicable,7235.262950294054,-2.76689371574826,2.6295029405356662,0.0,on_ramp,on_ramp_mv,,normal,executing,commit
+MVS-SAFE-1B_executing_cap_lateral_consumption,post_p15,0,0.0,CLV_SAFE_EXEC,cav,not_applicable,7271.64,0.0,16.4,4.0,lane_2,mainline,,normal,none,commit
+MVS-SAFE-1B_executing_cap_lateral_consumption,post_p15,0,0.0,CFV_SAFE_EXEC,cav,not_applicable,7191.64,0.0,16.4,4.0,lane_2,mainline,,normal,none,commit

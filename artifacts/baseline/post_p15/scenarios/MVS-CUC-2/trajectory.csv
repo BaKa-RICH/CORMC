@@ -1,0 +1,6 @@
+scenario_id,run_id,step,t,vehicle_id,vehicle_type,compliance_state,x_global,y,v,a,physical_lane,road_role,primary_leader_id,lane_change_state,merge_state,active_event_tags
+MVS-CUC-2,post_p15,0,0.0,MV_CUC,cav,not_applicable,6852.0,-3.5,20.0,0.0,on_ramp,on_ramp_mv,,normal,not_started,commit
+MVS-CUC-2,post_p15,0,0.0,CFV_X,cav,not_applicable,6846.489090909091,0.0,24.89090909090909,-1.0909090909090908,lane_2,mainline,,normal,none,commit
+MVS-CUC-2,post_p15,0,0.0,CLV_Y,cav,not_applicable,6852.04,0.0,20.4,4.0,lane_2,mainline,,normal,none,commit
+MVS-CUC-2,post_p15,0,0.0,TLV,cav,not_applicable,6922.232,3.5,22.32,3.2,lane_1,mainline,,normal,none,commit
+MVS-CUC-2,post_p15,0,0.0,TFV,cav,not_applicable,6840.007272727273,3.5,30.072727272727274,0.7272727272727273,lane_1,mainline,,normal,none,commit

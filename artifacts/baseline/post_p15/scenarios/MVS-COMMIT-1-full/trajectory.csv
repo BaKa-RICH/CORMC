@@ -1,0 +1,10 @@
+scenario_id,run_id,step,t,vehicle_id,vehicle_type,compliance_state,x_global,y,v,a,physical_lane,road_role,primary_leader_id,lane_change_state,merge_state,active_event_tags
+MVS-COMMIT-1-full,post_p15,20,2.0,MV_CACHE,cav,not_applicable,6892.0,-3.5,20.0,0.0,on_ramp,on_ramp_mv,,normal,not_started,commit
+MVS-COMMIT-1-full,post_p15,20,2.0,CLV_CACHE,cav,not_applicable,6941.993939393939,0.0,19.93939393939394,-0.6060606060605974,lane_2,mainline,,normal,none,commit
+MVS-COMMIT-1-full,post_p15,20,2.0,CFV_CACHE,cav,not_applicable,6842.04,0.0,20.4,4.0,lane_2,mainline,,normal,none,commit
+MVS-COMMIT-1-full,post_p15,20,2.0,CV_ACTIVE_LC,cav,not_applicable,6902.04,1.0570099874477326,20.4,4.0,lane_2,mainline,,executing,none,commit
+MVS-COMMIT-1-full,post_p15,20,2.0,TLV_ACTIVE,cav,not_applicable,6962.04,3.5,20.4,4.0,lane_1,mainline,,normal,none,commit
+MVS-COMMIT-1-full,post_p15,20,2.0,TFV_ACTIVE,cav,not_applicable,6822.04,3.5,20.4,4.0,lane_1,mainline,,normal,none,commit
+MVS-COMMIT-1-full,post_p15,20,2.0,MV_ACTIVE_MERGE,cav,not_applicable,7011.8,-2.195848769945919,18.0,0.0,on_ramp,on_ramp_mv,,normal,executing,commit
+MVS-COMMIT-1-full,post_p15,20,2.0,CLV_MERGE,cav,not_applicable,7061.84,0.0,18.4,4.0,lane_2,mainline,,normal,none,commit
+MVS-COMMIT-1-full,post_p15,20,2.0,CFV_MERGE,cav,not_applicable,6971.84,0.0,18.4,4.0,lane_2,mainline,,normal,none,commit

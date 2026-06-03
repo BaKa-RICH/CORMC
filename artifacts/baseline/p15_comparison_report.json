@@ -1,0 +1,14 @@
+{
+  "status": "passed",
+  "comparison_notes": [
+    "run_id/path labels normalized between pre_p15 and post_p15",
+    "PNG headers checked; byte size drift is reported separately because metadata/path labels may affect render artifacts"
+  ],
+  "summary": [
+    "scenarios_pre=['MVS-E2E-1', 'MVS-CUC-1A_override_choice1', 'MVS-CUC-2', 'MVS-CUC-3', 'MVS-SAFE-1A_waiting_cap', 'MVS-SAFE-1B_executing_cap_lateral_consumption', 'MVS-SAFE-2', 'MVS-COMMIT-1-full']",
+    "scenarios_post=['MVS-E2E-1', 'MVS-CUC-1A_override_choice1', 'MVS-CUC-2', 'MVS-CUC-3', 'MVS-SAFE-1A_waiting_cap', 'MVS-SAFE-1B_executing_cap_lateral_consumption', 'MVS-SAFE-2', 'MVS-COMMIT-1-full']",
+    "post_suite_status=passed required_green=20",
+    "png_size_diffs=[]"
+  ],
+  "failures": []
+}

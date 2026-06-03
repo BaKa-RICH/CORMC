@@ -1,0 +1,231 @@
+{
+  "final_state": {
+    "active_maneuvers": [
+      {
+        "assigned_cfv_id": null,
+        "assigned_clv_id": null,
+        "last_planning_speed": 20.072727272727274,
+        "maneuver_type": "lane_change",
+        "planned_length": 100.0,
+        "progress": 0.020072727272727273,
+        "source_command_id": "p07:0:CFV_X:lane_change",
+        "source_event_id": null,
+        "start_step": 0,
+        "start_t": 0.0,
+        "start_x_global": 6844.0,
+        "start_y": 0.0,
+        "target_lane": "lane_1",
+        "target_y": 3.5,
+        "vehicle_id": "CFV_X"
+      }
+    ],
+    "active_vehicle_ids": [
+      "MV_CUC",
+      "CFV_X",
+      "CLV_Y",
+      "TLV",
+      "TFV"
+    ],
+    "aps_assignment_cache": {
+      "MV_CUC": {
+        "aps_case": "case_2",
+        "cfv_id": "CFV_X",
+        "clv_id": "CLV_Y",
+        "col_cfv": true,
+        "col_clv": false,
+        "created_at_step": 0,
+        "created_at_t": 0.0,
+        "desired_spacing_override": 58.0,
+        "mv_id": "MV_CUC",
+        "source": "test_preload",
+        "staleness_policy": "valid_until_next_aps",
+        "status": "valid",
+        "t_mv_star": 5.0,
+        "t_star_mv": 5.0,
+        "valid_until_next_aps": true
+      }
+    },
+    "controller_memory_by_vehicle": {
+      "CFV_X": {
+        "controller_mode": "cav_cpid",
+        "e_prev": 80.0,
+        "ex_prev": 10.0,
+        "integral_e": 0.0,
+        "integral_ex": 0.0,
+        "last_controller_update_step": 0,
+        "last_t": 0.0,
+        "vehicle_id": "CFV_X"
+      }
+    },
+    "dt": 0.1,
+    "output_config_ref": null,
+    "parameter_config_ref": "paper_table_i_first_version",
+    "road_config_ref": "paper_fig10_first_version",
+    "scenario_config_ref": "MVS-CUC-1A_override_choice1",
+    "step": 1,
+    "t": 0.1,
+    "vehicle_states": [
+      {
+        "a": 0.7272727272727273,
+        "is_active": true,
+        "lane_change_state": "executing",
+        "merge_state": "none",
+        "physical_lane": "lane_2",
+        "road_role": "mainline",
+        "v": 20.072727272727274,
+        "vehicle_id": "CFV_X",
+        "x_global": 6846.007272727273,
+        "y": 0.0034783769402995657
+      },
+      {
+        "a": 4.0,
+        "is_active": true,
+        "lane_change_state": "normal",
+        "merge_state": "none",
+        "physical_lane": "lane_2",
+        "road_role": "mainline",
+        "v": 20.4,
+        "vehicle_id": "CLV_Y",
+        "x_global": 6886.04,
+        "y": 0.0
+      },
+      {
+        "a": 0.0,
+        "is_active": true,
+        "lane_change_state": "normal",
+        "merge_state": "not_started",
+        "physical_lane": "on_ramp",
+        "road_role": "on_ramp_mv",
+        "v": 20.0,
+        "vehicle_id": "MV_CUC",
+        "x_global": 6852.0,
+        "y": -3.5
+      },
+      {
+        "a": 4.0,
+        "is_active": true,
+        "lane_change_state": "normal",
+        "merge_state": "none",
+        "physical_lane": "lane_1",
+        "road_role": "mainline",
+        "v": 20.4,
+        "vehicle_id": "TFV",
+        "x_global": 6752.04,
+        "y": 3.5
+      },
+      {
+        "a": 3.2,
+        "is_active": true,
+        "lane_change_state": "normal",
+        "merge_state": "none",
+        "physical_lane": "lane_1",
+        "road_role": "mainline",
+        "v": 22.32,
+        "vehicle_id": "TLV",
+        "x_global": 6922.232,
+        "y": 3.5
+      }
+    ]
+  },
+  "initial_state": {
+    "active_maneuvers": [],
+    "active_vehicle_ids": [
+      "MV_CUC",
+      "CFV_X",
+      "CLV_Y",
+      "TLV",
+      "TFV"
+    ],
+    "aps_assignment_cache": {
+      "MV_CUC": {
+        "aps_case": "case_2",
+        "cfv_id": "CFV_X",
+        "clv_id": "CLV_Y",
+        "col_cfv": true,
+        "col_clv": false,
+        "created_at_step": 0,
+        "created_at_t": 0.0,
+        "desired_spacing_override": 58.0,
+        "mv_id": "MV_CUC",
+        "source": "test_preload",
+        "staleness_policy": "valid_until_next_aps",
+        "status": "valid",
+        "t_mv_star": 5.0,
+        "t_star_mv": 5.0,
+        "valid_until_next_aps": true
+      }
+    },
+    "controller_memory_by_vehicle": {},
+    "dt": 0.1,
+    "output_config_ref": null,
+    "parameter_config_ref": "paper_table_i_first_version",
+    "road_config_ref": "paper_fig10_first_version",
+    "scenario_config_ref": "MVS-CUC-1A_override_choice1",
+    "step": 0,
+    "t": 0.0,
+    "vehicle_states": [
+      {
+        "a": 0.0,
+        "is_active": true,
+        "lane_change_state": "normal",
+        "merge_state": "none",
+        "physical_lane": "lane_2",
+        "road_role": "mainline",
+        "v": 20.0,
+        "vehicle_id": "CFV_X",
+        "x_global": 6844.0,
+        "y": 0.0
+      },
+      {
+        "a": 0.0,
+        "is_active": true,
+        "lane_change_state": "normal",
+        "merge_state": "none",
+        "physical_lane": "lane_2",
+        "road_role": "mainline",
+        "v": 20.0,
+        "vehicle_id": "CLV_Y",
+        "x_global": 6884.0,
+        "y": 0.0
+      },
+      {
+        "a": 0.0,
+        "is_active": true,
+        "lane_change_state": "normal",
+        "merge_state": "not_started",
+        "physical_lane": "on_ramp",
+        "road_role": "on_ramp_mv",
+        "v": 20.0,
+        "vehicle_id": "MV_CUC",
+        "x_global": 6850.0,
+        "y": -3.5
+      },
+      {
+        "a": 0.0,
+        "is_active": true,
+        "lane_change_state": "normal",
+        "merge_state": "none",
+        "physical_lane": "lane_1",
+        "road_role": "mainline",
+        "v": 20.0,
+        "vehicle_id": "TFV",
+        "x_global": 6750.0,
+        "y": 3.5
+      },
+      {
+        "a": 0.0,
+        "is_active": true,
+        "lane_change_state": "normal",
+        "merge_state": "none",
+        "physical_lane": "lane_1",
+        "road_role": "mainline",
+        "v": 22.0,
+        "vehicle_id": "TLV",
+        "x_global": 6920.0,
+        "y": 3.5
+      }
+    ]
+  },
+  "run_id": "post_p15",
+  "scenario_id": "MVS-CUC-1A_override_choice1"
+}

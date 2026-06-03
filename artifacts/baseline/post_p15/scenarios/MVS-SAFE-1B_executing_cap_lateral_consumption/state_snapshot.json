@@ -1,0 +1,186 @@
+{
+  "final_state": {
+    "active_maneuvers": [
+      {
+        "assigned_cfv_id": "CFV_SAFE_EXEC",
+        "assigned_clv_id": "CLV_SAFE_EXEC",
+        "last_planning_speed": 2.6295029405356662,
+        "maneuver_type": "merge",
+        "planned_length": 100.0,
+        "progress": 0.30262950294053564,
+        "source_command_id": "p05:0:merge_continue:MV_SAFE_EXEC",
+        "source_event_id": null,
+        "start_step": -8,
+        "start_t": -0.8,
+        "start_x_global": 7220.0,
+        "start_y": -3.5,
+        "target_lane": "lane_2",
+        "target_y": 0.0,
+        "vehicle_id": "MV_SAFE_EXEC"
+      }
+    ],
+    "active_vehicle_ids": [
+      "MV_SAFE_EXEC",
+      "CLV_SAFE_EXEC",
+      "CFV_SAFE_EXEC"
+    ],
+    "aps_assignment_cache": {
+      "MV_SAFE_EXEC": {
+        "aps_case": "case_1",
+        "cfv_id": "CFV_SAFE_EXEC",
+        "clv_id": "CLV_SAFE_EXEC",
+        "col_cfv": false,
+        "col_clv": false,
+        "created_at_step": 0,
+        "created_at_t": 0.0,
+        "desired_spacing_override": null,
+        "mv_id": "MV_SAFE_EXEC",
+        "source": "test_preload",
+        "staleness_policy": "valid_until_next_aps",
+        "status": "valid",
+        "t_mv_star": 5.0,
+        "t_star_mv": 5.0,
+        "valid_until_next_aps": true
+      }
+    },
+    "controller_memory_by_vehicle": {},
+    "dt": 0.1,
+    "output_config_ref": null,
+    "parameter_config_ref": "paper_table_i_first_version",
+    "road_config_ref": "paper_fig10_first_version",
+    "scenario_config_ref": "MVS-SAFE-1B_executing_cap_lateral_consumption",
+    "step": 1,
+    "t": 0.1,
+    "vehicle_states": [
+      {
+        "a": 4.0,
+        "is_active": true,
+        "lane_change_state": "normal",
+        "merge_state": "none",
+        "physical_lane": "lane_2",
+        "road_role": "mainline",
+        "v": 16.4,
+        "vehicle_id": "CFV_SAFE_EXEC",
+        "x_global": 7191.64,
+        "y": 0.0
+      },
+      {
+        "a": 4.0,
+        "is_active": true,
+        "lane_change_state": "normal",
+        "merge_state": "none",
+        "physical_lane": "lane_2",
+        "road_role": "mainline",
+        "v": 16.4,
+        "vehicle_id": "CLV_SAFE_EXEC",
+        "x_global": 7271.64,
+        "y": 0.0
+      },
+      {
+        "a": 0.0,
+        "is_active": true,
+        "lane_change_state": "normal",
+        "merge_state": "executing",
+        "physical_lane": "on_ramp",
+        "road_role": "on_ramp_mv",
+        "v": 2.6295029405356662,
+        "vehicle_id": "MV_SAFE_EXEC",
+        "x_global": 7235.262950294054,
+        "y": -2.76689371574826
+      }
+    ]
+  },
+  "initial_state": {
+    "active_maneuvers": [
+      {
+        "assigned_cfv_id": "CFV_SAFE_EXEC",
+        "assigned_clv_id": "CLV_SAFE_EXEC",
+        "last_planning_speed": null,
+        "maneuver_type": "merge",
+        "planned_length": 100.0,
+        "progress": 0.3,
+        "source_command_id": null,
+        "source_event_id": null,
+        "start_step": -8,
+        "start_t": -0.8,
+        "start_x_global": 7220.0,
+        "start_y": -3.5,
+        "target_lane": "lane_2",
+        "target_y": 0.0,
+        "vehicle_id": "MV_SAFE_EXEC"
+      }
+    ],
+    "active_vehicle_ids": [
+      "MV_SAFE_EXEC",
+      "CLV_SAFE_EXEC",
+      "CFV_SAFE_EXEC"
+    ],
+    "aps_assignment_cache": {
+      "MV_SAFE_EXEC": {
+        "aps_case": "case_1",
+        "cfv_id": "CFV_SAFE_EXEC",
+        "clv_id": "CLV_SAFE_EXEC",
+        "col_cfv": false,
+        "col_clv": false,
+        "created_at_step": 0,
+        "created_at_t": 0.0,
+        "desired_spacing_override": null,
+        "mv_id": "MV_SAFE_EXEC",
+        "source": "test_preload",
+        "staleness_policy": "valid_until_next_aps",
+        "status": "valid",
+        "t_mv_star": 5.0,
+        "t_star_mv": 5.0,
+        "valid_until_next_aps": true
+      }
+    },
+    "controller_memory_by_vehicle": {},
+    "dt": 0.1,
+    "output_config_ref": null,
+    "parameter_config_ref": "paper_table_i_first_version",
+    "road_config_ref": "paper_fig10_first_version",
+    "scenario_config_ref": "MVS-SAFE-1B_executing_cap_lateral_consumption",
+    "step": 0,
+    "t": 0.0,
+    "vehicle_states": [
+      {
+        "a": 0.0,
+        "is_active": true,
+        "lane_change_state": "normal",
+        "merge_state": "none",
+        "physical_lane": "lane_2",
+        "road_role": "mainline",
+        "v": 16.0,
+        "vehicle_id": "CFV_SAFE_EXEC",
+        "x_global": 7190.0,
+        "y": 0.0
+      },
+      {
+        "a": 0.0,
+        "is_active": true,
+        "lane_change_state": "normal",
+        "merge_state": "none",
+        "physical_lane": "lane_2",
+        "road_role": "mainline",
+        "v": 16.0,
+        "vehicle_id": "CLV_SAFE_EXEC",
+        "x_global": 7270.0,
+        "y": 0.0
+      },
+      {
+        "a": 0.0,
+        "is_active": true,
+        "lane_change_state": "normal",
+        "merge_state": "executing",
+        "physical_lane": "on_ramp",
+        "road_role": "on_ramp_mv",
+        "v": 16.0,
+        "vehicle_id": "MV_SAFE_EXEC",
+        "x_global": 7235.0,
+        "y": -3.5
+      }
+    ]
+  },
+  "run_id": "post_p15",
+  "scenario_id": "MVS-SAFE-1B_executing_cap_lateral_consumption"
+}
