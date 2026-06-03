@@ -10,21 +10,21 @@
 
 | vehicle_id | x_global | y | v | physical_lane | road_role | lane_change_state | merge_state |
 |---|---:|---:|---:|---|---|---|---|
-| CFV_CACHE | 6842.01 | 0 | 20.08 | lane_2 | mainline | normal | none |
-| CFV_MERGE | 6971.8 | 0 | 18 | lane_2 | mainline | normal | none |
-| CLV_CACHE | 6941.99 | 0 | 19.88 | lane_2 | mainline | normal | none |
-| CLV_MERGE | 7061.8 | 0 | 18 | lane_2 | mainline | normal | none |
-| CV_ACTIVE_LC | 6902.01 | 1.05539 | 20.08 | lane_2 | mainline | executing | none |
+| CFV_CACHE | 6842.04 | 0 | 20.4 | lane_2 | mainline | normal | none |
+| CFV_MERGE | 6971.84 | 0 | 18.4 | lane_2 | mainline | normal | none |
+| CLV_CACHE | 6941.99 | 0 | 19.9394 | lane_2 | mainline | normal | none |
+| CLV_MERGE | 7061.84 | 0 | 18.4 | lane_2 | mainline | normal | none |
+| CV_ACTIVE_LC | 6902.04 | 1.05701 | 20.4 | lane_2 | mainline | executing | none |
 | MV_ACTIVE_MERGE | 7011.8 | -2.19585 | 18 | on_ramp | on_ramp_mv | normal | executing |
 | MV_CACHE | 6892 | -3.5 | 20 | on_ramp | on_ramp_mv | normal | not_started |
-| TFV_ACTIVE | 6822 | 3.5 | 20 | lane_1 | mainline | normal | none |
-| TLV_ACTIVE | 6962 | 3.5 | 20 | lane_1 | mainline | normal | none |
+| TFV_ACTIVE | 6822.04 | 3.5 | 20.4 | lane_1 | mainline | normal | none |
+| TLV_ACTIVE | 6962.04 | 3.5 | 20.4 | lane_1 | mainline | normal | none |
 
 ## Active Maneuvers
 
 | vehicle_id | maneuver_type | progress | last_planning_speed |
 |---|---|---:|---:|
-| CV_ACTIVE_LC | lane_change | 0.37008 | 20.08 |
+| CV_ACTIVE_LC | lane_change | 0.3704 | 20.4 |
 | MV_ACTIVE_MERGE | merge | 0.418 | 18 |
 
 ## Sanity Summary
@@ -42,6 +42,14 @@
 - lateral_trajectory: `True`
 - commit: `True`
 - time_advance: `True`
+
+## Formula Status
+
+- cuc_eq11_eq16: `not_observed`
+- cav_eq17_eq27: `locked_formula`
+- chv_eq28_eq29: `not_observed`
+- front_collision_eq42_eq46: `locked_formula`
+- legacy proxy markers present: `none`
 
 ## PNG
 

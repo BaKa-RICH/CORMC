@@ -2380,7 +2380,7 @@ def _p12_cuc_fallback_scenario(*, non_compliant: bool = False) -> dict[str, Any]
             _p12_vehicle("MV_CUC", "on_ramp", 6850.0, -3.5, road_role="on_ramp_mv", merge_state="not_started"),
             _p12_vehicle("CFV_X", "lane_2", 6844.0, 0.0, vehicle_type=vehicle_type, compliance_state=compliance, initial_v=25.0, desired_speed=25.0),
             _p12_vehicle("CLV_Y", "lane_2", 6884.0, 0.0),
-            _p12_vehicle("TLV", "lane_1", 6853.0, 3.5),
+            _p12_vehicle("TLV", "lane_1", 6847.0, 3.5),
             _p12_vehicle("TFV", "lane_1", 6750.0, 3.5),
         ],
         "module_overrides": _p12_module_overrides(
@@ -2574,12 +2574,6 @@ def _p13_required_deterministic_scenario(
 
 
 def _p13_cuc_overrides_for(scenario_id: str) -> dict[str, dict[str, Any]]:
-    if scenario_id in {
-        "MVS-CUC-1A_override_choice1",
-        "MVS-CUC-2",
-        "MVS-CUC-3",
-    }:
-        return {"CFV_X": {"recommended_choice": "change_to_lane_1", "U1": 1.0, "U2": 0.0}}
     return {}
 
 
@@ -2702,7 +2696,7 @@ def _mvs_cuc_1a_override_choice1_scenario() -> dict[str, Any]:
                     "TT_min": 1.5,
                 },
                 "reason_code": "target_lane_safe",
-                "source": "first_version_safety_proxy",
+                "source": "paper_formula",
             },
             {
                 "event_type": "CUC",
@@ -2711,11 +2705,12 @@ def _mvs_cuc_1a_override_choice1_scenario() -> dict[str, Any]:
                 "match": {
                     "recommended_choice": "change_to_lane_1",
                     "final_choice": "change_to_lane_1",
-                    "utility_formula_status": "test_harness_override_not_formula",
+                    "utility_formula_status": "locked_formula",
+                    "formula_status": "locked_formula",
                     "cuc_suggestion_executed": True,
                 },
                 "reason_code": "final_choice_change_to_lane_1",
-                "source": "test_harness_override",
+                "source": "paper_formula",
             },
             {
                 "event_type": "CUC",
@@ -2776,9 +2771,9 @@ def _mvs_cuc_2_scenario() -> dict[str, Any]:
         vehicles=[
             _p12_vehicle("MV_CUC", "on_ramp", 6850.0, -3.5, road_role="on_ramp_mv", merge_state="not_started"),
             _p12_vehicle("CFV_X", "lane_2", 6844.0, 0.0, initial_v=25.0, desired_speed=25.0),
-            _p12_vehicle("CLV_Y", "lane_2", 6884.0, 0.0),
-            _p12_vehicle("TLV", "lane_1", 6853.0, 3.5),
-            _p12_vehicle("TFV", "lane_1", 6780.0, 3.5),
+            _p12_vehicle("CLV_Y", "lane_2", 6850.0, 0.0),
+            _p12_vehicle("TLV", "lane_1", 6920.0, 3.5, initial_v=22.0, desired_speed=22.0),
+            _p12_vehicle("TFV", "lane_1", 6837.0, 3.5, initial_v=30.0, desired_speed=30.0),
         ],
         preloaded_assignments=[
             _p12_assignment(
@@ -2806,7 +2801,7 @@ def _mvs_cuc_2_scenario() -> dict[str, Any]:
                 "vehicle_ids": ["MV_CUC", "CFV_X", "TLV", "TFV"],
                 "match": {"target_lane_safe": False, "target_lane": "lane_1"},
                 "reason_code": "target_lane_unsafe",
-                "source": "first_version_safety_proxy",
+                "source": "paper_formula",
             },
             {
                 "event_type": "CUC",
@@ -2817,9 +2812,11 @@ def _mvs_cuc_2_scenario() -> dict[str, Any]:
                     "final_choice": "stay_lane_2",
                     "fallback_reason": "target_lane_unsafe",
                     "target_lane_safe": False,
+                    "utility_formula_status": "locked_formula",
+                    "formula_status": "locked_formula",
                 },
                 "reason_code": "fallback_target_lane_unsafe",
-                "source": "test_harness_override",
+                "source": "paper_formula",
             },
             {
                 "event_type": "CUC",
@@ -2845,8 +2842,10 @@ def _mvs_cuc_2_scenario() -> dict[str, Any]:
                     "longitudinal_mode": "cav_gap_regulating",
                     "desired_spacing_override": 58.0,
                     "spacing_override_consumed": True,
+                    "longitudinal_formula_status": "locked_formula",
+                    "cpid_mode": "minimal_formula_mode",
                 },
-                "source": "first_version_engineering_patch",
+                "source": "paper_formula",
             },
             *_p13_commit_and_time_events(vehicle_ids),
         ],
@@ -2948,7 +2947,7 @@ def _mvs_cuc_3_scenario() -> dict[str, Any]:
                     "cuc_suggestion_executed": False,
                 },
                 "reason_code": "non_compliant_chv",
-                "source": "test_harness_override",
+                "source": "paper_formula",
             },
             {
                 "event_type": "longitudinal_model",
@@ -2958,6 +2957,7 @@ def _mvs_cuc_3_scenario() -> dict[str, Any]:
                     "longitudinal_mode": "chv_idm",
                     "spacing_override_consumed": False,
                     "compliance_state": "non_compliant",
+                    "idm_formula_status": "locked_formula",
                 },
                 "source": "paper_formula",
             },

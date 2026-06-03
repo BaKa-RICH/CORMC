@@ -10,8 +10,8 @@
 
 | vehicle_id | x_global | y | v | physical_lane | road_role | lane_change_state | merge_state |
 |---|---:|---:|---:|---|---|---|---|
-| CFV_SAFE_WAIT | 7201.6 | 0 | 16.005 | lane_2 | mainline | normal | none |
-| CLV_SAFE_WAIT | 7246.6 | 0 | 16 | lane_2 | mainline | normal | none |
+| CFV_SAFE_WAIT | 7201.61 | 0 | 16.0727 | lane_2 | mainline | normal | none |
+| CLV_SAFE_WAIT | 7246.64 | 0 | 16.4 | lane_2 | mainline | normal | none |
 | MV_SAFE_WAIT | 7235.26 | -3.5 | 2.6295 | on_ramp | on_ramp_mv | normal | waiting |
 
 ## Active Maneuvers
@@ -35,6 +35,14 @@
 - lateral_trajectory: `False`
 - commit: `True`
 - time_advance: `True`
+
+## Formula Status
+
+- cuc_eq11_eq16: `not_observed`
+- cav_eq17_eq27: `locked_formula`
+- chv_eq28_eq29: `not_observed`
+- front_collision_eq42_eq46: `not_observed`
+- legacy proxy markers present: `none`
 
 ## PNG
 

@@ -10,11 +10,11 @@
 
 | vehicle_id | x_global | y | v | physical_lane | road_role | lane_change_state | merge_state |
 |---|---:|---:|---:|---|---|---|---|
-| CFV_X | 6846.47 | 0 | 24.7 | lane_2 | mainline | normal | none |
-| CLV_Y | 6886 | 0 | 20 | lane_2 | mainline | normal | none |
+| CFV_X | 6846.44 | 0 | 24.4 | lane_2 | mainline | normal | none |
+| CLV_Y | 6886.04 | 0 | 20.4 | lane_2 | mainline | normal | none |
 | MV_CUC | 6852 | -3.5 | 20 | on_ramp | on_ramp_mv | normal | not_started |
-| TFV | 6782.01 | 3.5 | 20.145 | lane_1 | mainline | normal | none |
-| TLV | 6855 | 3.5 | 20 | lane_1 | mainline | normal | none |
+| TFV | 6782.04 | 3.5 | 20.4 | lane_1 | mainline | normal | none |
+| TLV | 6855.04 | 3.5 | 20.4 | lane_1 | mainline | normal | none |
 
 ## Active Maneuvers
 
@@ -37,6 +37,14 @@
 - lateral_trajectory: `False`
 - commit: `True`
 - time_advance: `True`
+
+## Formula Status
+
+- cuc_eq11_eq16: `locked_formula`
+- cav_eq17_eq27: `locked_formula`
+- chv_eq28_eq29: `locked_formula`
+- front_collision_eq42_eq46: `not_observed`
+- legacy proxy markers present: `none`
 
 ## PNG
 

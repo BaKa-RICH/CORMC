@@ -43,6 +43,7 @@
         "valid_until_next_aps": true
       }
     },
+    "controller_memory_by_vehicle": {},
     "dt": 0.1,
     "output_config_ref": null,
     "parameter_config_ref": "paper_table_i_first_version",
@@ -52,27 +53,27 @@
     "t": 0.1,
     "vehicle_states": [
       {
-        "a": 1.8,
+        "a": 4.0,
         "is_active": true,
         "lane_change_state": "normal",
         "merge_state": "none",
         "physical_lane": "lane_2",
         "road_role": "mainline",
-        "v": 16.18,
+        "v": 16.4,
         "vehicle_id": "CFV_SAFE_EXEC",
-        "x_global": 7191.618,
+        "x_global": 7191.64,
         "y": 0.0
       },
       {
-        "a": 0.0,
+        "a": 4.0,
         "is_active": true,
         "lane_change_state": "normal",
         "merge_state": "none",
         "physical_lane": "lane_2",
         "road_role": "mainline",
-        "v": 16.0,
+        "v": 16.4,
         "vehicle_id": "CLV_SAFE_EXEC",
-        "x_global": 7271.6,
+        "x_global": 7271.64,
         "y": 0.0
       },
       {
@@ -133,6 +134,7 @@
         "valid_until_next_aps": true
       }
     },
+    "controller_memory_by_vehicle": {},
     "dt": 0.1,
     "output_config_ref": null,
     "parameter_config_ref": "paper_table_i_first_version",

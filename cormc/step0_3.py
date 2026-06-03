@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from copy import deepcopy
-from dataclasses import dataclass, fields, is_dataclass
+from dataclasses import dataclass, field, fields, is_dataclass
 from types import MappingProxyType
 from typing import Any, Mapping
 
@@ -89,6 +89,18 @@ class ManeuverTrajectoryState:
     assigned_cfv_id: str | None = None
 
 
+@dataclass(frozen=True)
+class LongitudinalControllerMemory:
+    vehicle_id: str
+    ex_prev: float | None = None
+    e_prev: float | None = None
+    integral_ex: float = 0.0
+    integral_e: float = 0.0
+    last_t: float | None = None
+    last_controller_update_step: int | None = None
+    controller_mode: str = "cav_cpid"
+
+
 @dataclass
 class PreFreezeWorkspace:
     t: float
@@ -101,6 +113,7 @@ class PreFreezeWorkspace:
     active_maneuvers: dict[str, ManeuverTrajectoryState]
     command_buffer: dict[str, Any]
     next_state_buffer: dict[str, Any]
+    controller_memory_by_vehicle: dict[str, LongitudinalControllerMemory] = field(default_factory=dict)
     road_config_ref: str = DEFAULT_ROAD_GEOMETRY.config_id
     parameter_config_ref: str = "paper_table_i_first_version"
     scenario_config_ref: str | None = None
@@ -121,6 +134,7 @@ class SimulationState:
     parameter_config_ref: str
     scenario_config_ref: str | None = None
     output_config_ref: str | None = None
+    controller_memory_by_vehicle: Mapping[str, LongitudinalControllerMemory] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -258,6 +272,7 @@ def step0_cleanup_and_prepare(
             removed_vehicle_ids.append(vehicle_id)
             workspace.active_vehicle_ids.remove(vehicle_id)
             workspace.vehicle_states.pop(vehicle_id, None)
+            workspace.controller_memory_by_vehicle.pop(vehicle_id, None)
 
     workspace.command_buffer.clear()
     workspace.next_state_buffer.clear()
@@ -317,6 +332,7 @@ def freeze_simulation_state(workspace: PreFreezeWorkspace) -> SimulationState:
         parameter_config_ref=workspace.parameter_config_ref,
         scenario_config_ref=workspace.scenario_config_ref,
         output_config_ref=workspace.output_config_ref,
+        controller_memory_by_vehicle=MappingProxyType(dict(workspace.controller_memory_by_vehicle)),
     )
 
 

@@ -2,7 +2,7 @@
 
 - run_id: `pre_p15`
 - output root: `artifacts\baseline\pre_p15`
-- generated: `2026-06-02T14:14:52+00:00`
+- generated: `2026-06-03T06:41:36+00:00`
 
 ## Deterministic Baseline Scenarios
 
@@ -37,6 +37,25 @@
 | MVS-SAFE-1B_executing_cap_lateral_consumption | max_steps_reached | 1 | 0.1 | 3 | 40/0 | scenarios\MVS-SAFE-1B_executing_cap_lateral_consumption\time_space.png | scenarios\MVS-SAFE-1B_executing_cap_lateral_consumption\scenario_summary.md |
 | MVS-SAFE-2 | max_steps_reached | 1 | 0.1 | 3 | 39/0 | scenarios\MVS-SAFE-2\time_space.png | scenarios\MVS-SAFE-2\scenario_summary.md |
 | MVS-COMMIT-1-full | max_steps_reached | 21 | 2.1 | 9 | 41/0 | scenarios\MVS-COMMIT-1-full\time_space.png | scenarios\MVS-COMMIT-1-full\scenario_summary.md |
+
+## Formula Status
+
+- legacy proxy markers present: `none`
+
+| formula area | aggregate status | scenario statuses |
+|---|---|---|
+| cuc_eq11_eq16 | locked_formula | MVS-E2E-1: not_observed, MVS-CUC-1A_override_choice1: locked_formula, MVS-CUC-2: locked_formula, MVS-CUC-3: locked_formula, MVS-SAFE-1A_waiting_cap: not_observed, MVS-SAFE-1B_executing_cap_lateral_consumption: not_observed, MVS-SAFE-2: not_observed, MVS-COMMIT-1-full: not_observed |
+| cav_eq17_eq27 | locked_formula | MVS-E2E-1: locked_formula, MVS-CUC-1A_override_choice1: locked_formula, MVS-CUC-2: locked_formula, MVS-CUC-3: locked_formula, MVS-SAFE-1A_waiting_cap: locked_formula, MVS-SAFE-1B_executing_cap_lateral_consumption: locked_formula, MVS-SAFE-2: locked_formula, MVS-COMMIT-1-full: locked_formula |
+| chv_eq28_eq29 | locked_formula | MVS-E2E-1: locked_formula, MVS-CUC-1A_override_choice1: not_observed, MVS-CUC-2: not_observed, MVS-CUC-3: locked_formula, MVS-SAFE-1A_waiting_cap: not_observed, MVS-SAFE-1B_executing_cap_lateral_consumption: not_observed, MVS-SAFE-2: not_observed, MVS-COMMIT-1-full: not_observed |
+| front_collision_eq42_eq46 | locked_formula | MVS-E2E-1: locked_formula, MVS-CUC-1A_override_choice1: locked_formula, MVS-CUC-2: not_observed, MVS-CUC-3: not_observed, MVS-SAFE-1A_waiting_cap: not_observed, MVS-SAFE-1B_executing_cap_lateral_consumption: locked_formula, MVS-SAFE-2: locked_formula, MVS-COMMIT-1-full: locked_formula |
+
+| subformula area | aggregate status | evidence count |
+|---|---|---:|
+| cuc_eq14_eq15 | locked_formula | 6 |
+| cav_cruising_eq20 | locked_formula | 89 |
+| cav_cpid_eq21_eq27 | locked_formula | 5 |
+| chv_idm_eq28_eq29 | locked_formula | 141 |
+| front_collision_speed_constraint | locked_formula | 27 |
 
 ## Run-Level Files
 

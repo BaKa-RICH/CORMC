@@ -293,6 +293,7 @@ def build_step_next_state_buffer(
     cache_updates = (
         *aps_cache_actions_to_candidate_updates(p04_result),
         *command_cache_updates_to_candidate_updates(command_buffer),
+        *p08_result.next_state_buffer.candidate_cache_updates,
     )
     warnings = _candidate_boundary_warnings(state, p05_result, p08_result, p09_result)
     return NextStateBuffer(
@@ -466,6 +467,7 @@ def _workspace_from_state(state: SimulationState) -> PreFreezeWorkspace:
         active_maneuvers=dict(state.active_maneuvers),
         command_buffer={},
         next_state_buffer={},
+        controller_memory_by_vehicle=dict(state.controller_memory_by_vehicle),
         road_config_ref=state.road_config_ref,
         parameter_config_ref=state.parameter_config_ref,
         scenario_config_ref=state.scenario_config_ref,
@@ -528,6 +530,7 @@ def _workspace_from_scenario_config(config: Mapping[str, Any]) -> PreFreezeWorks
         active_maneuvers=_active_maneuvers_from_config(loaded, step=step, t=t),
         command_buffer={},
         next_state_buffer={},
+        controller_memory_by_vehicle={},
         road_config_ref=str(loaded.get("road_config_ref") or DEFAULT_ROAD_GEOMETRY.config_id),
         parameter_config_ref=str(loaded.get("parameter_config_ref") or "paper_table_i_first_version"),
         scenario_config_ref=str(loaded["scenario_id"]),

@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any, Callable, Iterable, Mapping
 
 from cormc.mvs.runner import DETERMINISTIC_SCENARIO_ROUTES
+from cormc.p145_parameters import LOCKED_FORMULA_STATUS
 from cormc.p11_output import (
     ArtifactManifest,
     ArtifactManifestEntry,
@@ -50,6 +51,29 @@ P14_REQUIRED_EVENT_TYPES: tuple[str, ...] = (
 
 P14_NUMERIC_TOLERANCE_ABS = 1e-6
 
+P145_CORE_FORMULA_STATUS_KEYS: tuple[str, ...] = (
+    "cuc_eq11_eq16",
+    "cav_eq17_eq27",
+    "chv_eq28_eq29",
+    "front_collision_eq42_eq46",
+)
+
+P145_SUBFORMULA_STATUS_KEYS: tuple[str, ...] = (
+    "cuc_eq14_eq15",
+    "cav_cruising_eq20",
+    "cav_cpid_eq21_eq27",
+    "chv_idm_eq28_eq29",
+    "front_collision_speed_constraint",
+)
+
+P145_FORMULA_STATUS_FIELDS: tuple[str, ...] = (
+    "formula_status",
+    "utility_formula_status",
+    "longitudinal_formula_status",
+    "idm_formula_status",
+    "front_collision_formula_status",
+)
+
 
 @dataclass(frozen=True)
 class P14ArtifactRunConfig:
@@ -72,6 +96,7 @@ class P14ScenarioArtifactResult:
     scenario_report_path: str
     sanity_summary: Mapping[str, Any]
     key_event_summary: Mapping[str, bool]
+    formula_status_summary: Mapping[str, Any]
 
     def to_dict(self) -> dict[str, Any]:
         return _to_plain(self)
@@ -130,6 +155,7 @@ def run_p14_scenario_artifact_bundle(
     )
     sanity_summary = _summarize_sanity(simulation)
     key_event_summary = _summarize_key_events(simulation)
+    formula_status_summary = _summarize_formula_status(simulation)
     scenario_report_path = _write_scenario_report(
         scenario_id=scenario_id,
         run_id=run_id,
@@ -139,6 +165,7 @@ def run_p14_scenario_artifact_bundle(
         state_snapshot_path=state_snapshot_path,
         sanity_summary=sanity_summary,
         key_event_summary=key_event_summary,
+        formula_status_summary=formula_status_summary,
     )
     human_summary_path = _write_scenario_summary(
         scenario_id=scenario_id,
@@ -151,6 +178,7 @@ def run_p14_scenario_artifact_bundle(
         scenario_report_path=scenario_report_path,
         sanity_summary=sanity_summary,
         key_event_summary=key_event_summary,
+        formula_status_summary=formula_status_summary,
     )
     _assert_scenario_bundle_complete(
         scenario_id=scenario_id,
@@ -171,6 +199,7 @@ def run_p14_scenario_artifact_bundle(
         scenario_report_path=str(scenario_report_path),
         sanity_summary=sanity_summary,
         key_event_summary=key_event_summary,
+        formula_status_summary=formula_status_summary,
     )
 
 
@@ -343,6 +372,7 @@ def _serialize_simulation_state(state: SimulationState) -> dict[str, Any]:
             for vehicle_id in sorted(state.vehicle_states)
         ],
         "aps_assignment_cache": _to_plain(state.aps_assignment_cache),
+        "controller_memory_by_vehicle": _to_plain(state.controller_memory_by_vehicle),
         "active_maneuvers": [
             _serialize_active_maneuver(maneuver)
             for _, maneuver in sorted(state.active_maneuvers.items())
@@ -399,6 +429,7 @@ def _write_scenario_report(
     state_snapshot_path: Path,
     sanity_summary: Mapping[str, Any],
     key_event_summary: Mapping[str, bool],
+    formula_status_summary: Mapping[str, Any],
 ) -> Path:
     path = scenario_dir / "scenario_report.json"
     payload = {
@@ -414,6 +445,7 @@ def _write_scenario_report(
         "state_snapshot_path": str(state_snapshot_path),
         "sanity_summary": dict(sanity_summary),
         "key_event_summary": dict(key_event_summary),
+        "formula_status_summary": _to_plain(formula_status_summary),
         "png_feature_statuses": list(bundle.png_feature_statuses),
         "gaps": list(bundle.gaps),
     }
@@ -432,6 +464,7 @@ def _write_scenario_summary(
     scenario_report_path: Path,
     sanity_summary: Mapping[str, Any],
     key_event_summary: Mapping[str, bool],
+    formula_status_summary: Mapping[str, Any],
 ) -> Path:
     lines = [
         f"# Scenario Summary: {scenario_id}",
@@ -508,6 +541,18 @@ def _write_scenario_summary(
     )
     for key in P14_REQUIRED_EVENT_TYPES:
         lines.append(f"- {key}: `{key_event_summary[key]}`")
+
+    lines.extend(
+        [
+            "",
+            "## Formula Status",
+            "",
+        ]
+    )
+    for key, value in formula_status_summary["core_formula_status"].items():
+        lines.append(f"- {key}: `{value}`")
+    legacy_markers = ", ".join(formula_status_summary["legacy_proxy_markers_present"]) or "none"
+    lines.append(f"- legacy proxy markers present: `{legacy_markers}`")
 
     png_features = sorted(
         {
@@ -593,6 +638,55 @@ def _write_run_report(
                     f"{result.sanity_summary['pass_count']}/{result.sanity_summary['fail_count']}",
                     _rel_to(output_dir, result.bundle.png_paths[0]),
                     _rel_to(output_dir, result.human_summary_path),
+                ]
+            )
+            + " |"
+        )
+
+    formula_status = _aggregate_formula_status(scenario_results)
+    legacy_markers = ", ".join(formula_status["legacy_proxy_markers_present"]) or "none"
+    lines.extend(
+        [
+            "",
+            "## Formula Status",
+            "",
+            f"- legacy proxy markers present: `{legacy_markers}`",
+            "",
+            "| formula area | aggregate status | scenario statuses |",
+            "|---|---|---|",
+        ]
+    )
+    for key in P145_CORE_FORMULA_STATUS_KEYS:
+        scenario_statuses = ", ".join(
+            f"{scenario_id}: {status}"
+            for scenario_id, status in formula_status["scenario_core_status"][key].items()
+        )
+        lines.append(
+            "| "
+            + " | ".join(
+                [
+                    key,
+                    formula_status["core_formula_status"][key],
+                    scenario_statuses,
+                ]
+            )
+            + " |"
+        )
+    lines.extend(
+        [
+            "",
+            "| subformula area | aggregate status | evidence count |",
+            "|---|---|---:|",
+        ]
+    )
+    for key in P145_SUBFORMULA_STATUS_KEYS:
+        lines.append(
+            "| "
+            + " | ".join(
+                [
+                    key,
+                    formula_status["subformula_status"][key],
+                    str(formula_status["evidence_event_count_by_key"][key]),
                 ]
             )
             + " |"
@@ -719,6 +813,244 @@ def _summarize_key_events(simulation: SimulationLoopResult) -> dict[str, bool]:
         )
         for event_type in P14_REQUIRED_EVENT_TYPES
     }
+
+
+def _summarize_formula_status(simulation: SimulationLoopResult) -> dict[str, Any]:
+    events = simulation.history.event_dicts()
+    core_status = {key: "not_observed" for key in P145_CORE_FORMULA_STATUS_KEYS}
+    subformula_status = {key: "not_observed" for key in P145_SUBFORMULA_STATUS_KEYS}
+    evidence_events = {
+        key: []
+        for key in (*P145_CORE_FORMULA_STATUS_KEYS, *P145_SUBFORMULA_STATUS_KEYS)
+    }
+    status_values_seen_by_field: dict[str, list[str]] = {}
+    legacy_proxy_markers: list[str] = []
+
+    for event in events:
+        payload = event.get("payload") or {}
+        if not isinstance(payload, Mapping):
+            continue
+        _collect_formula_status_values(payload, status_values_seen_by_field)
+        _collect_legacy_proxy_markers(payload, legacy_proxy_markers)
+
+        if _is_locked_cuc_eq11_eq16(event, payload):
+            _mark_locked(core_status, evidence_events, "cuc_eq11_eq16", event)
+        if _is_locked_cuc_eq14_eq15(event, payload):
+            _mark_locked(subformula_status, evidence_events, "cuc_eq14_eq15", event)
+        if _is_locked_cav_longitudinal(event, payload):
+            _mark_locked(core_status, evidence_events, "cav_eq17_eq27", event)
+            if payload.get("eq20_locked") is True:
+                _mark_locked(subformula_status, evidence_events, "cav_cruising_eq20", event)
+            if (
+                payload.get("eq21_eq27_locked") is True
+                and payload.get("cpid_mode") == "minimal_formula_mode"
+            ):
+                _mark_locked(subformula_status, evidence_events, "cav_cpid_eq21_eq27", event)
+        if _is_locked_chv_idm(event, payload):
+            _mark_locked(core_status, evidence_events, "chv_eq28_eq29", event)
+            _mark_locked(subformula_status, evidence_events, "chv_idm_eq28_eq29", event)
+        if _is_locked_front_collision(event, payload):
+            _mark_locked(core_status, evidence_events, "front_collision_eq42_eq46", event)
+            _mark_locked(
+                subformula_status,
+                evidence_events,
+                "front_collision_speed_constraint",
+                event,
+            )
+
+    return {
+        "core_formula_status": core_status,
+        "subformula_status": subformula_status,
+        "legacy_proxy_markers_present": sorted(legacy_proxy_markers),
+        "legacy_proxy_marker_count": len(legacy_proxy_markers),
+        "status_values_seen_by_field": {
+            key: sorted(values)
+            for key, values in sorted(status_values_seen_by_field.items())
+        },
+        "evidence_events_by_key": evidence_events,
+        "evidence_event_count_by_key": {
+            key: len(value) for key, value in evidence_events.items()
+        },
+    }
+
+
+def _aggregate_formula_status(
+    scenario_results: tuple[P14ScenarioArtifactResult, ...],
+) -> dict[str, Any]:
+    scenario_core_status = {
+        key: {
+            result.scenario_id: str(result.formula_status_summary["core_formula_status"][key])
+            for result in scenario_results
+        }
+        for key in P145_CORE_FORMULA_STATUS_KEYS
+    }
+    scenario_subformula_status = {
+        key: {
+            result.scenario_id: str(result.formula_status_summary["subformula_status"][key])
+            for result in scenario_results
+        }
+        for key in P145_SUBFORMULA_STATUS_KEYS
+    }
+    legacy_proxy_markers = sorted(
+        {
+            str(marker)
+            for result in scenario_results
+            for marker in result.formula_status_summary["legacy_proxy_markers_present"]
+        }
+    )
+    status_values_seen_by_field: dict[str, list[str]] = {}
+    for result in scenario_results:
+        values_by_field = result.formula_status_summary["status_values_seen_by_field"]
+        for field_name, values in values_by_field.items():
+            target = status_values_seen_by_field.setdefault(str(field_name), [])
+            for value in values:
+                _append_unique(target, str(value))
+
+    evidence_counts: dict[str, int] = {}
+    for key in (*P145_CORE_FORMULA_STATUS_KEYS, *P145_SUBFORMULA_STATUS_KEYS):
+        evidence_counts[key] = sum(
+            int(result.formula_status_summary["evidence_event_count_by_key"][key])
+            for result in scenario_results
+        )
+
+    return {
+        "core_formula_status": {
+            key: _aggregate_status(values.values())
+            for key, values in scenario_core_status.items()
+        },
+        "subformula_status": {
+            key: _aggregate_status(values.values())
+            for key, values in scenario_subformula_status.items()
+        },
+        "scenario_core_status": scenario_core_status,
+        "scenario_subformula_status": scenario_subformula_status,
+        "legacy_proxy_markers_present": legacy_proxy_markers,
+        "legacy_proxy_marker_count": len(legacy_proxy_markers),
+        "status_values_seen_by_field": {
+            key: sorted(values) for key, values in sorted(status_values_seen_by_field.items())
+        },
+        "evidence_event_count_by_key": evidence_counts,
+    }
+
+
+def _is_locked_cuc_eq11_eq16(event: Mapping[str, Any], payload: Mapping[str, Any]) -> bool:
+    return (
+        event.get("event_type") == "CUC"
+        and payload.get("formula_status") == LOCKED_FORMULA_STATUS
+        and payload.get("utility_formula_status") == LOCKED_FORMULA_STATUS
+        and payload.get("eq11_eq12_locked") is True
+        and payload.get("eq13_locked") is True
+        and payload.get("eq14_eq15_locked") is True
+        and payload.get("eq16_locked") is True
+    )
+
+
+def _is_locked_cuc_eq14_eq15(event: Mapping[str, Any], payload: Mapping[str, Any]) -> bool:
+    return (
+        event.get("event_type") == "CUC"
+        and payload.get("formula_status") == LOCKED_FORMULA_STATUS
+        and payload.get("eq14_eq15_locked") is True
+    )
+
+
+def _is_locked_cav_longitudinal(event: Mapping[str, Any], payload: Mapping[str, Any]) -> bool:
+    return (
+        event.get("event_type") == "longitudinal_model"
+        and str(payload.get("vehicle_type") or "").lower() == "cav"
+        and payload.get("longitudinal_formula_status") == LOCKED_FORMULA_STATUS
+        and payload.get("eq17_eq19_locked") is True
+        and (payload.get("eq20_locked") is True or payload.get("eq21_eq27_locked") is True)
+    )
+
+
+def _is_locked_chv_idm(event: Mapping[str, Any], payload: Mapping[str, Any]) -> bool:
+    return (
+        event.get("event_type") == "longitudinal_model"
+        and str(payload.get("vehicle_type") or "").lower() == "chv"
+        and payload.get("idm_formula_status") == LOCKED_FORMULA_STATUS
+        and payload.get("eq28_eq29_locked") is True
+    )
+
+
+def _is_locked_front_collision(event: Mapping[str, Any], payload: Mapping[str, Any]) -> bool:
+    return (
+        event.get("event_type") in {"longitudinal_model", "speed_cap"}
+        and payload.get("front_collision_formula_status") == LOCKED_FORMULA_STATUS
+        and payload.get("eq42_eq46_locked") is True
+        and payload.get("front_collision_status") != "not_applicable"
+    )
+
+
+def _collect_formula_status_values(
+    payload: Mapping[str, Any],
+    status_values_seen_by_field: dict[str, list[str]],
+) -> None:
+    for field_name in P145_FORMULA_STATUS_FIELDS:
+        if field_name not in payload:
+            continue
+        _append_unique(
+            status_values_seen_by_field.setdefault(field_name, []),
+            str(payload[field_name]),
+        )
+
+
+def _collect_legacy_proxy_markers(
+    payload: Mapping[str, Any],
+    legacy_proxy_markers: list[str],
+) -> None:
+    if payload.get("eq14_eq15_locked") is False:
+        _append_unique(legacy_proxy_markers, "eq14_eq15_locked=False")
+    if payload.get("cpid_memory_status") == "probe_schema_gap":
+        _append_unique(legacy_proxy_markers, "cpid_memory_status=probe_schema_gap")
+    for value in _flatten_values(payload):
+        if value == "first_version_probe_not_eq11_eq12_locked":
+            _append_unique(legacy_proxy_markers, "first_version_probe_not_eq11_eq12_locked")
+
+
+def _mark_locked(
+    status_by_key: dict[str, str],
+    evidence_events: dict[str, list[dict[str, Any]]],
+    key: str,
+    event: Mapping[str, Any],
+) -> None:
+    status_by_key[key] = LOCKED_FORMULA_STATUS
+    evidence_events[key].append(_formula_event_ref(event))
+
+
+def _aggregate_status(statuses: Iterable[str]) -> str:
+    observed = tuple(statuses)
+    if LOCKED_FORMULA_STATUS in observed:
+        return LOCKED_FORMULA_STATUS
+    if "not_applicable" in observed:
+        return "not_applicable"
+    return "not_observed"
+
+
+def _formula_event_ref(event: Mapping[str, Any]) -> dict[str, Any]:
+    return {
+        "event_id": event.get("event_id"),
+        "step": event.get("step"),
+        "module": event.get("module"),
+        "event_type": event.get("event_type"),
+        "vehicle_id": event.get("vehicle_id"),
+        "reason": event.get("reason"),
+    }
+
+
+def _flatten_values(value: Any) -> Iterable[Any]:
+    if isinstance(value, Mapping):
+        for nested in value.values():
+            yield from _flatten_values(nested)
+    elif isinstance(value, (list, tuple)):
+        for nested in value:
+            yield from _flatten_values(nested)
+    else:
+        yield value
+
+
+def _append_unique(values: list[str], value: str) -> None:
+    if value not in values:
+        values.append(value)
 
 
 def _artifact_paths_for_regression(
@@ -852,6 +1184,7 @@ def _with_final_paths(
                 scenario_report_path=mapping["scenario_report_path"],
                 sanity_summary=result.sanity_summary,
                 key_event_summary=result.key_event_summary,
+                formula_status_summary=result.formula_status_summary,
             )
         )
     return tuple(updated)

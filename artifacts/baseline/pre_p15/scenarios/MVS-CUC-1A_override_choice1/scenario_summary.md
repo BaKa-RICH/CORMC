@@ -10,17 +10,17 @@
 
 | vehicle_id | x_global | y | v | physical_lane | road_role | lane_change_state | merge_state |
 |---|---:|---:|---:|---|---|---|---|
-| CFV_X | 6846 | 0.00344632 | 19.98 | lane_2 | mainline | executing | none |
-| CLV_Y | 6886 | 0 | 20 | lane_2 | mainline | normal | none |
+| CFV_X | 6846.01 | 0.00347838 | 20.0727 | lane_2 | mainline | executing | none |
+| CLV_Y | 6886.04 | 0 | 20.4 | lane_2 | mainline | normal | none |
 | MV_CUC | 6852 | -3.5 | 20 | on_ramp | on_ramp_mv | normal | not_started |
-| TFV | 6752 | 3.5 | 20 | lane_1 | mainline | normal | none |
-| TLV | 6922.2 | 3.5 | 22 | lane_1 | mainline | normal | none |
+| TFV | 6752.04 | 3.5 | 20.4 | lane_1 | mainline | normal | none |
+| TLV | 6922.23 | 3.5 | 22.32 | lane_1 | mainline | normal | none |
 
 ## Active Maneuvers
 
 | vehicle_id | maneuver_type | progress | last_planning_speed |
 |---|---|---:|---:|
-| CFV_X | lane_change | 0.01998 | 19.98 |
+| CFV_X | lane_change | 0.0200727 | 20.0727 |
 
 ## Sanity Summary
 
@@ -37,6 +37,14 @@
 - lateral_trajectory: `True`
 - commit: `True`
 - time_advance: `True`
+
+## Formula Status
+
+- cuc_eq11_eq16: `locked_formula`
+- cav_eq17_eq27: `locked_formula`
+- chv_eq28_eq29: `not_observed`
+- front_collision_eq42_eq46: `locked_formula`
+- legacy proxy markers present: `none`
 
 ## PNG
 

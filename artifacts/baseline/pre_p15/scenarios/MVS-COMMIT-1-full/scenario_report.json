@@ -5,6 +5,223 @@
     "state_snapshot": "artifacts\\baseline\\pre_p15\\scenarios\\MVS-COMMIT-1-full\\state_snapshot.json",
     "trajectory": "artifacts\\baseline\\pre_p15\\scenarios\\MVS-COMMIT-1-full\\trajectory.csv"
   },
+  "formula_status_summary": {
+    "core_formula_status": {
+      "cav_eq17_eq27": "locked_formula",
+      "chv_eq28_eq29": "not_observed",
+      "cuc_eq11_eq16": "not_observed",
+      "front_collision_eq42_eq46": "locked_formula"
+    },
+    "evidence_event_count_by_key": {
+      "cav_cpid_eq21_eq27": 1,
+      "cav_cruising_eq20": 6,
+      "cav_eq17_eq27": 7,
+      "chv_eq28_eq29": 0,
+      "chv_idm_eq28_eq29": 0,
+      "cuc_eq11_eq16": 0,
+      "cuc_eq14_eq15": 0,
+      "front_collision_eq42_eq46": 3,
+      "front_collision_speed_constraint": 3
+    },
+    "evidence_events_by_key": {
+      "cav_cpid_eq21_eq27": [
+        {
+          "event_id": "pre_p15:20:precommit_event:14",
+          "event_type": "longitudinal_model",
+          "module": "Step7LongitudinalModel",
+          "reason": "cav_gap_regulating",
+          "step": 20,
+          "vehicle_id": "CLV_CACHE"
+        }
+      ],
+      "cav_cruising_eq20": [
+        {
+          "event_id": "pre_p15:20:precommit_event:15",
+          "event_type": "longitudinal_model",
+          "module": "Step7LongitudinalModel",
+          "reason": "cav_cruising",
+          "step": 20,
+          "vehicle_id": "CFV_CACHE"
+        },
+        {
+          "event_id": "pre_p15:20:precommit_event:16",
+          "event_type": "longitudinal_model",
+          "module": "Step7LongitudinalModel",
+          "reason": "cav_cruising",
+          "step": 20,
+          "vehicle_id": "CV_ACTIVE_LC"
+        },
+        {
+          "event_id": "pre_p15:20:precommit_event:17",
+          "event_type": "longitudinal_model",
+          "module": "Step7LongitudinalModel",
+          "reason": "cav_cruising",
+          "step": 20,
+          "vehicle_id": "TLV_ACTIVE"
+        },
+        {
+          "event_id": "pre_p15:20:precommit_event:18",
+          "event_type": "longitudinal_model",
+          "module": "Step7LongitudinalModel",
+          "reason": "cav_cruising",
+          "step": 20,
+          "vehicle_id": "TFV_ACTIVE"
+        },
+        {
+          "event_id": "pre_p15:20:precommit_event:21",
+          "event_type": "longitudinal_model",
+          "module": "Step7LongitudinalModel",
+          "reason": "cav_cruising",
+          "step": 20,
+          "vehicle_id": "CLV_MERGE"
+        },
+        {
+          "event_id": "pre_p15:20:precommit_event:22",
+          "event_type": "longitudinal_model",
+          "module": "Step7LongitudinalModel",
+          "reason": "cav_cruising",
+          "step": 20,
+          "vehicle_id": "CFV_MERGE"
+        }
+      ],
+      "cav_eq17_eq27": [
+        {
+          "event_id": "pre_p15:20:precommit_event:14",
+          "event_type": "longitudinal_model",
+          "module": "Step7LongitudinalModel",
+          "reason": "cav_gap_regulating",
+          "step": 20,
+          "vehicle_id": "CLV_CACHE"
+        },
+        {
+          "event_id": "pre_p15:20:precommit_event:15",
+          "event_type": "longitudinal_model",
+          "module": "Step7LongitudinalModel",
+          "reason": "cav_cruising",
+          "step": 20,
+          "vehicle_id": "CFV_CACHE"
+        },
+        {
+          "event_id": "pre_p15:20:precommit_event:16",
+          "event_type": "longitudinal_model",
+          "module": "Step7LongitudinalModel",
+          "reason": "cav_cruising",
+          "step": 20,
+          "vehicle_id": "CV_ACTIVE_LC"
+        },
+        {
+          "event_id": "pre_p15:20:precommit_event:17",
+          "event_type": "longitudinal_model",
+          "module": "Step7LongitudinalModel",
+          "reason": "cav_cruising",
+          "step": 20,
+          "vehicle_id": "TLV_ACTIVE"
+        },
+        {
+          "event_id": "pre_p15:20:precommit_event:18",
+          "event_type": "longitudinal_model",
+          "module": "Step7LongitudinalModel",
+          "reason": "cav_cruising",
+          "step": 20,
+          "vehicle_id": "TFV_ACTIVE"
+        },
+        {
+          "event_id": "pre_p15:20:precommit_event:21",
+          "event_type": "longitudinal_model",
+          "module": "Step7LongitudinalModel",
+          "reason": "cav_cruising",
+          "step": 20,
+          "vehicle_id": "CLV_MERGE"
+        },
+        {
+          "event_id": "pre_p15:20:precommit_event:22",
+          "event_type": "longitudinal_model",
+          "module": "Step7LongitudinalModel",
+          "reason": "cav_cruising",
+          "step": 20,
+          "vehicle_id": "CFV_MERGE"
+        }
+      ],
+      "chv_eq28_eq29": [],
+      "chv_idm_eq28_eq29": [],
+      "cuc_eq11_eq16": [],
+      "cuc_eq14_eq15": [],
+      "front_collision_eq42_eq46": [
+        {
+          "event_id": "pre_p15:20:precommit_event:16",
+          "event_type": "longitudinal_model",
+          "module": "Step7LongitudinalModel",
+          "reason": "cav_cruising",
+          "step": 20,
+          "vehicle_id": "CV_ACTIVE_LC"
+        },
+        {
+          "event_id": "pre_p15:20:precommit_event:19",
+          "event_type": "speed_cap",
+          "module": "Step7SpeedCapComposition",
+          "reason": "speed_cap_consumed",
+          "step": 20,
+          "vehicle_id": "MV_ACTIVE_MERGE"
+        },
+        {
+          "event_id": "pre_p15:20:precommit_event:20",
+          "event_type": "longitudinal_model",
+          "module": "Step7LongitudinalModel",
+          "reason": "mv_on_ramp",
+          "step": 20,
+          "vehicle_id": "MV_ACTIVE_MERGE"
+        }
+      ],
+      "front_collision_speed_constraint": [
+        {
+          "event_id": "pre_p15:20:precommit_event:16",
+          "event_type": "longitudinal_model",
+          "module": "Step7LongitudinalModel",
+          "reason": "cav_cruising",
+          "step": 20,
+          "vehicle_id": "CV_ACTIVE_LC"
+        },
+        {
+          "event_id": "pre_p15:20:precommit_event:19",
+          "event_type": "speed_cap",
+          "module": "Step7SpeedCapComposition",
+          "reason": "speed_cap_consumed",
+          "step": 20,
+          "vehicle_id": "MV_ACTIVE_MERGE"
+        },
+        {
+          "event_id": "pre_p15:20:precommit_event:20",
+          "event_type": "longitudinal_model",
+          "module": "Step7LongitudinalModel",
+          "reason": "mv_on_ramp",
+          "step": 20,
+          "vehicle_id": "MV_ACTIVE_MERGE"
+        }
+      ]
+    },
+    "legacy_proxy_marker_count": 0,
+    "legacy_proxy_markers_present": [],
+    "status_values_seen_by_field": {
+      "formula_status": [
+        "engineering_patch",
+        "locked_formula"
+      ],
+      "front_collision_formula_status": [
+        "locked_formula"
+      ],
+      "longitudinal_formula_status": [
+        "engineering_patch",
+        "locked_formula"
+      ]
+    },
+    "subformula_status": {
+      "cav_cpid_eq21_eq27": "locked_formula",
+      "cav_cruising_eq20": "locked_formula",
+      "chv_idm_eq28_eq29": "not_observed",
+      "cuc_eq14_eq15": "not_observed",
+      "front_collision_speed_constraint": "locked_formula"
+    }
+  },
   "gaps": [],
   "input_config_ref": "builtin:MVS-COMMIT-1-full",
   "key_event_summary": {

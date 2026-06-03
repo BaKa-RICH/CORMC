@@ -4,10 +4,10 @@
       {
         "assigned_cfv_id": null,
         "assigned_clv_id": null,
-        "last_planning_speed": 20.08,
+        "last_planning_speed": 20.4,
         "maneuver_type": "lane_change",
         "planned_length": 100.0,
-        "progress": 0.37007999999999996,
+        "progress": 0.37039999999999995,
         "source_command_id": null,
         "source_event_id": null,
         "start_step": 10,
@@ -66,6 +66,18 @@
         "valid_until_next_aps": true
       }
     },
+    "controller_memory_by_vehicle": {
+      "CLV_CACHE": {
+        "controller_mode": "cav_cpid",
+        "e_prev": -0.6666666666666572,
+        "ex_prev": -0.33333333333333215,
+        "integral_e": 0.0,
+        "integral_ex": 0.0,
+        "last_controller_update_step": 20,
+        "last_t": 2.0,
+        "vehicle_id": "CLV_CACHE"
+      }
+    },
     "dt": 0.1,
     "output_config_ref": null,
     "parameter_config_ref": "paper_table_i_first_version",
@@ -75,64 +87,64 @@
     "t": 2.1,
     "vehicle_states": [
       {
-        "a": 0.8,
+        "a": 4.0,
         "is_active": true,
         "lane_change_state": "normal",
         "merge_state": "none",
         "physical_lane": "lane_2",
         "road_role": "mainline",
-        "v": 20.08,
+        "v": 20.4,
         "vehicle_id": "CFV_CACHE",
-        "x_global": 6842.008,
+        "x_global": 6842.04,
         "y": 0.0
       },
       {
-        "a": 0.0,
+        "a": 4.0,
         "is_active": true,
         "lane_change_state": "normal",
         "merge_state": "none",
         "physical_lane": "lane_2",
         "road_role": "mainline",
-        "v": 18.0,
+        "v": 18.4,
         "vehicle_id": "CFV_MERGE",
-        "x_global": 6971.8,
+        "x_global": 6971.84,
         "y": 0.0
       },
       {
-        "a": -1.2000000000000002,
+        "a": -0.6060606060605974,
         "is_active": true,
         "lane_change_state": "normal",
         "merge_state": "none",
         "physical_lane": "lane_2",
         "road_role": "mainline",
-        "v": 19.88,
+        "v": 19.93939393939394,
         "vehicle_id": "CLV_CACHE",
-        "x_global": 6941.988,
+        "x_global": 6941.993939393939,
         "y": 0.0
       },
       {
-        "a": 0.0,
+        "a": 4.0,
         "is_active": true,
         "lane_change_state": "normal",
         "merge_state": "none",
         "physical_lane": "lane_2",
         "road_role": "mainline",
-        "v": 18.0,
+        "v": 18.4,
         "vehicle_id": "CLV_MERGE",
-        "x_global": 7061.8,
+        "x_global": 7061.84,
         "y": 0.0
       },
       {
-        "a": 0.8,
+        "a": 4.0,
         "is_active": true,
         "lane_change_state": "executing",
         "merge_state": "none",
         "physical_lane": "lane_2",
         "road_role": "mainline",
-        "v": 20.08,
+        "v": 20.4,
         "vehicle_id": "CV_ACTIVE_LC",
-        "x_global": 6902.008,
-        "y": 1.0553948629017411
+        "x_global": 6902.04,
+        "y": 1.0570099874477326
       },
       {
         "a": 0.0,
@@ -159,27 +171,27 @@
         "y": -3.5
       },
       {
-        "a": 0.0,
+        "a": 4.0,
         "is_active": true,
         "lane_change_state": "normal",
         "merge_state": "none",
         "physical_lane": "lane_1",
         "road_role": "mainline",
-        "v": 20.0,
+        "v": 20.4,
         "vehicle_id": "TFV_ACTIVE",
-        "x_global": 6822.0,
+        "x_global": 6822.04,
         "y": 3.5
       },
       {
-        "a": 0.0,
+        "a": 4.0,
         "is_active": true,
         "lane_change_state": "normal",
         "merge_state": "none",
         "physical_lane": "lane_1",
         "road_role": "mainline",
-        "v": 20.0,
+        "v": 20.4,
         "vehicle_id": "TLV_ACTIVE",
-        "x_global": 6962.0,
+        "x_global": 6962.04,
         "y": 3.5
       }
     ]
@@ -251,6 +263,7 @@
         "valid_until_next_aps": true
       }
     },
+    "controller_memory_by_vehicle": {},
     "dt": 0.1,
     "output_config_ref": null,
     "parameter_config_ref": "paper_table_i_first_version",

@@ -5,6 +5,93 @@
     "state_snapshot": "artifacts\\baseline\\pre_p15\\scenarios\\MVS-SAFE-1A_waiting_cap\\state_snapshot.json",
     "trajectory": "artifacts\\baseline\\pre_p15\\scenarios\\MVS-SAFE-1A_waiting_cap\\trajectory.csv"
   },
+  "formula_status_summary": {
+    "core_formula_status": {
+      "cav_eq17_eq27": "locked_formula",
+      "chv_eq28_eq29": "not_observed",
+      "cuc_eq11_eq16": "not_observed",
+      "front_collision_eq42_eq46": "not_observed"
+    },
+    "evidence_event_count_by_key": {
+      "cav_cpid_eq21_eq27": 1,
+      "cav_cruising_eq20": 1,
+      "cav_eq17_eq27": 2,
+      "chv_eq28_eq29": 0,
+      "chv_idm_eq28_eq29": 0,
+      "cuc_eq11_eq16": 0,
+      "cuc_eq14_eq15": 0,
+      "front_collision_eq42_eq46": 0,
+      "front_collision_speed_constraint": 0
+    },
+    "evidence_events_by_key": {
+      "cav_cpid_eq21_eq27": [
+        {
+          "event_id": "pre_p15:0:precommit_event:16",
+          "event_type": "longitudinal_model",
+          "module": "Step7LongitudinalModel",
+          "reason": "cav_gap_regulating",
+          "step": 0,
+          "vehicle_id": "CFV_SAFE_WAIT"
+        }
+      ],
+      "cav_cruising_eq20": [
+        {
+          "event_id": "pre_p15:0:precommit_event:15",
+          "event_type": "longitudinal_model",
+          "module": "Step7LongitudinalModel",
+          "reason": "cav_cruising",
+          "step": 0,
+          "vehicle_id": "CLV_SAFE_WAIT"
+        }
+      ],
+      "cav_eq17_eq27": [
+        {
+          "event_id": "pre_p15:0:precommit_event:15",
+          "event_type": "longitudinal_model",
+          "module": "Step7LongitudinalModel",
+          "reason": "cav_cruising",
+          "step": 0,
+          "vehicle_id": "CLV_SAFE_WAIT"
+        },
+        {
+          "event_id": "pre_p15:0:precommit_event:16",
+          "event_type": "longitudinal_model",
+          "module": "Step7LongitudinalModel",
+          "reason": "cav_gap_regulating",
+          "step": 0,
+          "vehicle_id": "CFV_SAFE_WAIT"
+        }
+      ],
+      "chv_eq28_eq29": [],
+      "chv_idm_eq28_eq29": [],
+      "cuc_eq11_eq16": [],
+      "cuc_eq14_eq15": [],
+      "front_collision_eq42_eq46": [],
+      "front_collision_speed_constraint": []
+    },
+    "legacy_proxy_marker_count": 0,
+    "legacy_proxy_markers_present": [],
+    "status_values_seen_by_field": {
+      "formula_status": [
+        "engineering_patch",
+        "locked_formula"
+      ],
+      "front_collision_formula_status": [
+        "locked_formula"
+      ],
+      "longitudinal_formula_status": [
+        "engineering_patch",
+        "locked_formula"
+      ]
+    },
+    "subformula_status": {
+      "cav_cpid_eq21_eq27": "locked_formula",
+      "cav_cruising_eq20": "locked_formula",
+      "chv_idm_eq28_eq29": "not_observed",
+      "cuc_eq14_eq15": "not_observed",
+      "front_collision_speed_constraint": "not_observed"
+    }
+  },
   "gaps": [],
   "input_config_ref": "builtin:MVS-SAFE-1A_waiting_cap",
   "key_event_summary": {

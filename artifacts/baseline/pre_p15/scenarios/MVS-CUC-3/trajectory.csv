@@ -1,6 +1,6 @@
 scenario_id,run_id,step,t,vehicle_id,vehicle_type,compliance_state,x_global,y,v,a,physical_lane,road_role,primary_leader_id,lane_change_state,merge_state,active_event_tags
 MVS-CUC-3,pre_p15,0,0.0,MV_CUC,cav,not_applicable,6852.0,-3.5,20.0,0.0,on_ramp,on_ramp_mv,,normal,not_started,commit
-MVS-CUC-3,pre_p15,0,0.0,CFV_X,chv,non_compliant,6846.47,0.0,24.7,-3.0,lane_2,mainline,,normal,none,commit
-MVS-CUC-3,pre_p15,0,0.0,CLV_Y,cav,not_applicable,6886.0,0.0,20.0,0.0,lane_2,mainline,,normal,none,commit
-MVS-CUC-3,pre_p15,0,0.0,TLV,cav,not_applicable,6855.0,3.5,20.0,0.0,lane_1,mainline,,normal,none,commit
-MVS-CUC-3,pre_p15,0,0.0,TFV,cav,not_applicable,6782.0145,3.5,20.145,1.4500000000000002,lane_1,mainline,,normal,none,commit
+MVS-CUC-3,pre_p15,0,0.0,CFV_X,chv,non_compliant,6846.44,0.0,24.4,-6.0,lane_2,mainline,,normal,none,commit
+MVS-CUC-3,pre_p15,0,0.0,CLV_Y,cav,not_applicable,6886.04,0.0,20.4,4.0,lane_2,mainline,,normal,none,commit
+MVS-CUC-3,pre_p15,0,0.0,TLV,cav,not_applicable,6855.04,3.5,20.4,4.0,lane_1,mainline,,normal,none,commit
+MVS-CUC-3,pre_p15,0,0.0,TFV,cav,not_applicable,6782.04,3.5,20.4,4.0,lane_1,mainline,,normal,none,commit

@@ -48,6 +48,7 @@ def test_p14_scenario_artifact_bundle_generates_formal_outputs(tmp_path: Path) -
     assert "final_state" in snapshot
     assert snapshot["final_state"]["vehicle_states"]
     assert "active_maneuvers" in snapshot["final_state"]
+    assert "controller_memory_by_vehicle" in snapshot["final_state"]
 
     png = (scenario_dir / "time_space.png").read_bytes()
     assert png.startswith(b"\x89PNG\r\n\x1a\n")
@@ -57,6 +58,17 @@ def test_p14_scenario_artifact_bundle_generates_formal_outputs(tmp_path: Path) -
     assert scenario_report["exports"]["state_snapshot"].endswith("state_snapshot.json")
     assert scenario_report["png_paths"][0].endswith("time_space.png")
     assert scenario_report["png_feature_statuses"]
+    assert result.formula_status_summary["core_formula_status"]["cuc_eq11_eq16"] == "locked_formula"
+    assert result.formula_status_summary["core_formula_status"]["cav_eq17_eq27"] == "locked_formula"
+    assert result.formula_status_summary["legacy_proxy_markers_present"] == []
+    formula_status = scenario_report["formula_status_summary"]
+    assert formula_status["core_formula_status"]["cuc_eq11_eq16"] == "locked_formula"
+    assert formula_status["core_formula_status"]["cav_eq17_eq27"] == "locked_formula"
+    assert formula_status["subformula_status"]["cav_cpid_eq21_eq27"] == "locked_formula"
+    assert formula_status["legacy_proxy_markers_present"] == []
+    assert "Formula Status" in summary
+    assert "cuc_eq11_eq16: `locked_formula`" in summary
+    assert "legacy proxy markers present: `none`" in summary
 
 
 def test_p14_pre_p15_baseline_generates_8_scenarios_and_run_reports(tmp_path: Path) -> None:
@@ -80,12 +92,25 @@ def test_p14_pre_p15_baseline_generates_8_scenarios_and_run_reports(tmp_path: Pa
     run_report = (baseline_dir / "run_report.md").read_text(encoding="utf-8")
     assert "stable-test-label" in run_report
     assert "Suite Summary" in run_report
+    assert "Formula Status" in run_report
+    assert "cuc_eq11_eq16 | locked_formula" in run_report
+    assert "cav_eq17_eq27 | locked_formula" in run_report
+    assert "chv_eq28_eq29 | locked_formula" in run_report
+    assert "front_collision_eq42_eq46 | locked_formula" in run_report
+    assert "legacy proxy markers present: `none`" in run_report
     assert "P15 Baseline Note" in run_report
     for scenario_id in P14_DETERMINISTIC_BASELINE_SCENARIOS:
         assert scenario_id in run_report
         scenario_dir = baseline_dir / "scenarios" / scenario_id
         assert (scenario_dir / "scenario_summary.md").exists()
         assert (scenario_dir / "time_space.png").read_bytes().startswith(b"\x89PNG\r\n\x1a\n")
+        scenario_report = json.loads((scenario_dir / "scenario_report.json").read_text(encoding="utf-8"))
+        assert "formula_status_summary" in scenario_report
+        assert scenario_report["formula_status_summary"]["legacy_proxy_markers_present"] == []
+        scenario_summary = (scenario_dir / "scenario_summary.md").read_text(encoding="utf-8")
+        assert "Formula Status" in scenario_summary
+        assert "first_version_probe_not_eq11_eq12_locked" not in scenario_summary
+        assert "cpid_memory_status=probe_schema_gap" not in scenario_summary
 
     manifest = json.loads((baseline_dir / "artifact_manifest.json").read_text(encoding="utf-8"))
     assert manifest["run_id"] == "pre_p15"

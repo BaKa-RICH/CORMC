@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from math import inf, sqrt
 from types import MappingProxyType
 from typing import Any, Mapping
 
+from cormc.p145_parameters import CUC, LOCKED_FORMULA_STATUS
 from cormc.step0_3 import (
     DEFAULT_ROAD_GEOMETRY,
     LANE_1,
@@ -13,15 +15,14 @@ from cormc.step0_3 import (
     SimulationState,
     resolve_lane_centerline,
 )
+from cormc.step7_longitudinal import compute_p145_longitudinal_formula
 from cormc.step9_11 import CommandBuffer
 
 
 ENGINEERING_PATCH_SOURCE = "first_version_engineering_patch"
 PAPER_FORMULA_SOURCE = "paper_formula"
 TEST_HARNESS_OVERRIDE_SOURCE = "test_harness_override"
-FIRST_VERSION_PROBE_SOURCE = "first_version_probe"
-FIRST_VERSION_SAFETY_PROXY_SOURCE = "first_version_safety_proxy"
-TT_MIN_SECONDS = 1.5
+TT_MIN_SECONDS = CUC.tt_min
 
 
 @dataclass(frozen=True)
@@ -401,7 +402,11 @@ def _evaluate_utility_or_override(
             "source": TEST_HARNESS_OVERRIDE_SOURCE,
             "override_reason": "override_choice1_for_required_gate",
             "utility_formula_status": "test_harness_override_not_formula",
+            "formula_status": "test_harness_override",
             "eq11_eq12_locked": False,
+            "eq13_locked": False,
+            "eq14_eq15_locked": False,
+            "eq16_locked": False,
             "utility_inputs_logged": True,
             "U1": float(override.get("U1", 1.0)),
             "U2": float(override.get("U2", 0.0)),
@@ -409,21 +414,83 @@ def _evaluate_utility_or_override(
         }
 
     neighborhood = relations.lane_change_neighborhood.get(cv_id)
-    cv_state = state.vehicle_states[cv_id]
-    tlv_gap = _gap_to_neighbor(state, cv_id, neighborhood.tlv_id if neighborhood else None, ahead=True)
-    tfv_gap = _gap_to_neighbor(state, cv_id, neighborhood.tfv_id if neighborhood else None, ahead=False)
-    # This first-version probe is deliberately simple: it exposes real inputs and
-    # a deterministic comparison without locking the paper utility formula.
-    u1 = float((tlv_gap or 0.0) + (tfv_gap or 0.0)) / max(float(cv_state.v), 1.0)
-    u2 = float(request.get("desired_spacing_override") or 0.0) / 10.0
+    tlv_id = neighborhood.tlv_id if neighborhood else None
+    tfv_id = neighborhood.tfv_id if neighborhood else None
+    lv_id = neighborhood.lv_id if neighborhood else None
+    fv_id = neighborhood.fv_id if neighborhood else None
+
+    c_cv_tlv = _cuc_safety_term(state, cv_id, tlv_id)
+    c_tfv_cv = _cuc_safety_term(state, tfv_id, cv_id)
+    c_cv_lv = _cuc_safety_term(state, cv_id, lv_id)
+    c_fv_cv = _cuc_safety_term(state, fv_id, cv_id)
+    a_cv_tlv = _hypothetical_longitudinal_acceleration(state, relations, cv_id, tlv_id)
+    a_tfv_cv = _hypothetical_longitudinal_acceleration(state, relations, tfv_id, cv_id)
+    a_cv_lv = _hypothetical_longitudinal_acceleration(state, relations, cv_id, lv_id)
+    a_fv_cv = _hypothetical_longitudinal_acceleration(state, relations, fv_id, cv_id)
+    a_cv_current_lv = float(state.vehicle_states[cv_id].a)
+    u1 = (
+        CUC.alpha * (c_cv_tlv["value"] + c_tfv_cv["value"])
+        + CUC.beta * a_tfv_cv["acceleration"]
+        + CUC.gamma * a_cv_tlv["acceleration"]
+        + CUC.zeta * abs(a_cv_tlv["acceleration"] - a_cv_current_lv)
+    )
+    u2 = (
+        CUC.alpha * (c_cv_lv["value"] + c_fv_cv["value"])
+        + CUC.beta * a_fv_cv["acceleration"]
+        + CUC.gamma * a_cv_lv["acceleration"]
+        + CUC.zeta * abs(a_cv_lv["acceleration"] - a_cv_current_lv)
+    )
     return {
         "utility_source": "real_CUC",
-        "source": FIRST_VERSION_PROBE_SOURCE,
-        "utility_formula_status": "first_version_probe_not_eq11_eq12_locked",
-        "eq11_eq12_locked": False,
+        "source": PAPER_FORMULA_SOURCE,
+        "formula_status": LOCKED_FORMULA_STATUS,
+        "utility_formula_status": LOCKED_FORMULA_STATUS,
+        "eq11_eq12_locked": True,
+        "eq13_locked": True,
+        "eq16_locked": True,
         "utility_inputs_logged": True,
         "U1": u1,
         "U2": u2,
+        "c_CV_TLV": c_cv_tlv["value"],
+        "c_TFV_CV": c_tfv_cv["value"],
+        "c_CV_LV": c_cv_lv["value"],
+        "c_FV_CV": c_fv_cv["value"],
+        "tilde_a_CV_TLV": a_cv_tlv["acceleration"],
+        "tilde_a_TFV_CV": a_tfv_cv["acceleration"],
+        "tilde_a_CV_LV": a_cv_lv["acceleration"],
+        "tilde_a_FV_CV": a_fv_cv["acceleration"],
+        "a_CV_LV": a_cv_current_lv,
+        "a_CV_LV_source": "current_vehicle_state_acceleration",
+        "U1_terms": {
+            "alpha_safety": CUC.alpha * (c_cv_tlv["value"] + c_tfv_cv["value"]),
+            "beta_tfv_accel": CUC.beta * a_tfv_cv["acceleration"],
+            "gamma_cv_accel": CUC.gamma * a_cv_tlv["acceleration"],
+            "zeta_delta_accel": CUC.zeta * abs(a_cv_tlv["acceleration"] - a_cv_current_lv),
+        },
+        "U2_terms": {
+            "alpha_safety": CUC.alpha * (c_cv_lv["value"] + c_fv_cv["value"]),
+            "beta_fv_accel": CUC.beta * a_fv_cv["acceleration"],
+            "gamma_cv_accel": CUC.gamma * a_cv_lv["acceleration"],
+            "zeta_delta_accel": CUC.zeta * abs(a_cv_lv["acceleration"] - a_cv_current_lv),
+        },
+        "eq13_terms": {
+            "c_CV_TLV": c_cv_tlv,
+            "c_TFV_CV": c_tfv_cv,
+            "c_CV_LV": c_cv_lv,
+            "c_FV_CV": c_fv_cv,
+        },
+        "hypothetical_accelerations": {
+            "CV_TLV": a_cv_tlv,
+            "TFV_CV": a_tfv_cv,
+            "CV_LV": a_cv_lv,
+            "FV_CV": a_fv_cv,
+        },
+        "cuc_parameters": {
+            "alpha": CUC.alpha,
+            "beta": CUC.beta,
+            "gamma": CUC.gamma,
+            "zeta": CUC.zeta,
+        },
         "recommended_choice": "change_to_lane_1" if u1 > u2 else "stay_lane_2",
     }
 
@@ -437,23 +504,26 @@ def _evaluate_target_lane_safety(
     tlv_id = neighborhood.tlv_id if neighborhood is not None else None
     tfv_id = neighborhood.tfv_id if neighborhood is not None else None
     cv_state = state.vehicle_states[cv_id]
-    tt_cV_tlv = _time_gap_to_neighbor(state, cv_id, tlv_id, ahead=True)
-    tt_tfv_cv = _time_gap_to_neighbor(state, cv_id, tfv_id, ahead=False)
+    tt_cv_tlv = _time_to_collision_eq15(state, cv_id, tlv_id)
+    tt_tfv_cv = _time_to_collision_eq15(state, tfv_id, cv_id)
     target_lane_safe = (
-        (tt_cV_tlv is None or tt_cV_tlv >= TT_MIN_SECONDS)
-        and (tt_tfv_cv is None or tt_tfv_cv >= TT_MIN_SECONDS)
+        (tt_cv_tlv["tt"] is None or tt_cv_tlv["tt"] >= TT_MIN_SECONDS)
+        and (tt_tfv_cv["tt"] is None or tt_tfv_cv["tt"] >= TT_MIN_SECONDS)
     )
     return {
         "vehicle_id": cv_id,
         "target_lane": LANE_1,
         "TLV_id": tlv_id,
         "TFV_id": tfv_id,
-        "TT_CV_TLV": tt_cV_tlv,
-        "TT_TFV_CV": tt_tfv_cv,
+        "TT_CV_TLV": tt_cv_tlv["tt"],
+        "TT_TFV_CV": tt_tfv_cv["tt"],
+        "TT_CV_TLV_terms": tt_cv_tlv,
+        "TT_TFV_CV_terms": tt_tfv_cv,
         "TT_min": TT_MIN_SECONDS,
         "target_lane_safe": target_lane_safe,
-        "target_lane_safety_method": "first_version_gap_over_cv_speed_proxy",
-        "eq14_eq15_locked": False,
+        "target_lane_safety_method": "eq14_eq15_time_to_collision",
+        "eq14_eq15_locked": True,
+        "formula_status": LOCKED_FORMULA_STATUS,
         "cv_x_global": cv_state.x_global,
     }
 
@@ -472,6 +542,150 @@ def _time_gap_to_neighbor(
     return gap / cv_speed
 
 
+def _time_to_collision_eq15(
+    state: SimulationState,
+    follower_id: str | None,
+    leader_id: str | None,
+) -> dict[str, Any]:
+    if follower_id is None or leader_id is None:
+        return {
+            "tt": None,
+            "status": "missing_neighbor_safe",
+            "neighbor_missing_safe_term_zero": True,
+            "eq14_eq15_locked": True,
+        }
+    follower = state.vehicle_states[follower_id]
+    leader = state.vehicle_states[leader_id]
+    gap = float(leader.x_global) - float(follower.x_global) - _vehicle_length(state, leader_id)
+    closing_speed = float(follower.v) - float(leader.v)
+    delta_a = float(follower.a) - float(leader.a)
+    if gap <= 0.0:
+        return {
+            "tt": 0.0,
+            "status": "overlap_or_nonpositive_gap",
+            "gap": gap,
+            "closing_speed": closing_speed,
+            "delta_a": delta_a,
+            "eq14_eq15_locked": True,
+        }
+    if abs(delta_a) <= 1e-9:
+        if closing_speed > 0.0:
+            tt = gap / closing_speed
+            status = "closing_speed_fallback"
+        else:
+            tt = None
+            status = "no_predicted_collision"
+        return {
+            "tt": tt,
+            "status": status,
+            "gap": gap,
+            "closing_speed": closing_speed,
+            "delta_a": delta_a,
+            "eq14_eq15_locked": True,
+        }
+    discriminant = closing_speed * closing_speed + 2.0 * delta_a * gap
+    if discriminant < 0.0:
+        return {
+            "tt": None,
+            "status": "negative_discriminant_no_predicted_collision",
+            "gap": gap,
+            "closing_speed": closing_speed,
+            "delta_a": delta_a,
+            "discriminant": discriminant,
+            "eq14_eq15_locked": True,
+        }
+    roots = (
+        (-closing_speed + sqrt(discriminant)) / delta_a,
+        (-closing_speed - sqrt(discriminant)) / delta_a,
+    )
+    positive_roots = tuple(root for root in roots if root > 0.0)
+    if not positive_roots:
+        tt = None
+        status = "no_positive_root_no_predicted_collision"
+    else:
+        tt = min(positive_roots)
+        status = "positive_root"
+    return {
+        "tt": tt,
+        "status": status,
+        "gap": gap,
+        "closing_speed": closing_speed,
+        "delta_a": delta_a,
+        "discriminant": discriminant,
+        "roots": roots,
+        "eq14_eq15_locked": True,
+    }
+
+
+def _cuc_safety_term(
+    state: SimulationState,
+    follower_id: str | None,
+    leader_id: str | None,
+) -> dict[str, Any]:
+    if follower_id is None or leader_id is None:
+        return {
+            "value": 0.0,
+            "status": "neighbor_missing_safe_term_zero",
+            "neighbor_missing_safe_term_zero": True,
+            "eq13_locked": True,
+        }
+    follower = state.vehicle_states[follower_id]
+    leader = state.vehicle_states[leader_id]
+    denominator = float(leader.x_global) - float(follower.x_global) - _vehicle_length(
+        state,
+        leader_id,
+    )
+    if denominator <= 0.0:
+        return {
+            "value": inf,
+            "status": "overlap_or_nonpositive_gap",
+            "overlap_or_nonpositive_gap": True,
+            "follower_id": follower_id,
+            "leader_id": leader_id,
+            "denominator": denominator,
+            "relative_speed": float(follower.v) - float(leader.v),
+            "eq13_locked": True,
+        }
+    relative_speed = float(follower.v) - float(leader.v)
+    return {
+        "value": relative_speed * relative_speed / denominator,
+        "status": "positive_gap",
+        "follower_id": follower_id,
+        "leader_id": leader_id,
+        "denominator": denominator,
+        "relative_speed": relative_speed,
+        "eq13_locked": True,
+    }
+
+
+def _hypothetical_longitudinal_acceleration(
+    state: SimulationState,
+    relations: RelationsSnapshot,
+    follower_id: str | None,
+    leader_id: str | None,
+) -> dict[str, Any]:
+    if follower_id is None:
+        return {
+            "acceleration": 0.0,
+            "mode": "missing_follower",
+            "status": "missing_neighbor_zero_acceleration",
+        }
+    formula = compute_p145_longitudinal_formula(
+        state,
+        relations,
+        follower_id,
+        leader_id=leader_id,
+        update_cache=False,
+    )
+    return {
+        "acceleration": formula.acceleration,
+        "mode": formula.mode,
+        "leader_id": leader_id,
+        "candidate_speed": formula.candidate_speed,
+        "formula_status": dict(formula.payload).get("formula_status", LOCKED_FORMULA_STATUS),
+    }
+
+
 def _gap_to_neighbor(
     state: SimulationState,
     cv_id: str,
@@ -483,7 +697,13 @@ def _gap_to_neighbor(
         return None
     cv_x = float(state.vehicle_states[cv_id].x_global)
     neighbor_x = float(state.vehicle_states[neighbor_id].x_global)
-    return max(0.0, neighbor_x - cv_x if ahead else cv_x - neighbor_x)
+    if ahead:
+        return max(0.0, neighbor_x - cv_x - _vehicle_length(state, neighbor_id))
+    return max(0.0, cv_x - neighbor_x - _vehicle_length(state, cv_id))
+
+
+def _vehicle_length(state: SimulationState, vehicle_id: str) -> float:
+    return float(state.vehicle_specs[vehicle_id].length)
 
 
 def _vehicle_accepts_cuc(vehicle_type: str, compliance_state: str) -> bool:
@@ -606,7 +826,7 @@ def _target_lane_safety_event(
         ),
         scenario_id=state.scenario_config_ref or "unknown",
         reason="target_lane_safe" if safety["target_lane_safe"] else "target_lane_unsafe",
-        source=FIRST_VERSION_SAFETY_PROXY_SOURCE,
+        source=PAPER_FORMULA_SOURCE,
         is_engineering_patch=False,
         payload={
             **dict(safety),
@@ -769,4 +989,17 @@ def _state_signature(state: SimulationState) -> tuple[Any, ...]:
             for vehicle_id in state.active_vehicle_ids
         ),
         tuple((key, tuple(sorted(value.items()))) for key, value in state.aps_assignment_cache.items()),
+        tuple(
+            (
+                vehicle_id,
+                memory.ex_prev,
+                memory.e_prev,
+                memory.integral_ex,
+                memory.integral_e,
+                memory.last_t,
+                memory.last_controller_update_step,
+                memory.controller_mode,
+            )
+            for vehicle_id, memory in sorted(state.controller_memory_by_vehicle.items())
+        ),
     )

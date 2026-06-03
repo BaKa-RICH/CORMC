@@ -27,6 +27,28 @@
         "valid_until_next_aps": true
       }
     },
+    "controller_memory_by_vehicle": {
+      "CFV_X": {
+        "controller_mode": "cav_cpid",
+        "e_prev": -443.0,
+        "ex_prev": -56.0,
+        "integral_e": 0.0,
+        "integral_ex": 0.0,
+        "last_controller_update_step": 0,
+        "last_t": 0.0,
+        "vehicle_id": "CFV_X"
+      },
+      "TFV": {
+        "controller_mode": "cav_cpid",
+        "e_prev": 293.3333333333333,
+        "ex_prev": 35.666666666666664,
+        "integral_e": 0.0,
+        "integral_ex": 0.0,
+        "last_controller_update_step": 0,
+        "last_t": 0.0,
+        "vehicle_id": "TFV"
+      }
+    },
     "dt": 0.1,
     "output_config_ref": null,
     "parameter_config_ref": "paper_table_i_first_version",
@@ -36,27 +58,27 @@
     "t": 0.1,
     "vehicle_states": [
       {
-        "a": -2.35,
+        "a": -1.0909090909090908,
         "is_active": true,
         "lane_change_state": "normal",
         "merge_state": "none",
         "physical_lane": "lane_2",
         "road_role": "mainline",
-        "v": 24.765,
+        "v": 24.89090909090909,
         "vehicle_id": "CFV_X",
-        "x_global": 6846.4765,
+        "x_global": 6846.489090909091,
         "y": 0.0
       },
       {
-        "a": 0.0,
+        "a": 4.0,
         "is_active": true,
         "lane_change_state": "normal",
         "merge_state": "none",
         "physical_lane": "lane_2",
         "road_role": "mainline",
-        "v": 20.0,
+        "v": 20.4,
         "vehicle_id": "CLV_Y",
-        "x_global": 6886.0,
+        "x_global": 6852.04,
         "y": 0.0
       },
       {
@@ -72,27 +94,27 @@
         "y": -3.5
       },
       {
-        "a": 1.4500000000000002,
+        "a": 0.7272727272727273,
         "is_active": true,
         "lane_change_state": "normal",
         "merge_state": "none",
         "physical_lane": "lane_1",
         "road_role": "mainline",
-        "v": 20.145,
+        "v": 30.072727272727274,
         "vehicle_id": "TFV",
-        "x_global": 6782.0145,
+        "x_global": 6840.007272727273,
         "y": 3.5
       },
       {
-        "a": 0.0,
+        "a": 3.2,
         "is_active": true,
         "lane_change_state": "normal",
         "merge_state": "none",
         "physical_lane": "lane_1",
         "road_role": "mainline",
-        "v": 20.0,
+        "v": 22.32,
         "vehicle_id": "TLV",
-        "x_global": 6855.0,
+        "x_global": 6922.232,
         "y": 3.5
       }
     ]
@@ -125,6 +147,7 @@
         "valid_until_next_aps": true
       }
     },
+    "controller_memory_by_vehicle": {},
     "dt": 0.1,
     "output_config_ref": null,
     "parameter_config_ref": "paper_table_i_first_version",
@@ -154,7 +177,7 @@
         "road_role": "mainline",
         "v": 20.0,
         "vehicle_id": "CLV_Y",
-        "x_global": 6884.0,
+        "x_global": 6850.0,
         "y": 0.0
       },
       {
@@ -176,9 +199,9 @@
         "merge_state": "none",
         "physical_lane": "lane_1",
         "road_role": "mainline",
-        "v": 20.0,
+        "v": 30.0,
         "vehicle_id": "TFV",
-        "x_global": 6780.0,
+        "x_global": 6837.0,
         "y": 3.5
       },
       {
@@ -188,9 +211,9 @@
         "merge_state": "none",
         "physical_lane": "lane_1",
         "road_role": "mainline",
-        "v": 20.0,
+        "v": 22.0,
         "vehicle_id": "TLV",
-        "x_global": 6853.0,
+        "x_global": 6920.0,
         "y": 3.5
       }
     ]

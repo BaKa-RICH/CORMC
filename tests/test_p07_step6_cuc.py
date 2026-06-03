@@ -34,7 +34,7 @@ def test_mvs_cuc_1a_override_choice1_generates_command_overlay_and_events() -> N
 
 
 def test_mvs_cuc_2_target_lane_unsafe_fallback_stay_lane2_and_spacing_handoff() -> None:
-    state, relations = _state_and_relations(_cuc_config(tlv_x=6854.0, tfv_x=6837.0))
+    state, relations = _state_and_relations(_cuc_config(tlv_x=6847.0, tfv_x=6837.0))
 
     result = run_step6_cuc_choice_compliance_lane_change_overlay(
         state,
@@ -57,8 +57,9 @@ def test_mvs_cuc_2_target_lane_unsafe_fallback_stay_lane2_and_spacing_handoff() 
     safety_event = _actual_event(result.actual_events, module="Step6TargetLaneSafety")
     assert safety_event["payload"]["target_lane_safe"] is False
     assert safety_event["payload"]["fallback_reason"] == "target_lane_unsafe"
-    assert safety_event["payload"]["target_lane_safety_method"] == "first_version_gap_over_cv_speed_proxy"
-    assert safety_event["payload"]["eq14_eq15_locked"] is False
+    assert safety_event["payload"]["target_lane_safety_method"] == "eq14_eq15_time_to_collision"
+    assert safety_event["payload"]["eq14_eq15_locked"] is True
+    assert safety_event["payload"]["formula_status"] == "locked_formula"
 
 
 def test_mvs_cuc_3_non_compliant_chv_ignores_cuc_without_spacing_consumption() -> None:
@@ -83,7 +84,7 @@ def test_mvs_cuc_3_non_compliant_chv_ignores_cuc_without_spacing_consumption() -
     assert compliance_event["payload"]["spacing_override_consumed_by_p07"] is False
 
 
-def test_mvs_cuc_1b_real_utility_probe_logs_inputs_u1_u2_and_final_choice() -> None:
+def test_mvs_cuc_1b_real_utility_logs_locked_inputs_u1_u2_and_final_choice() -> None:
     state, relations = _state_and_relations(_cuc_config())
 
     result = run_step6_cuc_choice_compliance_lane_change_overlay(
@@ -94,11 +95,22 @@ def test_mvs_cuc_1b_real_utility_probe_logs_inputs_u1_u2_and_final_choice() -> N
 
     decision = result.cuc_decisions["CFV_X"]
     assert decision["utility_source"] == "real_CUC"
-    assert decision["utility_formula_status"] == "first_version_probe_not_eq11_eq12_locked"
-    assert decision["eq11_eq12_locked"] is False
+    assert decision["utility_formula_status"] == "locked_formula"
+    assert decision["formula_status"] == "locked_formula"
+    assert decision["eq11_eq12_locked"] is True
+    assert decision["eq13_locked"] is True
+    assert decision["eq14_eq15_locked"] is True
+    assert decision["eq16_locked"] is True
     assert decision["utility_inputs_logged"] is True
     assert decision["U1"] is not None
     assert decision["U2"] is not None
+    assert "eq13_terms" in decision
+    assert "hypothetical_accelerations" in decision
+    assert decision["a_CV_LV"] == state.vehicle_states["CFV_X"].a
+    assert decision["a_CV_LV_source"] == "current_vehicle_state_acceleration"
+    assert decision["U2_terms"]["zeta_delta_accel"] == -0.5 * abs(
+        decision["tilde_a_CV_LV"] - decision["a_CV_LV"]
+    )
     assert decision["final_choice"] in {"change_to_lane_1", "stay_lane_2", "not_applicable"}
 
 

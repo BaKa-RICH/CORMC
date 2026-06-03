@@ -10,8 +10,8 @@
 
 | vehicle_id | x_global | y | v | physical_lane | road_role | lane_change_state | merge_state |
 |---|---:|---:|---:|---|---|---|---|
-| BG_LANE1_DEMO | 6980 | 3.5 | 20 | lane_1 | mainline | normal | none |
-| CFV_DEMO | 6935.25 | 0 | 19.1271 | lane_2 | mainline | normal | none |
+| BG_LANE1_DEMO | 7027.38 | 3.5 | 29.4259 | lane_1 | mainline | normal | none |
+| CFV_DEMO | 6934.28 | 0 | 18.8903 | lane_2 | mainline | normal | none |
 | CLV_DEMO | 7010 | 0 | 20 | lane_2 | mainline | normal | none |
 | MV_DEMO | 6970 | -3.16578 | 20 | on_ramp | on_ramp_mv | normal | executing |
 
@@ -36,6 +36,14 @@
 - lateral_trajectory: `True`
 - commit: `True`
 - time_advance: `True`
+
+## Formula Status
+
+- cuc_eq11_eq16: `not_observed`
+- cav_eq17_eq27: `locked_formula`
+- chv_eq28_eq29: `locked_formula`
+- front_collision_eq42_eq46: `locked_formula`
+- legacy proxy markers present: `none`
 
 ## PNG
 

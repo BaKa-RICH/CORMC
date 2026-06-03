@@ -25,6 +25,18 @@
         "valid_until_next_aps": true
       }
     },
+    "controller_memory_by_vehicle": {
+      "CFV_SAFE_WAIT": {
+        "controller_mode": "cav_cpid",
+        "e_prev": 158.4,
+        "ex_prev": 19.8,
+        "integral_e": 0.0,
+        "integral_ex": 0.0,
+        "last_controller_update_step": 0,
+        "last_t": 0.0,
+        "vehicle_id": "CFV_SAFE_WAIT"
+      }
+    },
     "dt": 0.1,
     "output_config_ref": null,
     "parameter_config_ref": "paper_table_i_first_version",
@@ -34,27 +46,27 @@
     "t": 0.1,
     "vehicle_states": [
       {
-        "a": 0.05,
+        "a": 0.7272727272727273,
         "is_active": true,
         "lane_change_state": "normal",
         "merge_state": "none",
         "physical_lane": "lane_2",
         "road_role": "mainline",
-        "v": 16.005,
+        "v": 16.072727272727274,
         "vehicle_id": "CFV_SAFE_WAIT",
-        "x_global": 7201.6005,
+        "x_global": 7201.607272727273,
         "y": 0.0
       },
       {
-        "a": 0.0,
+        "a": 4.0,
         "is_active": true,
         "lane_change_state": "normal",
         "merge_state": "none",
         "physical_lane": "lane_2",
         "road_role": "mainline",
-        "v": 16.0,
+        "v": 16.4,
         "vehicle_id": "CLV_SAFE_WAIT",
-        "x_global": 7246.6,
+        "x_global": 7246.64,
         "y": 0.0
       },
       {
@@ -97,6 +109,7 @@
         "valid_until_next_aps": true
       }
     },
+    "controller_memory_by_vehicle": {},
     "dt": 0.1,
     "output_config_ref": null,
     "parameter_config_ref": "paper_table_i_first_version",

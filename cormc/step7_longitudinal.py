@@ -1,10 +1,23 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from math import sqrt
 from types import MappingProxyType
 from typing import Any, Mapping
 
+from cormc.p145_parameters import (
+    CAV,
+    CORMC_PARAMETER_SPEC_SOURCE,
+    CPID,
+    IDM,
+    LANE_CHANGE,
+    LANE_MAX_SPEED_MPS,
+    LOCKED_FORMULA_STATUS,
+)
 from cormc.step0_3 import (
+    LANE_2,
+    LongitudinalControllerMemory,
+    ManeuverTrajectoryState,
     ON_RAMP,
     ON_RAMP_MV_ROLE,
     RelationsSnapshot,
@@ -13,6 +26,7 @@ from cormc.step0_3 import (
     assert_x_plot_not_used_in_algorithm_path,
 )
 from cormc.step9_11 import (
+    CandidateCacheUpdate,
     CandidateLongitudinalKinematics,
     CommandBuffer,
     NextStateBuffer,
@@ -22,12 +36,7 @@ from cormc.step9_11 import (
 STEP7_LONGITUDINAL_SOURCE = "step7_longitudinal_model"
 ENGINEERING_PATCH_SOURCE = "first_version_engineering_patch"
 PAPER_FORMULA_SOURCE = "paper_formula"
-FIRST_VERSION_PROBE_SOURCE = "first_version_probe"
-DEFAULT_DESIRED_SPEED_MPS = 30.0
-DEFAULT_DESIRED_SPACING_M = 40.0
-DEFAULT_TIME_GAP_S = 1.5
-MAX_ACCELERATION_MPS2 = 2.0
-COMFORTABLE_DECELERATION_MPS2 = 3.0
+DEFAULT_DESIRED_SPEED_MPS = IDM.default_desired_speed
 
 
 @dataclass(frozen=True)
@@ -51,6 +60,35 @@ class PlanningSpeedComposition:
     planning_speed: float
     most_conservative_source: str
     source_speed_cap_command_id: str | None = None
+    front_fallback_speed_source: str | None = None
+
+
+@dataclass(frozen=True)
+class FrontCollisionAvoidanceResult:
+    status: str
+    applicable: bool
+    eq42_eq46_locked: bool
+    formula_status: str
+    consumed: bool = False
+    fallback_speed: float | None = None
+    fallback_speed_source: str | None = None
+    leader_id: str | None = None
+    planned_length: float | None = None
+    planned_length_source: str | None = None
+    x_mid: float | None = None
+    t_mid: float | None = None
+    d_mid: float | None = None
+    current_gap: float | None = None
+    delay_maneuver_due_to_front_collision: bool = False
+
+
+@dataclass(frozen=True)
+class LongitudinalFormulaResult:
+    mode: str
+    acceleration: float
+    candidate_speed: float
+    payload: Mapping[str, Any]
+    cache_update: CandidateCacheUpdate | None = None
 
 
 @dataclass(frozen=True)
@@ -84,6 +122,7 @@ def run_step7_longitudinal_model_spacing_speedcap(
     consumed_spacing_vehicle_ids: set[str] = set()
     rejected_spacing_vehicle_ids: set[str] = set()
     speed_cap_vehicle_ids: set[str] = set()
+    cache_updates: list[CandidateCacheUpdate] = []
 
     for vehicle_id in selected_vehicle_ids:
         if vehicle_id not in state.vehicle_states:
@@ -116,18 +155,43 @@ def run_step7_longitudinal_model_spacing_speedcap(
             spacing=spacing,
             leader_id=leader_id,
         )
+        if base.cache_update is not None:
+            cache_updates.append(base.cache_update)
+        front = evaluate_front_collision_avoidance(
+            state,
+            relations,
+            vehicle_id,
+            command_buffer=command_buffer,
+            leader_id=leader_id,
+        )
+        explicit_front_fallback = (front_fallback_speeds or {}).get(vehicle_id)
+        front_fallback_speed = (
+            float(explicit_front_fallback)
+            if explicit_front_fallback is not None
+            else front.fallback_speed
+        )
+        front_fallback_source = (
+            "external_test_harness"
+            if explicit_front_fallback is not None
+            else front.fallback_speed_source
+        )
         composition = compose_planning_speed(
             vehicle_id,
-            base_candidate_speed=base["candidate_speed"],
+            base_candidate_speed=base.candidate_speed,
             command_buffer=command_buffer,
-            front_fallback_speed=(front_fallback_speeds or {}).get(vehicle_id),
+            front_fallback_speed=front_fallback_speed,
+            front_fallback_speed_source=front_fallback_source,
         )
-        if composition.source_speed_cap_command_id is not None:
+        if (
+            composition.source_speed_cap_command_id is not None
+            or composition.front_fallback_speed != "not_applicable"
+        ):
             speed_cap_vehicle_ids.add(vehicle_id)
             events.append(
                 emit_speed_cap_consumption_event(
                     state,
                     composition,
+                    front=front,
                     scenario_id=scenario_id,
                 )
             )
@@ -135,9 +199,9 @@ def run_step7_longitudinal_model_spacing_speedcap(
         candidate = build_longitudinal_candidate(
             state,
             vehicle_id,
-            base_candidate_speed=base["candidate_speed"],
+            base_candidate_speed=base.candidate_speed,
             planning_speed=composition.planning_speed,
-            acceleration=base["acceleration"],
+            acceleration=base.acceleration,
             constraints_applied=_constraints_applied(spacing, composition),
             source_commands=_source_commands(spacing, composition),
         )
@@ -147,11 +211,13 @@ def run_step7_longitudinal_model_spacing_speedcap(
             emit_longitudinal_model_event(
                 state,
                 vehicle_id,
-                mode=str(base["longitudinal_mode"]),
+                mode=base.mode,
                 leader_id=leader_id,
                 spacing=spacing,
                 composition=composition,
                 candidate=candidate,
+                formula=base,
+                front=front,
                 scenario_id=scenario_id,
             )
         )
@@ -208,6 +274,7 @@ def run_step7_longitudinal_model_spacing_speedcap(
         step=state.step,
         t=state.t,
         candidate_longitudinal=MappingProxyType(candidates),
+        candidate_cache_updates=tuple(cache_updates),
     )
     return Step7LongitudinalRunResult(
         state=state,
@@ -301,6 +368,7 @@ def compose_planning_speed(
     base_candidate_speed: float,
     command_buffer: CommandBuffer,
     front_fallback_speed: float | None,
+    front_fallback_speed_source: str | None = None,
 ) -> PlanningSpeedComposition:
     applicable: list[tuple[str, float]] = [("base_candidate_speed", float(base_candidate_speed))]
     speed_cap_command = _speed_cap_command(command_buffer, vehicle_id)
@@ -328,6 +396,7 @@ def compose_planning_speed(
         planning_speed=max(0.0, float(planning_speed)),
         most_conservative_source=most_conservative_source,
         source_speed_cap_command_id=source_speed_cap_command_id,
+        front_fallback_speed_source=front_fallback_speed_source,
     )
 
 
@@ -366,6 +435,8 @@ def emit_longitudinal_model_event(
     spacing: SpacingOverrideConsumption,
     composition: PlanningSpeedComposition,
     candidate: CandidateLongitudinalKinematics,
+    formula: LongitudinalFormulaResult,
+    front: FrontCollisionAvoidanceResult,
     scenario_id: str,
 ) -> dict[str, Any]:
     spec = state.vehicle_specs[vehicle_id]
@@ -385,9 +456,16 @@ def emit_longitudinal_model_event(
         "candidate_id": candidate.candidate_id,
         "source_spacing_command_id": spacing.source_command_id,
         "source_mv_id": spacing.source_mv_id,
+        "longitudinal_formula_status": LOCKED_FORMULA_STATUS,
+        "formula_status": LOCKED_FORMULA_STATUS,
+        "parameter_source": CORMC_PARAMETER_SPEC_SOURCE,
+        "front_collision_status": front.status,
+        "eq42_eq46_locked": front.eq42_eq46_locked,
+        "front_collision_formula_status": front.formula_status,
+        "front_fallback_consumed": front.consumed,
+        "front_fallback_speed_source": composition.front_fallback_speed_source,
     }
-    if mode == "cav_gap_regulating":
-        payload["cpid_memory_status"] = "probe_schema_gap"
+    payload.update(dict(formula.payload))
     return _event(
         state,
         module="Step7LongitudinalModel",
@@ -396,8 +474,12 @@ def emit_longitudinal_model_event(
         related_vehicle_ids=tuple(item for item in (vehicle_id, leader_id) if item is not None),
         scenario_id=scenario_id,
         reason=mode,
-        source=PAPER_FORMULA_SOURCE if mode == "chv_idm" else FIRST_VERSION_PROBE_SOURCE,
-        is_engineering_patch=mode != "chv_idm",
+        source=(
+            PAPER_FORMULA_SOURCE
+            if mode in {"cav_cruising", "cav_gap_regulating", "chv_idm"}
+            else ENGINEERING_PATCH_SOURCE
+        ),
+        is_engineering_patch=mode not in {"cav_cruising", "cav_gap_regulating", "chv_idm"},
         payload=payload,
     )
 
@@ -435,8 +517,10 @@ def emit_speed_cap_consumption_event(
     state: SimulationState,
     composition: PlanningSpeedComposition,
     *,
+    front: FrontCollisionAvoidanceResult | None = None,
     scenario_id: str,
 ) -> dict[str, Any]:
+    front_payload = _front_collision_payload(front)
     return _event(
         state,
         module="Step7SpeedCapComposition",
@@ -444,16 +528,23 @@ def emit_speed_cap_consumption_event(
         vehicle_id=composition.vehicle_id,
         related_vehicle_ids=(composition.vehicle_id,),
         scenario_id=scenario_id,
-        reason="speed_cap_consumed",
+        reason=(
+            "front_collision_avoidance"
+            if composition.source_speed_cap_command_id is None
+            and composition.front_fallback_speed != "not_applicable"
+            else "speed_cap_consumed"
+        ),
         source=PAPER_FORMULA_SOURCE,
         is_engineering_patch=False,
         payload={
             "base_candidate_speed": composition.base_candidate_speed,
             "boundary_speed_cap": composition.boundary_speed_cap,
             "front_fallback_speed": composition.front_fallback_speed,
+            "front_fallback_speed_source": composition.front_fallback_speed_source,
             "planning_speed": composition.planning_speed,
             "most_conservative_source": composition.most_conservative_source,
             "source_speed_cap_command_id": composition.source_speed_cap_command_id,
+            **front_payload,
         },
     )
 
@@ -582,81 +673,274 @@ def _compute_base_candidate(
     *,
     spacing: SpacingOverrideConsumption,
     leader_id: str | None,
-) -> dict[str, Any]:
+) -> LongitudinalFormulaResult:
+    return compute_p145_longitudinal_formula(
+        state,
+        relations,
+        vehicle_id,
+        spacing=spacing,
+        leader_id=leader_id,
+        update_cache=True,
+    )
+
+
+def compute_p145_longitudinal_formula(
+    state: SimulationState,
+    relations: RelationsSnapshot,
+    vehicle_id: str,
+    *,
+    spacing: SpacingOverrideConsumption | None = None,
+    leader_id: str | None = None,
+    update_cache: bool = False,
+) -> LongitudinalFormulaResult:
     current = state.vehicle_states[vehicle_id]
     spec = state.vehicle_specs[vehicle_id]
     vehicle_type = str(spec.vehicle_type).lower()
+    spacing = spacing or SpacingOverrideConsumption(
+        consumed=False,
+        desired_spacing=None,
+        desired_spacing_source=_ordinary_spacing_source(state, vehicle_id),
+    )
     if _is_on_ramp_vehicle(current):
-        mode = "mv_on_ramp"
-        desired_speed = _desired_speed(state, vehicle_id)
-        acceleration = _clip_acceleration((desired_speed - current.v) / max(state.dt, 1e-6))
+        return _on_ramp_longitudinal_formula(state, vehicle_id)
     elif vehicle_type == "chv":
-        mode = "chv_idm"
-        acceleration = _idm_acceleration(state, vehicle_id, leader_id=leader_id, spacing=spacing)
-    else:
-        desired_spacing = spacing.desired_spacing or DEFAULT_DESIRED_SPACING_M
-        actual_spacing = _actual_spacing(state, vehicle_id, leader_id)
-        if (
-            leader_id is None
-            or actual_spacing is None
-            or actual_spacing >= 2.0 * desired_spacing
-        ):
-            mode = "cav_cruising"
-            desired_speed = _desired_speed(state, vehicle_id)
-            acceleration = _clip_acceleration((desired_speed - current.v) / max(state.dt, 1e-6))
-        else:
-            mode = "cav_gap_regulating"
-            acceleration = _gap_regulating_acceleration(
-                state,
-                vehicle_id,
-                leader_id=leader_id,
-                desired_spacing=desired_spacing,
-                actual_spacing=actual_spacing,
-            )
-    candidate_speed = max(0.0, float(current.v) + acceleration * float(state.dt))
-    return {
-        "longitudinal_mode": mode,
-        "acceleration": acceleration,
-        "candidate_speed": candidate_speed,
-    }
+        return _chv_idm_formula(state, vehicle_id, leader_id=leader_id, spacing=spacing)
+    return _cav_longitudinal_formula(
+        state,
+        vehicle_id,
+        leader_id=leader_id,
+        spacing=spacing,
+        update_cache=update_cache,
+    )
 
 
-def _idm_acceleration(
+def _on_ramp_longitudinal_formula(
+    state: SimulationState,
+    vehicle_id: str,
+) -> LongitudinalFormulaResult:
+    current = state.vehicle_states[vehicle_id]
+    desired_speed = _desired_speed(state, vehicle_id)
+    acceleration = _clip_acceleration(CAV.k1 * (desired_speed - current.v))
+    candidate_speed = _clip_speed_to_lane(state, vehicle_id, current.v + acceleration * state.dt)
+    return LongitudinalFormulaResult(
+        mode="mv_on_ramp",
+        acceleration=acceleration,
+        candidate_speed=candidate_speed,
+        payload={
+            "formula_status": "engineering_patch",
+            "longitudinal_formula_status": "engineering_patch",
+            "on_ramp_longitudinal_source": "first_version_on_ramp_free_road",
+            "desired_speed": desired_speed,
+            "desired_speed_source": _desired_speed_source(state, vehicle_id),
+            "candidate_speed_after_lane_clip": candidate_speed,
+        },
+    )
+
+
+def _chv_idm_formula(
     state: SimulationState,
     vehicle_id: str,
     *,
     leader_id: str | None,
     spacing: SpacingOverrideConsumption,
-) -> float:
+) -> LongitudinalFormulaResult:
     current = state.vehicle_states[vehicle_id]
     desired_speed = max(_desired_speed(state, vehicle_id), 0.1)
-    time_gap = state.vehicle_specs[vehicle_id].desired_time_gap or DEFAULT_TIME_GAP_S
+    time_gap = state.vehicle_specs[vehicle_id].desired_time_gap or IDM.h_chv
     actual_spacing = _actual_spacing(state, vehicle_id, leader_id)
     if leader_id is None or actual_spacing is None:
         free_road_term = (current.v / desired_speed) ** 4
-        return _clip_acceleration(MAX_ACCELERATION_MPS2 * (1.0 - free_road_term))
-    leader = state.vehicle_states[leader_id]
-    desired_spacing = spacing.desired_spacing or (
-        2.0 + current.v * time_gap + current.v * (current.v - leader.v) / 8.0
+        acceleration = _clip_acceleration(IDM.a_i * (1.0 - free_road_term))
+        s_star = None
+        interaction_term = 0.0
+        eq10_override_applied = False
+        leader_speed = None
+    else:
+        leader = state.vehicle_states[leader_id]
+        leader_speed = leader.v
+        if spacing.consumed and spacing.desired_spacing is not None:
+            s_star = float(spacing.desired_spacing)
+            eq10_override_applied = True
+        else:
+            s_star = IDM.d0 + max(
+                0.0,
+                current.v * time_gap
+                - current.v * (leader.v - current.v) / (2.0 * sqrt(IDM.a_i * IDM.b_i)),
+            )
+            eq10_override_applied = False
+        interaction_term = (max(float(s_star), 0.0) / max(float(actual_spacing), 1e-6)) ** 2
+        free_road_term = (current.v / desired_speed) ** 4
+        acceleration = _clip_acceleration(IDM.a_i * (1.0 - free_road_term - interaction_term))
+    candidate_speed = _clip_speed_to_lane(state, vehicle_id, current.v + acceleration * state.dt)
+    return LongitudinalFormulaResult(
+        mode="chv_idm",
+        acceleration=acceleration,
+        candidate_speed=candidate_speed,
+        payload={
+            "idm_formula_status": LOCKED_FORMULA_STATUS,
+            "eq28_eq29_locked": True,
+            "eq10_override_applied": eq10_override_applied,
+            "desired_speed": desired_speed,
+            "desired_speed_source": _desired_speed_source(state, vehicle_id),
+            "idm_parameters_source": CORMC_PARAMETER_SPEC_SOURCE,
+            "idm_h_i": time_gap,
+            "idm_A_i": IDM.a_i,
+            "idm_b_i": IDM.b_i,
+            "idm_d0": IDM.d0,
+            "idm_S_i_star": s_star,
+            "idm_actual_spacing": actual_spacing,
+            "idm_free_road_term": free_road_term,
+            "idm_interaction_term": interaction_term,
+            "leader_speed": leader_speed,
+            "candidate_speed_after_lane_clip": candidate_speed,
+        },
     )
-    interaction_term = (max(desired_spacing, 0.0) / max(actual_spacing, 0.1)) ** 2
-    free_road_term = (current.v / desired_speed) ** 4
-    return _clip_acceleration(MAX_ACCELERATION_MPS2 * (1.0 - free_road_term - interaction_term))
 
 
-def _gap_regulating_acceleration(
+def _cav_longitudinal_formula(
     state: SimulationState,
     vehicle_id: str,
     *,
     leader_id: str | None,
-    desired_spacing: float,
-    actual_spacing: float,
-) -> float:
+    spacing: SpacingOverrideConsumption,
+    update_cache: bool,
+) -> LongitudinalFormulaResult:
     current = state.vehicle_states[vehicle_id]
-    leader_speed = state.vehicle_states[leader_id].v if leader_id is not None else current.v
-    spacing_error = actual_spacing - desired_spacing
-    speed_error = leader_speed - current.v
-    return _clip_acceleration(0.05 * spacing_error + 0.25 * speed_error)
+    h_i = state.vehicle_specs[vehicle_id].desired_time_gap or CAV.h_cav
+    actual_spacing = _actual_spacing(state, vehicle_id, leader_id)
+    collision_spacing = _collision_avoidance_spacing(state, vehicle_id, leader_id)
+    eq18_desired_spacing = current.v * h_i + CAV.d0 + collision_spacing
+    desired_spacing = (
+        float(spacing.desired_spacing)
+        if spacing.consumed and spacing.desired_spacing is not None
+        else eq18_desired_spacing
+    )
+    desired_spacing_source = "Eq10" if spacing.consumed else "Eq18"
+    base_payload = {
+        "eq17_eq19_locked": True,
+        "h_i": h_i,
+        "d0": CAV.d0,
+        "actual_spacing_d_i": actual_spacing,
+        "collision_avoidance_spacing_C_i": collision_spacing,
+        "eq18_desired_spacing_S_i": eq18_desired_spacing,
+        "desired_spacing_target": desired_spacing,
+        "desired_spacing_target_source": desired_spacing_source,
+        "cav_parameters_source": CORMC_PARAMETER_SPEC_SOURCE,
+    }
+    if leader_id is None or actual_spacing is None or actual_spacing >= 2.0 * desired_spacing:
+        acceleration = _clip_acceleration(CAV.k1 * (CAV.v_e - current.v))
+        candidate_speed = _clip_speed_to_lane(state, vehicle_id, current.v + acceleration * state.dt)
+        return LongitudinalFormulaResult(
+            mode="cav_cruising",
+            acceleration=acceleration,
+            candidate_speed=candidate_speed,
+            payload={
+                **base_payload,
+                "eq20_locked": True,
+                "eq21_eq27_locked": False,
+                "cav_cruising_gain_k1": CAV.k1,
+                "equilibrium_speed_v_e": CAV.v_e,
+                "candidate_speed_after_lane_clip": candidate_speed,
+            },
+        )
+
+    cpid = _compute_cpid_formula(
+        state,
+        vehicle_id,
+        leader_id=leader_id,
+        actual_spacing=actual_spacing,
+        desired_spacing=desired_spacing,
+        update_cache=update_cache,
+    )
+    return LongitudinalFormulaResult(
+        mode="cav_gap_regulating",
+        acceleration=cpid["a_next"],
+        candidate_speed=cpid["candidate_speed"],
+        cache_update=cpid.get("cache_update"),
+        payload={
+            **base_payload,
+            "eq20_locked": False,
+            "eq21_eq27_locked": True,
+            "cpid_mode": "minimal_formula_mode",
+            **{key: value for key, value in cpid.items() if key != "cache_update"},
+        },
+    )
+
+
+def _compute_cpid_formula(
+    state: SimulationState,
+    vehicle_id: str,
+    *,
+    leader_id: str,
+    actual_spacing: float,
+    desired_spacing: float,
+    update_cache: bool,
+) -> dict[str, Any]:
+    current = state.vehicle_states[vehicle_id]
+    leader = state.vehicle_states[leader_id]
+    memory = state.controller_memory_by_vehicle.get(vehicle_id)
+    cache_available = memory is not None and memory.ex_prev is not None and memory.e_prev is not None
+    dt = _controller_dt(state, memory)
+    ex = actual_spacing - desired_spacing
+    ev = leader.v - current.v
+    d_ex_dt = (ex - float(memory.ex_prev)) / dt if cache_available else 0.0
+    integral_ex = (float(memory.integral_ex) + ex * dt) if cache_available else 0.0
+    partial = CPID.kpx * ex + CPID.kix * integral_ex + CPID.kdx * d_ex_dt
+    e = partial - ev
+    d_e_dt = (e - float(memory.e_prev)) / dt if cache_available else 0.0
+    integral_e = (float(memory.integral_e) + e * dt) if cache_available else 0.0
+    u_raw = CPID.kpv * e + CPID.kiv * integral_e + CPID.kdv * d_e_dt
+    u = _clip(float(u_raw), CAV.u_min, CAV.u_max)
+    tau_i, tau_source = _tau_for_vehicle(state, vehicle_id)
+    a_next_raw = (1.0 - state.dt / tau_i) * current.a + (state.dt / tau_i) * u
+    a_next = _clip_acceleration(a_next_raw)
+    candidate_speed = _clip_speed_to_lane(state, vehicle_id, current.v + a_next * state.dt)
+    cache_update = None
+    if update_cache:
+        new_value = MappingProxyType(
+            {
+                "vehicle_id": vehicle_id,
+                "ex_prev": ex,
+                "e_prev": e,
+                "integral_ex": integral_ex,
+                "integral_e": integral_e,
+                "last_t": state.t,
+                "last_controller_update_step": state.step,
+                "controller_mode": "cav_cpid",
+            }
+        )
+        cache_update = CandidateCacheUpdate(
+            candidate_id=f"p08:{state.step}:{vehicle_id}:cpid_cache",
+            cache_name="longitudinal_controller_cache",
+            owner_vehicle_id=vehicle_id,
+            operation="update",
+            new_value=new_value,
+            reason="cav_cpid_eq21_eq27",
+        )
+    return {
+        "ex": ex,
+        "ev": ev,
+        "current_speed": current.v,
+        "leader_speed": leader.v,
+        "d_ex_dt": d_ex_dt,
+        "integral_ex": integral_ex,
+        "partial": partial,
+        "e": e,
+        "d_e_dt": d_e_dt,
+        "integral_e": integral_e,
+        "u_raw": u_raw,
+        "u": u,
+        "a_next_raw": a_next_raw,
+        "a_next": a_next,
+        "candidate_speed": candidate_speed,
+        "tau_i": tau_i,
+        "tau_source": tau_source,
+        "cpid_gain_source": CPID.gain_source,
+        "controller_cache_initialized": not cache_available,
+        "controller_cache_reused": cache_available,
+        "candidate_speed_after_lane_clip": candidate_speed,
+        "cache_update": cache_update,
+    }
 
 
 def _constraints_applied(
@@ -716,11 +1000,19 @@ def _actual_spacing(
         return None
     current = state.vehicle_states[vehicle_id]
     leader = state.vehicle_states[leader_id]
-    return max(0.0, float(leader.x_global) - float(current.x_global) - _vehicle_length(state, leader_id))
+    return float(leader.x_global) - float(current.x_global) - _vehicle_length(state, leader_id)
 
 
 def _desired_speed(state: SimulationState, vehicle_id: str) -> float:
     return float(state.vehicle_specs[vehicle_id].desired_speed or DEFAULT_DESIRED_SPEED_MPS)
+
+
+def _desired_speed_source(state: SimulationState, vehicle_id: str) -> str:
+    return (
+        "VehicleSpec.desired_speed"
+        if state.vehicle_specs[vehicle_id].desired_speed is not None
+        else "deterministic_default_30mps_p145"
+    )
 
 
 def _ordinary_spacing_source(state: SimulationState, vehicle_id: str) -> str:
@@ -739,13 +1031,241 @@ def _is_on_ramp_vehicle(vehicle: VehicleState) -> bool:
 
 
 def _clip_acceleration(value: float) -> float:
-    return min(MAX_ACCELERATION_MPS2, max(-COMFORTABLE_DECELERATION_MPS2, float(value)))
+    return _clip(value, CAV.a_min, CAV.a_max)
+
+
+def _clip(value: float, lower: float, upper: float) -> float:
+    return min(float(upper), max(float(lower), float(value)))
+
+
+def _clip_speed_to_lane(state: SimulationState, vehicle_id: str, value: float) -> float:
+    lane = state.vehicle_states[vehicle_id].physical_lane
+    max_speed = LANE_MAX_SPEED_MPS.get(lane, LANE_MAX_SPEED_MPS[LANE_2])
+    return _clip(value, 0.0, max_speed)
+
+
+def _collision_avoidance_spacing(
+    state: SimulationState,
+    vehicle_id: str,
+    leader_id: str | None,
+) -> float:
+    if leader_id is None:
+        return 0.0
+    current = state.vehicle_states[vehicle_id]
+    leader = state.vehicle_states[leader_id]
+    if current.v <= leader.v:
+        return 0.0
+    return (current.v - leader.v) ** 2 / (2.0 * abs(CAV.a_min))
+
+
+def _controller_dt(
+    state: SimulationState,
+    memory: LongitudinalControllerMemory | None,
+) -> float:
+    if memory is not None and memory.last_t is not None:
+        dt = float(state.t) - float(memory.last_t)
+        if dt > 0.0:
+            return dt
+    return max(float(state.dt), 1e-6)
+
+
+def _tau_for_vehicle(state: SimulationState, vehicle_id: str) -> tuple[float, str]:
+    value = state.vehicle_specs[vehicle_id].inertial_lag
+    if value is not None:
+        return max(float(value), 1e-6), "VehicleSpec.inertial_lag"
+    return CPID.default_tau, CPID.default_tau_source
+
+
+def evaluate_front_collision_avoidance(
+    state: SimulationState,
+    relations: RelationsSnapshot,
+    vehicle_id: str,
+    *,
+    command_buffer: CommandBuffer,
+    leader_id: str | None,
+) -> FrontCollisionAvoidanceResult:
+    source = _front_collision_source(state, command_buffer, vehicle_id)
+    if source is None:
+        return FrontCollisionAvoidanceResult(
+            status="not_applicable",
+            applicable=False,
+            eq42_eq46_locked=True,
+            formula_status=LOCKED_FORMULA_STATUS,
+        )
+    front_leader_id = source.get("leader_id") or leader_id
+    if front_leader_id is None:
+        return FrontCollisionAvoidanceResult(
+            status="not_applicable_no_lv",
+            applicable=True,
+            eq42_eq46_locked=True,
+            formula_status=LOCKED_FORMULA_STATUS,
+            planned_length=source.get("planned_length"),
+            planned_length_source=source.get("planned_length_source"),
+        )
+    current = state.vehicle_states[vehicle_id]
+    leader = state.vehicle_states[str(front_leader_id)]
+    v_sv = max(float(current.v), 0.0)
+    planned_length, planned_length_source = _front_planned_length(state, vehicle_id, source)
+    if v_sv <= 0.0:
+        return FrontCollisionAvoidanceResult(
+            status="not_applicable_nonpositive_sv_speed",
+            applicable=True,
+            eq42_eq46_locked=True,
+            formula_status=LOCKED_FORMULA_STATUS,
+            leader_id=str(front_leader_id),
+            planned_length=planned_length,
+            planned_length_source=planned_length_source,
+        )
+    x_start = float(source.get("start_x_global", current.x_global))
+    x_mid = x_start + planned_length / 2.0
+    t_mid = (x_mid - current.x_global) / v_sv
+    d_mid = t_mid * (v_sv - float(leader.v))
+    current_gap = float(leader.x_global) - float(current.x_global) - _vehicle_length(
+        state,
+        str(front_leader_id),
+    )
+    safe = d_mid < current_gap
+    if safe:
+        return FrontCollisionAvoidanceResult(
+            status="safe",
+            applicable=True,
+            eq42_eq46_locked=True,
+            formula_status=LOCKED_FORMULA_STATUS,
+            consumed=False,
+            leader_id=str(front_leader_id),
+            planned_length=planned_length,
+            planned_length_source=planned_length_source,
+            x_mid=x_mid,
+            t_mid=t_mid,
+            d_mid=d_mid,
+            current_gap=current_gap,
+        )
+    fallback_speed, fallback_source = _front_fallback_speed(state, vehicle_id, source)
+    return FrontCollisionAvoidanceResult(
+        status="fallback_to_previous_planning_speed",
+        applicable=True,
+        eq42_eq46_locked=True,
+        formula_status=LOCKED_FORMULA_STATUS,
+        consumed=fallback_speed is not None,
+        fallback_speed=fallback_speed,
+        fallback_speed_source=fallback_source,
+        leader_id=str(front_leader_id),
+        planned_length=planned_length,
+        planned_length_source=planned_length_source,
+        x_mid=x_mid,
+        t_mid=t_mid,
+        d_mid=d_mid,
+        current_gap=current_gap,
+        delay_maneuver_due_to_front_collision=fallback_speed is None,
+    )
+
+
+def _front_collision_source(
+    state: SimulationState,
+    command_buffer: CommandBuffer,
+    vehicle_id: str,
+) -> dict[str, Any] | None:
+    lane_command = command_buffer.lane_change_commands.get(vehicle_id)
+    merge_command = command_buffer.merge_commands.get(vehicle_id)
+    active = state.active_maneuvers.get(vehicle_id)
+    if isinstance(lane_command, Mapping):
+        return {
+            "maneuver_type": "lane_change",
+            "start_x_global": state.vehicle_states[vehicle_id].x_global,
+            "target_y": lane_command.get("target_y"),
+            "planned_length": _optional_float(lane_command.get("planned_length")),
+            "planned_length_source": lane_command.get("planned_length_source"),
+            "leader_id": _optional_str(lane_command.get("front_leader_id")),
+        }
+    if active is not None and active.maneuver_type == "lane_change":
+        return _front_source_from_active(active)
+    if isinstance(merge_command, Mapping):
+        return {
+            "maneuver_type": "merge",
+            "start_x_global": state.vehicle_states[vehicle_id].x_global,
+            "target_y": merge_command.get("target_y"),
+            "planned_length": _optional_float(merge_command.get("planned_length")),
+            "planned_length_source": merge_command.get("planned_length_source"),
+            "leader_id": _optional_str(merge_command.get("front_leader_id")),
+        }
+    if active is not None and active.maneuver_type == "merge":
+        return _front_source_from_active(active)
+    return None
+
+
+def _front_source_from_active(active: ManeuverTrajectoryState) -> dict[str, Any]:
+    return {
+        "maneuver_type": active.maneuver_type,
+        "start_x_global": active.start_x_global,
+        "target_y": active.target_y,
+        "planned_length": active.planned_length,
+        "planned_length_source": "active_maneuver.planned_length",
+        "leader_id": None,
+        "last_planning_speed": active.last_planning_speed,
+    }
+
+
+def _front_planned_length(
+    state: SimulationState,
+    vehicle_id: str,
+    source: Mapping[str, Any],
+) -> tuple[float, str]:
+    planned_length = source.get("planned_length")
+    if planned_length is not None and float(planned_length) > 0.0:
+        return float(planned_length), str(source.get("planned_length_source") or "planned_length")
+    current = state.vehicle_states[vehicle_id]
+    target_y = _optional_float(source.get("target_y"))
+    y_d = 0.0 if target_y is None else target_y - float(current.y)
+    return (
+        float(current.v) * sqrt(2.0 * abs(y_d) / LANE_CHANGE.a_p) + LANE_CHANGE.l_centerline,
+        "Eq34_fallback_p145",
+    )
+
+
+def _front_fallback_speed(
+    state: SimulationState,
+    vehicle_id: str,
+    source: Mapping[str, Any],
+) -> tuple[float | None, str | None]:
+    active = state.active_maneuvers.get(vehicle_id)
+    if active is not None and active.last_planning_speed is not None:
+        return float(active.last_planning_speed), "active_maneuver.last_planning_speed"
+    if source.get("last_planning_speed") is not None:
+        return float(source["last_planning_speed"]), "active_maneuver.last_planning_speed"
+    current_speed = state.vehicle_states[vehicle_id].v
+    return float(current_speed), "VehicleState.v"
+
+
+def _front_collision_payload(front: FrontCollisionAvoidanceResult | None) -> dict[str, Any]:
+    if front is None:
+        return {}
+    return {
+        "eq42_eq46_locked": front.eq42_eq46_locked,
+        "front_collision_formula_status": front.formula_status,
+        "front_collision_status": front.status,
+        "front_fallback_consumed": front.consumed,
+        "front_fallback_speed_source": front.fallback_speed_source,
+        "front_leader_id": front.leader_id,
+        "front_planned_length": front.planned_length,
+        "front_planned_length_source": front.planned_length_source,
+        "front_x_mid": front.x_mid,
+        "front_T_mid": front.t_mid,
+        "front_d_mid": front.d_mid,
+        "front_current_gap": front.current_gap,
+        "delay_maneuver_due_to_front_collision": front.delay_maneuver_due_to_front_collision,
+    }
 
 
 def _optional_str(value: Any) -> str | None:
     if value in (None, ""):
         return None
     return str(value)
+
+
+def _optional_float(value: Any) -> float | None:
+    if value in (None, ""):
+        return None
+    return float(value)
 
 
 def _event(
@@ -839,4 +1359,17 @@ def _state_signature(state: SimulationState) -> tuple[Any, ...]:
             for vehicle_id in state.active_vehicle_ids
         ),
         tuple((key, tuple(sorted(value.items()))) for key, value in state.aps_assignment_cache.items()),
+        tuple(
+            (
+                vehicle_id,
+                memory.ex_prev,
+                memory.e_prev,
+                memory.integral_ex,
+                memory.integral_e,
+                memory.last_t,
+                memory.last_controller_update_step,
+                memory.controller_mode,
+            )
+            for vehicle_id, memory in sorted(state.controller_memory_by_vehicle.items())
+        ),
     )

@@ -5,6 +5,7 @@ from types import MappingProxyType
 from typing import Any, Mapping
 
 from cormc.step0_3 import (
+    LongitudinalControllerMemory,
     ManeuverTrajectoryState,
     SimulationState,
     VehicleState,
@@ -640,13 +641,22 @@ def build_next_simulation_state(
     next_cache: dict[str, dict[str, Any]] = {
         key: dict(value) for key, value in state.aps_assignment_cache.items()
     }
+    next_controller_memory: dict[str, LongitudinalControllerMemory] = dict(
+        state.controller_memory_by_vehicle
+    )
     for cache_update in next_state_buffer.candidate_cache_updates:
-        if cache_update.cache_name != "aps_assignment_cache":
-            continue
-        if cache_update.operation == "cleanup":
-            next_cache.pop(cache_update.owner_vehicle_id, None)
-        elif cache_update.operation in {"update", "invalidate"}:
-            next_cache[cache_update.owner_vehicle_id] = dict(cache_update.new_value or {})
+        if cache_update.cache_name == "aps_assignment_cache":
+            if cache_update.operation == "cleanup":
+                next_cache.pop(cache_update.owner_vehicle_id, None)
+            elif cache_update.operation in {"update", "invalidate"}:
+                next_cache[cache_update.owner_vehicle_id] = dict(cache_update.new_value or {})
+        elif cache_update.cache_name == "longitudinal_controller_cache":
+            if cache_update.operation == "cleanup":
+                next_controller_memory.pop(cache_update.owner_vehicle_id, None)
+            elif cache_update.operation in {"update", "create"}:
+                next_controller_memory[cache_update.owner_vehicle_id] = (
+                    _controller_memory_from_update(cache_update)
+                )
 
     next_active_maneuvers = apply_maneuver_progress_lifecycle(
         state,
@@ -670,6 +680,7 @@ def build_next_simulation_state(
         parameter_config_ref=state.parameter_config_ref,
         scenario_config_ref=state.scenario_config_ref,
         output_config_ref=state.output_config_ref,
+        controller_memory_by_vehicle=MappingProxyType(next_controller_memory),
     )
 
 
@@ -879,6 +890,12 @@ def emit_commit_event(
         for update in next_state_buffer.candidate_cache_updates
         if update.operation == "cleanup" and update.owner_vehicle_id == candidate.vehicle_id
     ]
+    controller_cache_updates = [
+        _dataclass_to_plain(update)
+        for update in next_state_buffer.candidate_cache_updates
+        if update.cache_name == "longitudinal_controller_cache"
+        and update.owner_vehicle_id == candidate.vehicle_id
+    ]
     active_maneuver_cleanup = (
         [candidate.vehicle_id] if progress is not None and progress.completed else []
     )
@@ -909,6 +926,7 @@ def emit_commit_event(
                 _plain_transition_payload(transition) for transition in command_transitions
             ],
             "cache_cleanup_vehicle_ids": cache_cleanup,
+            "longitudinal_controller_cache_updates": controller_cache_updates,
             "active_maneuver_cleanup_vehicle_ids": active_maneuver_cleanup,
             "active_maneuver_persisted_vehicle_ids": active_maneuver_persisted,
             "active_maneuver_progress": progress.progress if progress is not None else None,
@@ -1177,6 +1195,32 @@ def _primary_cache_update(
         if update.owner_vehicle_id == vehicle_id:
             return update
     return None
+
+
+def _controller_memory_from_update(
+    update: CandidateCacheUpdate,
+) -> LongitudinalControllerMemory:
+    value = dict(update.new_value or {})
+    return LongitudinalControllerMemory(
+        vehicle_id=str(value.get("vehicle_id") or update.owner_vehicle_id),
+        ex_prev=_optional_float(value.get("ex_prev")),
+        e_prev=_optional_float(value.get("e_prev")),
+        integral_ex=float(value.get("integral_ex", 0.0)),
+        integral_e=float(value.get("integral_e", 0.0)),
+        last_t=_optional_float(value.get("last_t")),
+        last_controller_update_step=(
+            int(value["last_controller_update_step"])
+            if value.get("last_controller_update_step") is not None
+            else None
+        ),
+        controller_mode=str(value.get("controller_mode") or "cav_cpid"),
+    )
+
+
+def _optional_float(value: Any) -> float | None:
+    if value in (None, ""):
+        return None
+    return float(value)
 
 
 def _state_transition_warnings(
@@ -1448,6 +1492,19 @@ def _state_signature(state: SimulationState) -> tuple[Any, ...]:
             for vehicle_id in sorted(state.active_maneuvers)
         ),
         tuple((key, tuple(sorted(value.items()))) for key, value in state.aps_assignment_cache.items()),
+        tuple(
+            (
+                vehicle_id,
+                memory.ex_prev,
+                memory.e_prev,
+                memory.integral_ex,
+                memory.integral_e,
+                memory.last_t,
+                memory.last_controller_update_step,
+                memory.controller_mode,
+            )
+            for vehicle_id, memory in sorted(state.controller_memory_by_vehicle.items())
+        ),
     )
 
 

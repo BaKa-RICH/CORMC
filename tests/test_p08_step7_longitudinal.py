@@ -189,7 +189,12 @@ def test_p08_cav_gap_regulating_with_leader_and_small_spacing() -> None:
 
     event = _event(result.actual_events, event_type="longitudinal_model", vehicle_id="CFV_X")
     assert event["payload"]["longitudinal_mode"] == "cav_gap_regulating"
-    assert event["payload"]["cpid_memory_status"] == "probe_schema_gap"
+    assert event["payload"]["longitudinal_formula_status"] == "locked_formula"
+    assert event["payload"]["cpid_mode"] == "minimal_formula_mode"
+    assert event["payload"]["eq21_eq27_locked"] is True
+    assert event["payload"]["ev"] == event["payload"]["leader_speed"] - event["payload"]["current_speed"]
+    assert event["payload"]["controller_cache_initialized"] is True
+    assert result.next_state_buffer.candidate_cache_updates[0].cache_name == "longitudinal_controller_cache"
     assert "CFV_X" in result.next_state_buffer.candidate_longitudinal
 
 

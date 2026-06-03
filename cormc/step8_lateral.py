@@ -87,6 +87,12 @@ def run_step8_lateral_trajectory_planning_speed_progress(
         if planning_speed is None:
             continue
         fallback = dict((front_fallback_diagnostics or {}).get(vehicle_id, {}))
+        if (
+            not fallback
+            and p08_candidate is not None
+            and "front_fallback" in p08_candidate.constraints_applied
+        ):
+            fallback = {"status": "consumed_from_p08", "consumed": True, "schema_gap": False}
         boundary_risk = dict((boundary_risk_diagnostics or {}).get(vehicle_id, {}))
         trajectory = _compute_sine_reference_candidate(
             state,
@@ -867,6 +873,19 @@ def _state_signature(state: SimulationState) -> tuple[Any, ...]:
             for vehicle_id in sorted(state.active_maneuvers)
         ),
         tuple((key, tuple(sorted(value.items()))) for key, value in state.aps_assignment_cache.items()),
+        tuple(
+            (
+                vehicle_id,
+                memory.ex_prev,
+                memory.e_prev,
+                memory.integral_ex,
+                memory.integral_e,
+                memory.last_t,
+                memory.last_controller_update_step,
+                memory.controller_mode,
+            )
+            for vehicle_id, memory in sorted(state.controller_memory_by_vehicle.items())
+        ),
     )
 
 

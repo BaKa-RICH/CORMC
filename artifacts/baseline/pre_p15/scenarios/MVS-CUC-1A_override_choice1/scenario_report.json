@@ -5,6 +5,172 @@
     "state_snapshot": "artifacts\\baseline\\pre_p15\\scenarios\\MVS-CUC-1A_override_choice1\\state_snapshot.json",
     "trajectory": "artifacts\\baseline\\pre_p15\\scenarios\\MVS-CUC-1A_override_choice1\\trajectory.csv"
   },
+  "formula_status_summary": {
+    "core_formula_status": {
+      "cav_eq17_eq27": "locked_formula",
+      "chv_eq28_eq29": "not_observed",
+      "cuc_eq11_eq16": "locked_formula",
+      "front_collision_eq42_eq46": "locked_formula"
+    },
+    "evidence_event_count_by_key": {
+      "cav_cpid_eq21_eq27": 1,
+      "cav_cruising_eq20": 3,
+      "cav_eq17_eq27": 4,
+      "chv_eq28_eq29": 0,
+      "chv_idm_eq28_eq29": 0,
+      "cuc_eq11_eq16": 1,
+      "cuc_eq14_eq15": 2,
+      "front_collision_eq42_eq46": 1,
+      "front_collision_speed_constraint": 1
+    },
+    "evidence_events_by_key": {
+      "cav_cpid_eq21_eq27": [
+        {
+          "event_id": "pre_p15:0:precommit_event:15",
+          "event_type": "longitudinal_model",
+          "module": "Step7LongitudinalModel",
+          "reason": "cav_gap_regulating",
+          "step": 0,
+          "vehicle_id": "CFV_X"
+        }
+      ],
+      "cav_cruising_eq20": [
+        {
+          "event_id": "pre_p15:0:precommit_event:16",
+          "event_type": "longitudinal_model",
+          "module": "Step7LongitudinalModel",
+          "reason": "cav_cruising",
+          "step": 0,
+          "vehicle_id": "CLV_Y"
+        },
+        {
+          "event_id": "pre_p15:0:precommit_event:17",
+          "event_type": "longitudinal_model",
+          "module": "Step7LongitudinalModel",
+          "reason": "cav_cruising",
+          "step": 0,
+          "vehicle_id": "TLV"
+        },
+        {
+          "event_id": "pre_p15:0:precommit_event:18",
+          "event_type": "longitudinal_model",
+          "module": "Step7LongitudinalModel",
+          "reason": "cav_cruising",
+          "step": 0,
+          "vehicle_id": "TFV"
+        }
+      ],
+      "cav_eq17_eq27": [
+        {
+          "event_id": "pre_p15:0:precommit_event:15",
+          "event_type": "longitudinal_model",
+          "module": "Step7LongitudinalModel",
+          "reason": "cav_gap_regulating",
+          "step": 0,
+          "vehicle_id": "CFV_X"
+        },
+        {
+          "event_id": "pre_p15:0:precommit_event:16",
+          "event_type": "longitudinal_model",
+          "module": "Step7LongitudinalModel",
+          "reason": "cav_cruising",
+          "step": 0,
+          "vehicle_id": "CLV_Y"
+        },
+        {
+          "event_id": "pre_p15:0:precommit_event:17",
+          "event_type": "longitudinal_model",
+          "module": "Step7LongitudinalModel",
+          "reason": "cav_cruising",
+          "step": 0,
+          "vehicle_id": "TLV"
+        },
+        {
+          "event_id": "pre_p15:0:precommit_event:18",
+          "event_type": "longitudinal_model",
+          "module": "Step7LongitudinalModel",
+          "reason": "cav_cruising",
+          "step": 0,
+          "vehicle_id": "TFV"
+        }
+      ],
+      "chv_eq28_eq29": [],
+      "chv_idm_eq28_eq29": [],
+      "cuc_eq11_eq16": [
+        {
+          "event_id": "pre_p15:0:precommit_event:11",
+          "event_type": "CUC",
+          "module": "Step6CUC",
+          "reason": "final_choice_change_to_lane_1",
+          "step": 0,
+          "vehicle_id": "CFV_X"
+        }
+      ],
+      "cuc_eq14_eq15": [
+        {
+          "event_id": "pre_p15:0:precommit_event:9",
+          "event_type": "CUC",
+          "module": "Step6TargetLaneSafety",
+          "reason": "target_lane_safe",
+          "step": 0,
+          "vehicle_id": "CFV_X"
+        },
+        {
+          "event_id": "pre_p15:0:precommit_event:11",
+          "event_type": "CUC",
+          "module": "Step6CUC",
+          "reason": "final_choice_change_to_lane_1",
+          "step": 0,
+          "vehicle_id": "CFV_X"
+        }
+      ],
+      "front_collision_eq42_eq46": [
+        {
+          "event_id": "pre_p15:0:precommit_event:15",
+          "event_type": "longitudinal_model",
+          "module": "Step7LongitudinalModel",
+          "reason": "cav_gap_regulating",
+          "step": 0,
+          "vehicle_id": "CFV_X"
+        }
+      ],
+      "front_collision_speed_constraint": [
+        {
+          "event_id": "pre_p15:0:precommit_event:15",
+          "event_type": "longitudinal_model",
+          "module": "Step7LongitudinalModel",
+          "reason": "cav_gap_regulating",
+          "step": 0,
+          "vehicle_id": "CFV_X"
+        }
+      ]
+    },
+    "legacy_proxy_marker_count": 0,
+    "legacy_proxy_markers_present": [],
+    "status_values_seen_by_field": {
+      "formula_status": [
+        "engineering_patch",
+        "locked_formula"
+      ],
+      "front_collision_formula_status": [
+        "locked_formula"
+      ],
+      "longitudinal_formula_status": [
+        "engineering_patch",
+        "locked_formula"
+      ],
+      "utility_formula_status": [
+        "locked_formula"
+      ]
+    },
+    "subformula_status": {
+      "cav_cpid_eq21_eq27": "locked_formula",
+      "cav_cruising_eq20": "locked_formula",
+      "chv_idm_eq28_eq29": "not_observed",
+      "cuc_eq14_eq15": "locked_formula",
+      "front_collision_speed_constraint": "locked_formula"
+    }
+  },
   "gaps": [],
   "input_config_ref": "builtin:MVS-CUC-1A_override_choice1",
   "key_event_summary": {

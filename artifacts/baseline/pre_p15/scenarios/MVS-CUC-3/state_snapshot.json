@@ -27,6 +27,7 @@
         "valid_until_next_aps": true
       }
     },
+    "controller_memory_by_vehicle": {},
     "dt": 0.1,
     "output_config_ref": null,
     "parameter_config_ref": "paper_table_i_first_version",
@@ -36,27 +37,27 @@
     "t": 0.1,
     "vehicle_states": [
       {
-        "a": -3.0,
+        "a": -6.0,
         "is_active": true,
         "lane_change_state": "normal",
         "merge_state": "none",
         "physical_lane": "lane_2",
         "road_role": "mainline",
-        "v": 24.7,
+        "v": 24.4,
         "vehicle_id": "CFV_X",
-        "x_global": 6846.47,
+        "x_global": 6846.44,
         "y": 0.0
       },
       {
-        "a": 0.0,
+        "a": 4.0,
         "is_active": true,
         "lane_change_state": "normal",
         "merge_state": "none",
         "physical_lane": "lane_2",
         "road_role": "mainline",
-        "v": 20.0,
+        "v": 20.4,
         "vehicle_id": "CLV_Y",
-        "x_global": 6886.0,
+        "x_global": 6886.04,
         "y": 0.0
       },
       {
@@ -72,27 +73,27 @@
         "y": -3.5
       },
       {
-        "a": 1.4500000000000002,
+        "a": 4.0,
         "is_active": true,
         "lane_change_state": "normal",
         "merge_state": "none",
         "physical_lane": "lane_1",
         "road_role": "mainline",
-        "v": 20.145,
+        "v": 20.4,
         "vehicle_id": "TFV",
-        "x_global": 6782.0145,
+        "x_global": 6782.04,
         "y": 3.5
       },
       {
-        "a": 0.0,
+        "a": 4.0,
         "is_active": true,
         "lane_change_state": "normal",
         "merge_state": "none",
         "physical_lane": "lane_1",
         "road_role": "mainline",
-        "v": 20.0,
+        "v": 20.4,
         "vehicle_id": "TLV",
-        "x_global": 6855.0,
+        "x_global": 6855.04,
         "y": 3.5
       }
     ]
@@ -125,6 +126,7 @@
         "valid_until_next_aps": true
       }
     },
+    "controller_memory_by_vehicle": {},
     "dt": 0.1,
     "output_config_ref": null,
     "parameter_config_ref": "paper_table_i_first_version",
