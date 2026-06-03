@@ -152,6 +152,7 @@ class ArtifactManifestEntry:
     exports: Mapping[str, str]
     png_paths: tuple[str, ...] = ()
     scenario_report_path: str | None = None
+    human_summary_path: str | None = None
     regression_report_ref: str | None = None
     gaps: tuple[str, ...] = ()
     png_feature_statuses: tuple[dict[str, Any], ...] = ()

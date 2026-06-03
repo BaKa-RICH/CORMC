@@ -1,0 +1,200 @@
+{
+  "final_state": {
+    "active_maneuvers": [],
+    "active_vehicle_ids": [
+      "MV_CUC",
+      "CFV_X",
+      "CLV_Y",
+      "TLV",
+      "TFV"
+    ],
+    "aps_assignment_cache": {
+      "MV_CUC": {
+        "aps_case": "case_2",
+        "cfv_id": "CFV_X",
+        "clv_id": "CLV_Y",
+        "col_cfv": true,
+        "col_clv": false,
+        "created_at_step": 0,
+        "created_at_t": 0.0,
+        "desired_spacing_override": 58.0,
+        "mv_id": "MV_CUC",
+        "source": "test_preload",
+        "staleness_policy": "valid_until_next_aps",
+        "status": "valid",
+        "t_mv_star": 5.0,
+        "t_star_mv": 5.0,
+        "valid_until_next_aps": true
+      }
+    },
+    "dt": 0.1,
+    "output_config_ref": null,
+    "parameter_config_ref": "paper_table_i_first_version",
+    "road_config_ref": "paper_fig10_first_version",
+    "scenario_config_ref": "MVS-CUC-2",
+    "step": 1,
+    "t": 0.1,
+    "vehicle_states": [
+      {
+        "a": -2.35,
+        "is_active": true,
+        "lane_change_state": "normal",
+        "merge_state": "none",
+        "physical_lane": "lane_2",
+        "road_role": "mainline",
+        "v": 24.765,
+        "vehicle_id": "CFV_X",
+        "x_global": 6846.4765,
+        "y": 0.0
+      },
+      {
+        "a": 0.0,
+        "is_active": true,
+        "lane_change_state": "normal",
+        "merge_state": "none",
+        "physical_lane": "lane_2",
+        "road_role": "mainline",
+        "v": 20.0,
+        "vehicle_id": "CLV_Y",
+        "x_global": 6886.0,
+        "y": 0.0
+      },
+      {
+        "a": 0.0,
+        "is_active": true,
+        "lane_change_state": "normal",
+        "merge_state": "not_started",
+        "physical_lane": "on_ramp",
+        "road_role": "on_ramp_mv",
+        "v": 20.0,
+        "vehicle_id": "MV_CUC",
+        "x_global": 6852.0,
+        "y": -3.5
+      },
+      {
+        "a": 1.4500000000000002,
+        "is_active": true,
+        "lane_change_state": "normal",
+        "merge_state": "none",
+        "physical_lane": "lane_1",
+        "road_role": "mainline",
+        "v": 20.145,
+        "vehicle_id": "TFV",
+        "x_global": 6782.0145,
+        "y": 3.5
+      },
+      {
+        "a": 0.0,
+        "is_active": true,
+        "lane_change_state": "normal",
+        "merge_state": "none",
+        "physical_lane": "lane_1",
+        "road_role": "mainline",
+        "v": 20.0,
+        "vehicle_id": "TLV",
+        "x_global": 6855.0,
+        "y": 3.5
+      }
+    ]
+  },
+  "initial_state": {
+    "active_maneuvers": [],
+    "active_vehicle_ids": [
+      "MV_CUC",
+      "CFV_X",
+      "CLV_Y",
+      "TLV",
+      "TFV"
+    ],
+    "aps_assignment_cache": {
+      "MV_CUC": {
+        "aps_case": "case_2",
+        "cfv_id": "CFV_X",
+        "clv_id": "CLV_Y",
+        "col_cfv": true,
+        "col_clv": false,
+        "created_at_step": 0,
+        "created_at_t": 0.0,
+        "desired_spacing_override": 58.0,
+        "mv_id": "MV_CUC",
+        "source": "test_preload",
+        "staleness_policy": "valid_until_next_aps",
+        "status": "valid",
+        "t_mv_star": 5.0,
+        "t_star_mv": 5.0,
+        "valid_until_next_aps": true
+      }
+    },
+    "dt": 0.1,
+    "output_config_ref": null,
+    "parameter_config_ref": "paper_table_i_first_version",
+    "road_config_ref": "paper_fig10_first_version",
+    "scenario_config_ref": "MVS-CUC-2",
+    "step": 0,
+    "t": 0.0,
+    "vehicle_states": [
+      {
+        "a": 0.0,
+        "is_active": true,
+        "lane_change_state": "normal",
+        "merge_state": "none",
+        "physical_lane": "lane_2",
+        "road_role": "mainline",
+        "v": 25.0,
+        "vehicle_id": "CFV_X",
+        "x_global": 6844.0,
+        "y": 0.0
+      },
+      {
+        "a": 0.0,
+        "is_active": true,
+        "lane_change_state": "normal",
+        "merge_state": "none",
+        "physical_lane": "lane_2",
+        "road_role": "mainline",
+        "v": 20.0,
+        "vehicle_id": "CLV_Y",
+        "x_global": 6884.0,
+        "y": 0.0
+      },
+      {
+        "a": 0.0,
+        "is_active": true,
+        "lane_change_state": "normal",
+        "merge_state": "not_started",
+        "physical_lane": "on_ramp",
+        "road_role": "on_ramp_mv",
+        "v": 20.0,
+        "vehicle_id": "MV_CUC",
+        "x_global": 6850.0,
+        "y": -3.5
+      },
+      {
+        "a": 0.0,
+        "is_active": true,
+        "lane_change_state": "normal",
+        "merge_state": "none",
+        "physical_lane": "lane_1",
+        "road_role": "mainline",
+        "v": 20.0,
+        "vehicle_id": "TFV",
+        "x_global": 6780.0,
+        "y": 3.5
+      },
+      {
+        "a": 0.0,
+        "is_active": true,
+        "lane_change_state": "normal",
+        "merge_state": "none",
+        "physical_lane": "lane_1",
+        "road_role": "mainline",
+        "v": 20.0,
+        "vehicle_id": "TLV",
+        "x_global": 6853.0,
+        "y": 3.5
+      }
+    ]
+  },
+  "run_id": "pre_p15",
+  "scenario_id": "MVS-CUC-2"
+}

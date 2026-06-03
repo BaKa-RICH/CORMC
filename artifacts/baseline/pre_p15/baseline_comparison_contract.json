@@ -1,0 +1,37 @@
+{
+  "contract_id": "p14_pre_p15_baseline_comparison_contract",
+  "non_goals": [
+    "No P15 comparator implementation",
+    "No P16 random generation",
+    "No P17 paper experiment grid"
+  ],
+  "numeric_tolerance_abs": 1e-06,
+  "numeric_tolerance_compare_fields": [
+    "x_global",
+    "y",
+    "v",
+    "active_maneuver.progress",
+    "active_maneuver.last_planning_speed",
+    "event.payload.planning_speed"
+  ],
+  "strong_compare_fields": [
+    "final_state.step",
+    "final_state.t",
+    "vehicle.physical_lane",
+    "vehicle.road_role",
+    "vehicle.lane_change_state",
+    "vehicle.merge_state",
+    "active_vehicle_set",
+    "active_maneuver_existence_cleanup",
+    "key_event_existence",
+    "sanity_status",
+    "required_suite_classification"
+  ],
+  "weak_compare_fields": [
+    "png.file_exists",
+    "png.file_nonempty",
+    "png.header_valid",
+    "png.feature_registered",
+    "required_marker_status_exists"
+  ]
+}

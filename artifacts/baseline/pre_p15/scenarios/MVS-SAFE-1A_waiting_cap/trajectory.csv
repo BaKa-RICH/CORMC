@@ -1,0 +1,4 @@
+scenario_id,run_id,step,t,vehicle_id,vehicle_type,compliance_state,x_global,y,v,a,physical_lane,road_role,primary_leader_id,lane_change_state,merge_state,active_event_tags
+MVS-SAFE-1A_waiting_cap,pre_p15,0,0.0,MV_SAFE_WAIT,cav,not_applicable,7235.262950294054,-3.5,2.6295029405356662,0.0,on_ramp,on_ramp_mv,,normal,waiting,commit
+MVS-SAFE-1A_waiting_cap,pre_p15,0,0.0,CLV_SAFE_WAIT,cav,not_applicable,7246.6,0.0,16.0,0.0,lane_2,mainline,,normal,none,commit
+MVS-SAFE-1A_waiting_cap,pre_p15,0,0.0,CFV_SAFE_WAIT,cav,not_applicable,7201.6005,0.0,16.005,0.05,lane_2,mainline,,normal,none,commit

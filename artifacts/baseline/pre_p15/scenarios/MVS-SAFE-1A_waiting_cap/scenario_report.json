@@ -1,0 +1,183 @@
+{
+  "exports": {
+    "events": "artifacts\\baseline\\pre_p15\\scenarios\\MVS-SAFE-1A_waiting_cap\\events.jsonl",
+    "sanity": "artifacts\\baseline\\pre_p15\\scenarios\\MVS-SAFE-1A_waiting_cap\\sanity.jsonl",
+    "state_snapshot": "artifacts\\baseline\\pre_p15\\scenarios\\MVS-SAFE-1A_waiting_cap\\state_snapshot.json",
+    "trajectory": "artifacts\\baseline\\pre_p15\\scenarios\\MVS-SAFE-1A_waiting_cap\\trajectory.csv"
+  },
+  "gaps": [],
+  "input_config_ref": "builtin:MVS-SAFE-1A_waiting_cap",
+  "key_event_summary": {
+    "APS": true,
+    "CMC": true,
+    "CUC": true,
+    "commit": true,
+    "lateral_trajectory": false,
+    "longitudinal_model": true,
+    "time_advance": true
+  },
+  "png_feature_statuses": [
+    {
+      "evidence_source": "expected_png_features",
+      "expected_visibility": "optional",
+      "feature_type": "lane_centerline_quicklook",
+      "passed": true,
+      "renderer_status": "optional",
+      "required": false,
+      "vehicle_ids": []
+    },
+    {
+      "evidence_source": "expected_png_features",
+      "expected_visibility": "visible",
+      "feature_type": "merging_zone_boundary_quicklook",
+      "passed": true,
+      "renderer_status": "visible",
+      "required": true,
+      "vehicle_ids": []
+    },
+    {
+      "evidence_source": "expected_png_features",
+      "expected_visibility": "visible",
+      "feature_type": "cmc_decision_marker",
+      "passed": true,
+      "renderer_status": "visible",
+      "required": true,
+      "vehicle_ids": [
+        "MV_SAFE_WAIT"
+      ]
+    },
+    {
+      "evidence_source": "expected_png_features",
+      "expected_visibility": "visible",
+      "feature_type": "boundary_cap_marker",
+      "passed": true,
+      "renderer_status": "visible",
+      "required": true,
+      "vehicle_ids": [
+        "MV_SAFE_WAIT"
+      ]
+    },
+    {
+      "evidence_source": "expected_png_features",
+      "expected_visibility": "visible",
+      "feature_type": "assigned_clv_cfv_marker",
+      "passed": true,
+      "renderer_status": "visible",
+      "required": true,
+      "vehicle_ids": [
+        "MV_SAFE_WAIT",
+        "CLV_SAFE_WAIT",
+        "CFV_SAFE_WAIT"
+      ]
+    },
+    {
+      "evidence_source": "expected_png_features",
+      "expected_visibility": "visible",
+      "feature_type": "waiting_marker",
+      "passed": true,
+      "renderer_status": "visible",
+      "required": true,
+      "vehicle_ids": [
+        "MV_SAFE_WAIT"
+      ]
+    },
+    {
+      "evidence_source": "expected_png_features",
+      "expected_visibility": "visible",
+      "feature_type": "cooperative_request_marker",
+      "passed": true,
+      "renderer_status": "visible",
+      "required": true,
+      "vehicle_ids": []
+    },
+    {
+      "evidence_source": "expected_png_features",
+      "expected_visibility": "visible",
+      "feature_type": "longitudinal_candidate_marker",
+      "passed": true,
+      "renderer_status": "visible",
+      "required": true,
+      "vehicle_ids": [
+        "CFV_SAFE_WAIT",
+        "CLV_SAFE_WAIT",
+        "MV_SAFE_WAIT"
+      ]
+    },
+    {
+      "evidence_source": "expected_png_features",
+      "expected_visibility": "optional",
+      "feature_type": "planning_speed_marker",
+      "passed": true,
+      "renderer_status": "optional",
+      "required": false,
+      "vehicle_ids": [
+        "CFV_SAFE_WAIT",
+        "CLV_SAFE_WAIT",
+        "MV_SAFE_WAIT"
+      ]
+    },
+    {
+      "evidence_source": "expected_png_features",
+      "expected_visibility": "visible",
+      "feature_type": "speed_cap_consumption_marker",
+      "passed": true,
+      "renderer_status": "visible",
+      "required": true,
+      "vehicle_ids": [
+        "MV_SAFE_WAIT"
+      ]
+    },
+    {
+      "evidence_source": "expected_png_features",
+      "expected_visibility": "optional",
+      "feature_type": "commit_marker",
+      "passed": true,
+      "renderer_status": "optional",
+      "required": false,
+      "vehicle_ids": [
+        "CFV_SAFE_WAIT",
+        "CLV_SAFE_WAIT",
+        "MV_SAFE_WAIT"
+      ]
+    },
+    {
+      "evidence_source": "expected_png_features",
+      "expected_visibility": "optional",
+      "feature_type": "trajectory_quicklook",
+      "passed": true,
+      "renderer_status": "optional",
+      "required": false,
+      "vehicle_ids": [
+        "CFV_SAFE_WAIT",
+        "CLV_SAFE_WAIT",
+        "MV_SAFE_WAIT"
+      ]
+    },
+    {
+      "evidence_source": "expected_png_features",
+      "expected_visibility": "optional",
+      "feature_type": "source_chain_marker",
+      "passed": true,
+      "renderer_status": "optional",
+      "required": false,
+      "vehicle_ids": [
+        "CFV_SAFE_WAIT",
+        "CLV_SAFE_WAIT",
+        "MV_SAFE_WAIT"
+      ]
+    }
+  ],
+  "png_paths": [
+    "artifacts\\baseline\\pre_p15\\scenarios\\MVS-SAFE-1A_waiting_cap\\time_space.png"
+  ],
+  "run_id": "pre_p15",
+  "sanity_summary": {
+    "fail_count": 0,
+    "failed_check_ids": [],
+    "pass_count": 41,
+    "total_count": 43
+  },
+  "scenario_id": "MVS-SAFE-1A_waiting_cap",
+  "state_snapshot_path": "artifacts\\baseline\\pre_p15\\scenarios\\MVS-SAFE-1A_waiting_cap\\state_snapshot.json",
+  "status": "max_steps_reached"
+}

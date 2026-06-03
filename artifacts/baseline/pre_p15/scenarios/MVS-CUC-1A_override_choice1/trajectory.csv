@@ -1,0 +1,6 @@
+scenario_id,run_id,step,t,vehicle_id,vehicle_type,compliance_state,x_global,y,v,a,physical_lane,road_role,primary_leader_id,lane_change_state,merge_state,active_event_tags
+MVS-CUC-1A_override_choice1,pre_p15,0,0.0,MV_CUC,cav,not_applicable,6852.0,-3.5,20.0,0.0,on_ramp,on_ramp_mv,,normal,not_started,commit
+MVS-CUC-1A_override_choice1,pre_p15,0,0.0,CFV_X,cav,not_applicable,6845.998,0.003446324519853994,19.98,-0.2,lane_2,mainline,,executing,none,commit
+MVS-CUC-1A_override_choice1,pre_p15,0,0.0,CLV_Y,cav,not_applicable,6886.0,0.0,20.0,0.0,lane_2,mainline,,normal,none,commit
+MVS-CUC-1A_override_choice1,pre_p15,0,0.0,TLV,cav,not_applicable,6922.2,3.5,22.0,0.0,lane_1,mainline,,normal,none,commit
+MVS-CUC-1A_override_choice1,pre_p15,0,0.0,TFV,cav,not_applicable,6752.0,3.5,20.0,0.0,lane_1,mainline,,normal,none,commit

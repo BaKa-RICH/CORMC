@@ -1,0 +1,4 @@
+scenario_id,run_id,step,t,vehicle_id,vehicle_type,compliance_state,x_global,y,v,a,physical_lane,road_role,primary_leader_id,lane_change_state,merge_state,active_event_tags
+MVS-SAFE-2,pre_p15,0,0.0,MV_SAFE_FAIL,cav,not_applicable,7249.6,-3.4977896740605305,16.0,0.0,on_ramp,on_ramp_mv,,normal,executing,commit
+MVS-SAFE-2,pre_p15,0,0.0,CLV_SAFE_FAIL,cav,not_applicable,7291.6,0.0,16.0,0.0,lane_2,mainline,,normal,none,commit
+MVS-SAFE-2,pre_p15,0,0.0,CFV_SAFE_FAIL,cav,not_applicable,7221.613,0.0,16.13,1.3,lane_2,mainline,,normal,none,commit

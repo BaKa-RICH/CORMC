@@ -1,0 +1,247 @@
+{
+  "exports": {
+    "events": "artifacts\\baseline\\pre_p15\\scenarios\\MVS-COMMIT-1-full\\events.jsonl",
+    "sanity": "artifacts\\baseline\\pre_p15\\scenarios\\MVS-COMMIT-1-full\\sanity.jsonl",
+    "state_snapshot": "artifacts\\baseline\\pre_p15\\scenarios\\MVS-COMMIT-1-full\\state_snapshot.json",
+    "trajectory": "artifacts\\baseline\\pre_p15\\scenarios\\MVS-COMMIT-1-full\\trajectory.csv"
+  },
+  "gaps": [],
+  "input_config_ref": "builtin:MVS-COMMIT-1-full",
+  "key_event_summary": {
+    "APS": true,
+    "CMC": true,
+    "CUC": true,
+    "commit": true,
+    "lateral_trajectory": true,
+    "longitudinal_model": true,
+    "time_advance": true
+  },
+  "png_feature_statuses": [
+    {
+      "evidence_source": "expected_png_features",
+      "expected_visibility": "optional",
+      "feature_type": "lane_centerline_quicklook",
+      "passed": true,
+      "renderer_status": "optional",
+      "required": false,
+      "vehicle_ids": []
+    },
+    {
+      "evidence_source": "expected_png_features",
+      "expected_visibility": "visible",
+      "feature_type": "merging_zone_boundary_quicklook",
+      "passed": true,
+      "renderer_status": "visible",
+      "required": true,
+      "vehicle_ids": []
+    },
+    {
+      "evidence_source": "expected_png_features",
+      "expected_visibility": "visible",
+      "feature_type": "executing_continuation_marker",
+      "passed": true,
+      "renderer_status": "visible",
+      "required": true,
+      "vehicle_ids": [
+        "MV_ACTIVE_MERGE"
+      ]
+    },
+    {
+      "evidence_source": "expected_png_features",
+      "expected_visibility": "visible",
+      "feature_type": "boundary_cap_marker",
+      "passed": true,
+      "renderer_status": "visible",
+      "required": true,
+      "vehicle_ids": [
+        "MV_ACTIVE_MERGE"
+      ]
+    },
+    {
+      "evidence_source": "expected_png_features",
+      "expected_visibility": "visible",
+      "feature_type": "cooperative_request_marker",
+      "passed": true,
+      "renderer_status": "visible",
+      "required": true,
+      "vehicle_ids": []
+    },
+    {
+      "evidence_source": "expected_png_features",
+      "expected_visibility": "visible",
+      "feature_type": "longitudinal_candidate_marker",
+      "passed": true,
+      "renderer_status": "visible",
+      "required": true,
+      "vehicle_ids": [
+        "CFV_CACHE",
+        "CFV_MERGE",
+        "CLV_CACHE",
+        "CLV_MERGE",
+        "CV_ACTIVE_LC",
+        "MV_ACTIVE_MERGE",
+        "MV_CACHE",
+        "TFV_ACTIVE",
+        "TLV_ACTIVE"
+      ]
+    },
+    {
+      "evidence_source": "expected_png_features",
+      "expected_visibility": "optional",
+      "feature_type": "planning_speed_marker",
+      "passed": true,
+      "renderer_status": "optional",
+      "required": false,
+      "vehicle_ids": [
+        "CFV_CACHE",
+        "CFV_MERGE",
+        "CLV_CACHE",
+        "CLV_MERGE",
+        "CV_ACTIVE_LC",
+        "MV_ACTIVE_MERGE",
+        "MV_CACHE",
+        "TFV_ACTIVE",
+        "TLV_ACTIVE"
+      ]
+    },
+    {
+      "evidence_source": "expected_png_features",
+      "expected_visibility": "visible",
+      "feature_type": "speed_cap_consumption_marker",
+      "passed": true,
+      "renderer_status": "visible",
+      "required": true,
+      "vehicle_ids": [
+        "MV_ACTIVE_MERGE"
+      ]
+    },
+    {
+      "evidence_source": "expected_png_features",
+      "expected_visibility": "visible",
+      "feature_type": "lane_change_trajectory_marker",
+      "passed": true,
+      "renderer_status": "visible",
+      "required": true,
+      "vehicle_ids": [
+        "CV_ACTIVE_LC"
+      ]
+    },
+    {
+      "evidence_source": "expected_png_features",
+      "expected_visibility": "visible",
+      "feature_type": "merge_trajectory_marker",
+      "passed": true,
+      "renderer_status": "visible",
+      "required": true,
+      "vehicle_ids": [
+        "MV_ACTIVE_MERGE"
+      ]
+    },
+    {
+      "evidence_source": "expected_png_features",
+      "expected_visibility": "visible",
+      "feature_type": "maneuver_progress_marker",
+      "passed": true,
+      "renderer_status": "visible",
+      "required": true,
+      "vehicle_ids": [
+        "CV_ACTIVE_LC",
+        "MV_ACTIVE_MERGE"
+      ]
+    },
+    {
+      "evidence_source": "expected_png_features",
+      "expected_visibility": "optional",
+      "feature_type": "planning_speed_consumption_marker",
+      "passed": true,
+      "renderer_status": "optional",
+      "required": false,
+      "vehicle_ids": [
+        "CV_ACTIVE_LC",
+        "MV_ACTIVE_MERGE"
+      ]
+    },
+    {
+      "evidence_source": "expected_png_features",
+      "expected_visibility": "optional",
+      "feature_type": "commit_marker",
+      "passed": true,
+      "renderer_status": "optional",
+      "required": false,
+      "vehicle_ids": [
+        "CFV_CACHE",
+        "CFV_MERGE",
+        "CLV_CACHE",
+        "CLV_MERGE",
+        "CV_ACTIVE_LC",
+        "MV_ACTIVE_MERGE",
+        "MV_CACHE",
+        "TFV_ACTIVE",
+        "TLV_ACTIVE"
+      ]
+    },
+    {
+      "evidence_source": "expected_png_features",
+      "expected_visibility": "optional",
+      "feature_type": "trajectory_quicklook",
+      "passed": true,
+      "renderer_status": "optional",
+      "required": false,
+      "vehicle_ids": [
+        "CFV_CACHE",
+        "CFV_MERGE",
+        "CLV_CACHE",
+        "CLV_MERGE",
+        "CV_ACTIVE_LC",
+        "MV_ACTIVE_MERGE",
+        "MV_CACHE",
+        "TFV_ACTIVE",
+        "TLV_ACTIVE"
+      ]
+    },
+    {
+      "evidence_source": "expected_png_features",
+      "expected_visibility": "optional",
+      "feature_type": "active_maneuver_marker",
+      "passed": true,
+      "renderer_status": "optional",
+      "required": false,
+      "vehicle_ids": [
+        "CV_ACTIVE_LC",
+        "MV_ACTIVE_MERGE"
+      ]
+    },
+    {
+      "evidence_source": "expected_png_features",
+      "expected_visibility": "optional",
+      "feature_type": "source_chain_marker",
+      "passed": true,
+      "renderer_status": "optional",
+      "required": false,
+      "vehicle_ids": [
+        "CFV_CACHE",
+        "CFV_MERGE",
+        "CLV_CACHE",
+        "CLV_MERGE",
+        "CV_ACTIVE_LC",
+        "MV_ACTIVE_MERGE",
+        "MV_CACHE",
+        "TFV_ACTIVE",
+        "TLV_ACTIVE"
+      ]
+    }
+  ],
+  "png_paths": [
+    "artifacts\\baseline\\pre_p15\\scenarios\\MVS-COMMIT-1-full\\time_space.png"
+  ],
+  "run_id": "pre_p15",
+  "sanity_summary": {
+    "fail_count": 0,
+    "failed_check_ids": [],
+    "pass_count": 41,
+    "total_count": 43
+  },
+  "scenario_id": "MVS-COMMIT-1-full",
+  "state_snapshot_path": "artifacts\\baseline\\pre_p15\\scenarios\\MVS-COMMIT-1-full\\state_snapshot.json",
+  "status": "max_steps_reached"
+}
