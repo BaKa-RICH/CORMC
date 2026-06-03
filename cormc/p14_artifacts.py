@@ -20,10 +20,17 @@ from cormc.p11_output import (
     write_artifact_manifest,
     write_regression_report,
 )
+from cormc.random_generation import (
+    DEFAULT_P16_MAX_STEPS,
+    DEFAULT_P16_SEED,
+    P16_DEMO_SCENARIO_ID,
+    default_p16_seeded_random_profile,
+)
 from cormc.simulation_loop import (
     SimulationLoopConfig,
     SimulationLoopResult,
     run_deterministic_simulation,
+    run_seeded_random_simulation,
 )
 from cormc.step0_3 import ManeuverTrajectoryState, SimulationState, VehicleState
 
@@ -117,6 +124,25 @@ class P14ArtifactRunResult:
         return _to_plain(self)
 
 
+@dataclass(frozen=True)
+class P16SeededRandomArtifactResult:
+    run_id: str
+    scenario_id: str
+    status: str
+    output_dir: str
+    bundle: ScenarioArtifactBundle
+    simulation_result: SimulationLoopResult
+    artifact_manifest_path: str
+    run_report_path: str
+    seed: int
+    profile_id: str
+    generated_count: int
+    blocked_spawn_count: int
+
+    def to_dict(self) -> dict[str, Any]:
+        return _to_plain(self)
+
+
 def run_p14_scenario_artifact_bundle(
     scenario_id: str,
     *,
@@ -200,6 +226,96 @@ def run_p14_scenario_artifact_bundle(
         sanity_summary=sanity_summary,
         key_event_summary=key_event_summary,
         formula_status_summary=formula_status_summary,
+    )
+
+
+def run_p16_seeded_random_artifact_bundle(
+    *,
+    run_id: str = "p16_seeded_demo",
+    output_root: str | Path = "artifacts/random/p16_seeded_demo",
+    seed: int = DEFAULT_P16_SEED,
+    max_steps: int = DEFAULT_P16_MAX_STEPS,
+) -> P16SeededRandomArtifactResult:
+    output_dir = Path(output_root) / run_id
+    profile = default_p16_seeded_random_profile(seed=seed)
+    simulation = run_seeded_random_simulation(
+        SimulationLoopConfig(
+            scenario_id=P16_DEMO_SCENARIO_ID,
+            run_id=run_id,
+            max_steps=max_steps,
+            output_dir=output_dir,
+            render_png=False,
+            random_enabled=True,
+            seed=seed,
+            seeded_random_profile=profile,
+        )
+    )
+    bundle = build_scenario_artifact_bundle(
+        scenario_id=P16_DEMO_SCENARIO_ID,
+        run_id=run_id,
+        output_dir=output_dir.parent,
+        history=simulation.history,
+        expected_png_features=simulation.expected_png_features,
+        status=simulation.status,
+        input_config_ref=f"p16_seeded_random_profile:{profile.profile_id}",
+    )
+    scenario_dir = output_dir
+    bundle = _normalize_p11_bundle_to_p16_layout(bundle, scenario_dir)
+    generated_ids = _p16_generated_vehicle_ids(simulation)
+    blocked_ids = _p16_blocked_vehicle_ids(simulation)
+    manifest_path = _write_p16_artifact_manifest(
+        scenario_dir / "artifact_manifest.json",
+        run_id=run_id,
+        scenario_id=P16_DEMO_SCENARIO_ID,
+        bundle=bundle,
+        seed=seed,
+        profile_id=profile.profile_id,
+        max_steps=max_steps,
+        generated_count=len(generated_ids),
+        blocked_spawn_count=len(blocked_ids),
+    )
+    scenario_report_path = _write_p16_scenario_report(
+        Path(bundle.scenario_report_path or scenario_dir / "scenario_report.json"),
+        bundle=bundle,
+        simulation=simulation,
+        seed=seed,
+        profile_id=profile.profile_id,
+        max_steps=max_steps,
+        generated_count=len(generated_ids),
+        blocked_spawn_count=len(blocked_ids),
+    )
+    run_report_path = _write_p16_run_report(
+        scenario_dir / "run_report.md",
+        run_id=run_id,
+        scenario_id=P16_DEMO_SCENARIO_ID,
+        bundle=bundle,
+        simulation=simulation,
+        manifest_path=manifest_path,
+        scenario_report_path=scenario_report_path,
+        seed=seed,
+        profile_id=profile.profile_id,
+        generated_count=len(generated_ids),
+        blocked_spawn_count=len(blocked_ids),
+    )
+    _assert_p16_bundle_complete(
+        bundle=bundle,
+        manifest_path=manifest_path,
+        run_report_path=run_report_path,
+        baseline_root=Path("artifacts/baseline"),
+    )
+    return P16SeededRandomArtifactResult(
+        run_id=run_id,
+        scenario_id=P16_DEMO_SCENARIO_ID,
+        status=simulation.status,
+        output_dir=str(scenario_dir),
+        bundle=bundle,
+        simulation_result=simulation,
+        artifact_manifest_path=str(manifest_path),
+        run_report_path=str(run_report_path),
+        seed=seed,
+        profile_id=profile.profile_id,
+        generated_count=len(generated_ids),
+        blocked_spawn_count=len(blocked_ids),
     )
 
 
@@ -336,6 +452,204 @@ def _normalize_p11_bundle_to_p14_layout(
         png_feature_statuses=bundle.png_feature_statuses,
         input_config_ref=bundle.input_config_ref,
     )
+
+
+def _normalize_p11_bundle_to_p16_layout(
+    bundle: ScenarioArtifactBundle,
+    scenario_dir: Path,
+) -> ScenarioArtifactBundle:
+    source_dir = Path(bundle.exports["trajectory"]).parent
+    scenario_dir.mkdir(parents=True, exist_ok=True)
+    exports = {
+        "trajectory": str(scenario_dir / "trajectory.csv"),
+        "events": str(scenario_dir / "events.jsonl"),
+        "sanity": str(scenario_dir / "sanity.jsonl"),
+    }
+    for source_name, target in (
+        ("trajectory.csv", exports["trajectory"]),
+        ("events.jsonl", exports["events"]),
+        ("sanity.jsonl", exports["sanity"]),
+        ("time_space.png", scenario_dir / "time_space.png"),
+        ("scenario_report.json", scenario_dir / "scenario_report.json"),
+    ):
+        source = source_dir / source_name
+        target_path = Path(target)
+        if source.resolve() != target_path.resolve():
+            shutil.copy2(source, target_path)
+    return ScenarioArtifactBundle(
+        scenario_id=bundle.scenario_id,
+        run_id=bundle.run_id,
+        status=bundle.status,
+        input_config_ref=bundle.input_config_ref,
+        exports=exports,
+        png_paths=(str(scenario_dir / "time_space.png"),),
+        scenario_report_path=str(scenario_dir / "scenario_report.json"),
+        gaps=bundle.gaps,
+        png_feature_statuses=bundle.png_feature_statuses,
+    )
+
+
+def _write_p16_artifact_manifest(
+    path: Path,
+    *,
+    run_id: str,
+    scenario_id: str,
+    bundle: ScenarioArtifactBundle,
+    seed: int,
+    profile_id: str,
+    max_steps: int,
+    generated_count: int,
+    blocked_spawn_count: int,
+) -> Path:
+    payload = {
+        "run_id": run_id,
+        "scenario_id": scenario_id,
+        "random_enabled": True,
+        "seed": seed,
+        "profile_id": profile_id,
+        "max_steps": max_steps,
+        "generated_count": generated_count,
+        "blocked_spawn_count": blocked_spawn_count,
+        "output_paths": {
+            **dict(bundle.exports),
+            "time_space_png": bundle.png_paths[0],
+            "scenario_report": bundle.scenario_report_path,
+        },
+    }
+    return _write_json(payload, path)
+
+
+def _write_p16_scenario_report(
+    path: Path,
+    *,
+    bundle: ScenarioArtifactBundle,
+    simulation: SimulationLoopResult,
+    seed: int,
+    profile_id: str,
+    max_steps: int,
+    generated_count: int,
+    blocked_spawn_count: int,
+) -> Path:
+    payload = json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
+    payload.update(
+        {
+            "scenario_id": simulation.scenario_id,
+            "run_id": simulation.run_id,
+            "status": simulation.status,
+            "random_enabled": True,
+            "seed": seed,
+            "profile_id": profile_id,
+            "max_steps": max_steps,
+            "generated_count": generated_count,
+            "blocked_spawn_count": blocked_spawn_count,
+            "final_step": simulation.final_state.step,
+            "final_t": simulation.final_state.t,
+            "final_active_vehicle_count": len(simulation.final_state.active_vehicle_ids),
+            "exports": dict(bundle.exports),
+            "png_paths": list(bundle.png_paths),
+            "png_feature_statuses": list(bundle.png_feature_statuses),
+        }
+    )
+    return _write_json(payload, path)
+
+
+def _write_p16_run_report(
+    path: Path,
+    *,
+    run_id: str,
+    scenario_id: str,
+    bundle: ScenarioArtifactBundle,
+    simulation: SimulationLoopResult,
+    manifest_path: Path,
+    scenario_report_path: Path,
+    seed: int,
+    profile_id: str,
+    generated_count: int,
+    blocked_spawn_count: int,
+) -> Path:
+    observed_event_types = sorted({record.event_type for record in simulation.history.event_records})
+    lines = [
+        "# P16 Seeded Random Internal Simulation",
+        "",
+        f"- run_id: `{run_id}`",
+        f"- scenario_id: `{scenario_id}`",
+        "- random_enabled: `true`",
+        f"- seed: `{seed}`",
+        f"- profile_id: `{profile_id}`",
+        f"- status: `{simulation.status}`",
+        f"- final step/t: `{simulation.final_state.step}` / `{_format_float(simulation.final_state.t)}`",
+        f"- generated vehicle count: `{generated_count}`",
+        f"- blocked spawn count: `{blocked_spawn_count}`",
+        "",
+        "## Observed Events",
+        "",
+        f"- event types: `{', '.join(observed_event_types)}`",
+        "",
+        "## Evidence Files",
+        "",
+        f"- trajectory.csv: `{_rel_to(path.parent, bundle.exports['trajectory'])}`",
+        f"- events.jsonl: `{_rel_to(path.parent, bundle.exports['events'])}`",
+        f"- sanity.jsonl: `{_rel_to(path.parent, bundle.exports['sanity'])}`",
+        f"- time_space.png: `{_rel_to(path.parent, bundle.png_paths[0])}`",
+        f"- artifact_manifest.json: `{_rel_to(path.parent, manifest_path)}`",
+        f"- scenario_report.json: `{_rel_to(path.parent, scenario_report_path)}`",
+        "",
+        "## Boundary",
+        "",
+        "Random vehicle generation is applied only through Step 1 pre-freeze boundary decisions. The algorithm steps consume frozen `SimulationState` and ordinary `VehicleSpec` data.",
+        "",
+    ]
+    path.write_text("\n".join(lines), encoding="utf-8")
+    return path
+
+
+def _p16_generated_vehicle_ids(simulation: SimulationLoopResult) -> tuple[str, ...]:
+    generated: list[str] = []
+    for event in simulation.history.event_dicts():
+        if event.get("event_type") != "boundary_generation":
+            continue
+        for vehicle_id in event.get("payload", {}).get("generated_vehicle_ids") or ():
+            _append_unique(generated, str(vehicle_id))
+    return tuple(generated)
+
+
+def _p16_blocked_vehicle_ids(simulation: SimulationLoopResult) -> tuple[str, ...]:
+    blocked: list[str] = []
+    for event in simulation.history.event_dicts():
+        if event.get("event_type") != "boundary_generation":
+            continue
+        for vehicle_id in event.get("payload", {}).get("blocked_spawn_vehicle_ids") or ():
+            _append_unique(blocked, str(vehicle_id))
+    return tuple(blocked)
+
+
+def _assert_p16_bundle_complete(
+    *,
+    bundle: ScenarioArtifactBundle,
+    manifest_path: Path,
+    run_report_path: Path,
+    baseline_root: Path,
+) -> None:
+    required = [
+        Path(bundle.exports["trajectory"]),
+        Path(bundle.exports["events"]),
+        Path(bundle.exports["sanity"]),
+        Path(bundle.png_paths[0]),
+        Path(bundle.scenario_report_path or ""),
+        manifest_path,
+        run_report_path,
+    ]
+    missing = [str(path) for path in required if not path.exists() or path.stat().st_size == 0]
+    if missing:
+        raise RuntimeError(f"P16 seeded artifact bundle missing or empty files: {missing}")
+    if not Path(bundle.png_paths[0]).read_bytes().startswith(b"\x89PNG\r\n\x1a\n"):
+        raise RuntimeError(f"P16 seeded artifact bundle invalid PNG: {bundle.png_paths[0]}")
+    for output_path in required:
+        try:
+            output_path.relative_to(baseline_root)
+        except ValueError:
+            continue
+        raise RuntimeError(f"P16 seeded artifact must not write baseline path: {output_path}")
 
 
 def _remove_empty_parents_until(path: Path, stop: Path) -> None:

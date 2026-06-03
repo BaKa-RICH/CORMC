@@ -18,6 +18,15 @@ from cormc.engine import (
     normalize_maneuver_commands,
 )
 from cormc.mvs.loader import load_builtin_scenario, load_scenario_config
+from cormc.random_generation import (
+    DEFAULT_P16_MAX_STEPS,
+    DEFAULT_P16_SEED,
+    P16_DEMO_SCENARIO_ID,
+    SeededRandomProfile,
+    build_p16_demo_scenario_config,
+    generate_boundary_queue,
+    profile_from_mapping,
+)
 from cormc.recording import FullRecorder
 from cormc.step0_3 import SimulationState
 from cormc.step9_11 import OutputHistory
@@ -33,6 +42,9 @@ class SimulationLoopConfig:
     output_dir: str | Path = "artifacts"
     render_png: bool = True
     deterministic_profile_enabled: bool = True
+    random_enabled: bool = False
+    seed: int | None = None
+    seeded_random_profile: SeededRandomProfile | Mapping[str, Any] | None = None
 
 
 @dataclass(frozen=True)
@@ -59,6 +71,82 @@ def run_deterministic_simulation(config: SimulationLoopConfig) -> SimulationLoop
     status = "max_steps_reached"
 
     for _ in range(max(0, int(config.max_steps))):
+        step_result = engine.advance_one_step(state)
+        trace = step_result.trace
+        traces.append(trace)
+        recorder.record_step(step_result, run_id=config.run_id, scenario_id=scenario_id)
+        state = step_result.advanced_state
+        if _stop_conditions_met(state, config.stop_conditions):
+            status = "stopped_by_condition"
+            break
+
+    history = recorder.history
+    expected_png_features = recorder.unique_expected_png_features()
+    png_path: str | None = None
+    if config.render_png:
+        from cormc.p11_output import render_time_space_png
+
+        png_target = Path(config.output_dir) / scenario_id / config.run_id / "time_space.png"
+        render = render_time_space_png(
+            history.trajectory_records,
+            expected_png_features,
+            png_target,
+            events=history.event_records,
+        )
+        png_path = render.png_path
+        history.png_artifacts.append(render.to_dict())
+
+    return SimulationLoopResult(
+        initial_state=initial_state,
+        final_state=state,
+        history=history,
+        step_traces=tuple(traces),
+        expected_png_features=expected_png_features,
+        png_path=png_path,
+        status=status,
+        scenario_id=scenario_id,
+        run_id=config.run_id,
+    )
+
+
+def run_seeded_random_simulation(config: SimulationLoopConfig | None = None) -> SimulationLoopResult:
+    config = config or SimulationLoopConfig(
+        scenario_id=P16_DEMO_SCENARIO_ID,
+        run_id="p16-seeded-demo",
+        max_steps=DEFAULT_P16_MAX_STEPS,
+        random_enabled=True,
+    )
+    if not config.random_enabled:
+        return run_deterministic_simulation(config)
+
+    profile = profile_from_mapping(
+        config.seeded_random_profile,
+        seed=config.seed,
+        enabled=True,
+    )
+    scenario_config = _load_loop_scenario_config(config)
+    scenario_id = str(scenario_config["scenario_id"])
+    max_steps = max(0, int(config.max_steps))
+    initial_state = build_initial_state_from_scenario_config(scenario_config)
+    state = initial_state
+    max_t = initial_state.t + max_steps * initial_state.dt
+    random_queue = generate_boundary_queue(
+        profile,
+        max_t=max_t,
+        start_step=initial_state.step,
+        start_t=initial_state.t,
+    )
+    engine = CormcEngine(
+        scenario_config=scenario_config,
+        run_id=config.run_id,
+        random_queue=random_queue,
+        safe_spawn_gap_m=profile.safe_spawn_gap_m,
+    )
+    traces: list[StepLoopTrace] = []
+    recorder = FullRecorder()
+    status = "max_steps_reached"
+
+    for _ in range(max_steps):
         step_result = engine.advance_one_step(state)
         trace = step_result.trace
         traces.append(trace)
@@ -138,6 +226,8 @@ def _load_loop_scenario_config(config: SimulationLoopConfig) -> dict[str, Any]:
         scenario = config.scenario_id
     if scenario is None:
         raise ValueError("SimulationLoopConfig requires scenario or scenario_id")
+    if isinstance(scenario, str) and scenario == P16_DEMO_SCENARIO_ID:
+        return load_scenario_config(build_p16_demo_scenario_config(seed=config.seed or DEFAULT_P16_SEED))
     if isinstance(scenario, str):
         return load_builtin_scenario(scenario)
     return load_scenario_config(dict(scenario))

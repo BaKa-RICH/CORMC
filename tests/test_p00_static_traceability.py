@@ -32,20 +32,20 @@ def test_p01_to_p03_are_spec_ready_and_implementation_ready() -> None:
         assert rows[pxx][10] == "是"
 
 
-def test_p04_to_p13_are_implemented_green_after_required_closure() -> None:
+def test_p04_to_p16_are_implemented_green_after_p16_closure() -> None:
     rows = _traceability_rows()
 
-    for index in range(4, 14):
+    for index in range(4, 17):
         pxx = f"P{index:02d}"
         assert pxx in rows
         assert rows[pxx][9] == "implemented_green"
         assert rows[pxx][10] == "是"
 
 
-def test_p14_to_p17_remain_registered_future_route() -> None:
+def test_p17_to_p18_remain_registered_future_route() -> None:
     rows = _traceability_rows()
 
-    for index in range(14, 18):
+    for index in range(17, 19):
         pxx = f"P{index:02d}"
         assert pxx in rows
         assert rows[pxx][9] == "trace_registered"
@@ -109,13 +109,35 @@ def test_engineering_patches_require_source_reason_and_engineering_patch_flag() 
         assert patch_name in text
 
 
-def test_p04_to_p13_current_facts_do_not_backslide_to_registered_only() -> None:
+def test_p04_to_p16_current_facts_do_not_backslide_to_registered_only() -> None:
     text = _p00_text()
     rows = _traceability_rows()
 
     assert "P04-P12 缺完整执行计划不应导致 P00 失败" not in text
-    assert "P04-P13 的追踪条目反映当前已完成事实" in text
-    assert "当前 20 个 required MVS 已全部进入 P13 closure" in text
-    assert "P14-P17 的完整执行计划在对应阶段另行编写" in text
-    assert "P14-P17 在 P00 中只登记后续路线" in text
-    assert all(rows[f"P{index:02d}"][9] == "implemented_green" for index in range(4, 14))
+    assert "P04-P16 的追踪条目反映当前已完成事实" in text
+    assert "P17-P18 的完整执行计划在对应阶段另行编写" in text
+    assert "P17-P18 在 P00 中只登记后续路线" in text
+    assert "20 required MVS" in text
+    assert "pre_p15" in text
+    assert "post_p15" in text
+    assert "p15_comparison_report.json" in text
+    assert "P16 seeded random internal demo" in text
+    assert all(rows[f"P{index:02d}"][9] == "implemented_green" for index in range(4, 17))
+    assert all(rows[f"P{index:02d}"][10] == "是" for index in range(4, 17))
+
+
+def test_p16_static_traceability_records_seeded_random_gate_evidence() -> None:
+    text = _p00_text()
+    row = _traceability_rows()["P16"]
+
+    assert row[9] == "implemented_green"
+    assert row[10] == "是"
+    assert "seed" in row[5]
+    assert "random disabled" in row[2]
+    assert "same seed same config" in row[2]
+    assert "pre-freeze only" in row[6]
+    assert "artifacts/random/p16_seeded_demo" in row[7]
+    assert "run_seeded_random_simulation" in row[11]
+    assert "run_p16_seeded_random_artifact_bundle" in row[11]
+    assert "P17 | SUMO coupling minimal closure" in text
+    assert "P18 | Dual-track paper experiment grid" in text

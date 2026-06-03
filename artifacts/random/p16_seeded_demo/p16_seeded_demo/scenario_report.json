@@ -1,0 +1,1253 @@
+{
+  "blocked_spawn_count": 0,
+  "exports": {
+    "events": "artifacts\\random\\p16_seeded_demo\\p16_seeded_demo\\events.jsonl",
+    "sanity": "artifacts\\random\\p16_seeded_demo\\p16_seeded_demo\\sanity.jsonl",
+    "trajectory": "artifacts\\random\\p16_seeded_demo\\p16_seeded_demo\\trajectory.csv"
+  },
+  "final_active_vehicle_count": 13,
+  "final_step": 100,
+  "final_t": 9.99999999999998,
+  "gaps": [],
+  "generated_count": 13,
+  "input_config_ref": "p16_seeded_random_profile:p16_internal_demo_v1",
+  "max_steps": 100,
+  "png_feature_statuses": [
+    {
+      "evidence_source": "expected_png_features",
+      "expected_visibility": "optional",
+      "feature_type": "lane_centerline_quicklook",
+      "passed": true,
+      "renderer_status": "optional",
+      "required": false,
+      "vehicle_ids": []
+    },
+    {
+      "evidence_source": "expected_png_features",
+      "expected_visibility": "visible",
+      "feature_type": "merging_zone_boundary_quicklook",
+      "passed": true,
+      "renderer_status": "visible",
+      "required": true,
+      "vehicle_ids": []
+    },
+    {
+      "evidence_source": "expected_png_features",
+      "expected_visibility": "visible",
+      "feature_type": "cooperative_request_marker",
+      "passed": true,
+      "renderer_status": "visible",
+      "required": true,
+      "vehicle_ids": []
+    },
+    {
+      "evidence_source": "expected_png_features",
+      "expected_visibility": "optional",
+      "feature_type": "commit_marker",
+      "passed": true,
+      "renderer_status": "optional",
+      "required": false,
+      "vehicle_ids": []
+    },
+    {
+      "evidence_source": "expected_png_features",
+      "expected_visibility": "optional",
+      "feature_type": "trajectory_quicklook",
+      "passed": true,
+      "renderer_status": "optional",
+      "required": false,
+      "vehicle_ids": []
+    },
+    {
+      "evidence_source": "expected_png_features",
+      "expected_visibility": "visible",
+      "feature_type": "longitudinal_candidate_marker",
+      "passed": true,
+      "renderer_status": "visible",
+      "required": true,
+      "vehicle_ids": [
+        "p16_16001_lane_1_0000"
+      ]
+    },
+    {
+      "evidence_source": "expected_png_features",
+      "expected_visibility": "optional",
+      "feature_type": "planning_speed_marker",
+      "passed": true,
+      "renderer_status": "optional",
+      "required": false,
+      "vehicle_ids": [
+        "p16_16001_lane_1_0000"
+      ]
+    },
+    {
+      "evidence_source": "expected_png_features",
+      "expected_visibility": "optional",
+      "feature_type": "commit_marker",
+      "passed": true,
+      "renderer_status": "optional",
+      "required": false,
+      "vehicle_ids": [
+        "p16_16001_lane_1_0000"
+      ]
+    },
+    {
+      "evidence_source": "expected_png_features",
+      "expected_visibility": "optional",
+      "feature_type": "trajectory_quicklook",
+      "passed": true,
+      "renderer_status": "optional",
+      "required": false,
+      "vehicle_ids": [
+        "p16_16001_lane_1_0000"
+      ]
+    },
+    {
+      "evidence_source": "expected_png_features",
+      "expected_visibility": "optional",
+      "feature_type": "source_chain_marker",
+      "passed": true,
+      "renderer_status": "optional",
+      "required": false,
+      "vehicle_ids": [
+        "p16_16001_lane_1_0000"
+      ]
+    },
+    {
+      "evidence_source": "expected_png_features",
+      "expected_visibility": "visible",
+      "feature_type": "longitudinal_candidate_marker",
+      "passed": true,
+      "renderer_status": "visible",
+      "required": true,
+      "vehicle_ids": [
+        "p16_16001_lane_1_0000",
+        "p16_16001_lane_2_0000"
+      ]
+    },
+    {
+      "evidence_source": "expected_png_features",
+      "expected_visibility": "optional",
+      "feature_type": "planning_speed_marker",
+      "passed": true,
+      "renderer_status": "optional",
+      "required": false,
+      "vehicle_ids": [
+        "p16_16001_lane_1_0000",
+        "p16_16001_lane_2_0000"
+      ]
+    },
+    {
+      "evidence_source": "expected_png_features",
+      "expected_visibility": "optional",
+      "feature_type": "commit_marker",
+      "passed": true,
+      "renderer_status": "optional",
+      "required": false,
+      "vehicle_ids": [
+        "p16_16001_lane_1_0000",
+        "p16_16001_lane_2_0000"
+      ]
+    },
+    {
+      "evidence_source": "expected_png_features",
+      "expected_visibility": "optional",
+      "feature_type": "trajectory_quicklook",
+      "passed": true,
+      "renderer_status": "optional",
+      "required": false,
+      "vehicle_ids": [
+        "p16_16001_lane_1_0000",
+        "p16_16001_lane_2_0000"
+      ]
+    },
+    {
+      "evidence_source": "expected_png_features",
+      "expected_visibility": "optional",
+      "feature_type": "source_chain_marker",
+      "passed": true,
+      "renderer_status": "optional",
+      "required": false,
+      "vehicle_ids": [
+        "p16_16001_lane_1_0000",
+        "p16_16001_lane_2_0000"
+      ]
+    },
+    {
+      "evidence_source": "expected_png_features",
+      "expected_visibility": "visible",
+      "feature_type": "longitudinal_candidate_marker",
+      "passed": true,
+      "renderer_status": "visible",
+      "required": true,
+      "vehicle_ids": [
+        "p16_16001_lane_1_0000",
+        "p16_16001_lane_1_0001",
+        "p16_16001_lane_2_0000"
+      ]
+    },
+    {
+      "evidence_source": "expected_png_features",
+      "expected_visibility": "optional",
+      "feature_type": "planning_speed_marker",
+      "passed": true,
+      "renderer_status": "optional",
+      "required": false,
+      "vehicle_ids": [
+        "p16_16001_lane_1_0000",
+        "p16_16001_lane_1_0001",
+        "p16_16001_lane_2_0000"
+      ]
+    },
+    {
+      "evidence_source": "expected_png_features",
+      "expected_visibility": "optional",
+      "feature_type": "commit_marker",
+      "passed": true,
+      "renderer_status": "optional",
+      "required": false,
+      "vehicle_ids": [
+        "p16_16001_lane_1_0000",
+        "p16_16001_lane_1_0001",
+        "p16_16001_lane_2_0000"
+      ]
+    },
+    {
+      "evidence_source": "expected_png_features",
+      "expected_visibility": "optional",
+      "feature_type": "trajectory_quicklook",
+      "passed": true,
+      "renderer_status": "optional",
+      "required": false,
+      "vehicle_ids": [
+        "p16_16001_lane_1_0000",
+        "p16_16001_lane_1_0001",
+        "p16_16001_lane_2_0000"
+      ]
+    },
+    {
+      "evidence_source": "expected_png_features",
+      "expected_visibility": "optional",
+      "feature_type": "source_chain_marker",
+      "passed": true,
+      "renderer_status": "optional",
+      "required": false,
+      "vehicle_ids": [
+        "p16_16001_lane_1_0000",
+        "p16_16001_lane_1_0001",
+        "p16_16001_lane_2_0000"
+      ]
+    },
+    {
+      "evidence_source": "expected_png_features",
+      "expected_visibility": "visible",
+      "feature_type": "longitudinal_candidate_marker",
+      "passed": true,
+      "renderer_status": "visible",
+      "required": true,
+      "vehicle_ids": [
+        "p16_16001_lane_1_0000",
+        "p16_16001_lane_1_0001",
+        "p16_16001_lane_2_0000",
+        "p16_16001_on_ramp_0000"
+      ]
+    },
+    {
+      "evidence_source": "expected_png_features",
+      "expected_visibility": "optional",
+      "feature_type": "planning_speed_marker",
+      "passed": true,
+      "renderer_status": "optional",
+      "required": false,
+      "vehicle_ids": [
+        "p16_16001_lane_1_0000",
+        "p16_16001_lane_1_0001",
+        "p16_16001_lane_2_0000",
+        "p16_16001_on_ramp_0000"
+      ]
+    },
+    {
+      "evidence_source": "expected_png_features",
+      "expected_visibility": "optional",
+      "feature_type": "commit_marker",
+      "passed": true,
+      "renderer_status": "optional",
+      "required": false,
+      "vehicle_ids": [
+        "p16_16001_lane_1_0000",
+        "p16_16001_lane_1_0001",
+        "p16_16001_lane_2_0000",
+        "p16_16001_on_ramp_0000"
+      ]
+    },
+    {
+      "evidence_source": "expected_png_features",
+      "expected_visibility": "optional",
+      "feature_type": "trajectory_quicklook",
+      "passed": true,
+      "renderer_status": "optional",
+      "required": false,
+      "vehicle_ids": [
+        "p16_16001_lane_1_0000",
+        "p16_16001_lane_1_0001",
+        "p16_16001_lane_2_0000",
+        "p16_16001_on_ramp_0000"
+      ]
+    },
+    {
+      "evidence_source": "expected_png_features",
+      "expected_visibility": "optional",
+      "feature_type": "source_chain_marker",
+      "passed": true,
+      "renderer_status": "optional",
+      "required": false,
+      "vehicle_ids": [
+        "p16_16001_lane_1_0000",
+        "p16_16001_lane_1_0001",
+        "p16_16001_lane_2_0000",
+        "p16_16001_on_ramp_0000"
+      ]
+    },
+    {
+      "evidence_source": "expected_png_features",
+      "expected_visibility": "visible",
+      "feature_type": "longitudinal_candidate_marker",
+      "passed": true,
+      "renderer_status": "visible",
+      "required": true,
+      "vehicle_ids": [
+        "p16_16001_lane_1_0000",
+        "p16_16001_lane_1_0001",
+        "p16_16001_lane_2_0000",
+        "p16_16001_lane_2_0001",
+        "p16_16001_on_ramp_0000"
+      ]
+    },
+    {
+      "evidence_source": "expected_png_features",
+      "expected_visibility": "optional",
+      "feature_type": "planning_speed_marker",
+      "passed": true,
+      "renderer_status": "optional",
+      "required": false,
+      "vehicle_ids": [
+        "p16_16001_lane_1_0000",
+        "p16_16001_lane_1_0001",
+        "p16_16001_lane_2_0000",
+        "p16_16001_lane_2_0001",
+        "p16_16001_on_ramp_0000"
+      ]
+    },
+    {
+      "evidence_source": "expected_png_features",
+      "expected_visibility": "optional",
+      "feature_type": "commit_marker",
+      "passed": true,
+      "renderer_status": "optional",
+      "required": false,
+      "vehicle_ids": [
+        "p16_16001_lane_1_0000",
+        "p16_16001_lane_1_0001",
+        "p16_16001_lane_2_0000",
+        "p16_16001_lane_2_0001",
+        "p16_16001_on_ramp_0000"
+      ]
+    },
+    {
+      "evidence_source": "expected_png_features",
+      "expected_visibility": "optional",
+      "feature_type": "trajectory_quicklook",
+      "passed": true,
+      "renderer_status": "optional",
+      "required": false,
+      "vehicle_ids": [
+        "p16_16001_lane_1_0000",
+        "p16_16001_lane_1_0001",
+        "p16_16001_lane_2_0000",
+        "p16_16001_lane_2_0001",
+        "p16_16001_on_ramp_0000"
+      ]
+    },
+    {
+      "evidence_source": "expected_png_features",
+      "expected_visibility": "optional",
+      "feature_type": "source_chain_marker",
+      "passed": true,
+      "renderer_status": "optional",
+      "required": false,
+      "vehicle_ids": [
+        "p16_16001_lane_1_0000",
+        "p16_16001_lane_1_0001",
+        "p16_16001_lane_2_0000",
+        "p16_16001_lane_2_0001",
+        "p16_16001_on_ramp_0000"
+      ]
+    },
+    {
+      "evidence_source": "expected_png_features",
+      "expected_visibility": "visible",
+      "feature_type": "longitudinal_candidate_marker",
+      "passed": true,
+      "renderer_status": "visible",
+      "required": true,
+      "vehicle_ids": [
+        "p16_16001_lane_1_0000",
+        "p16_16001_lane_1_0001",
+        "p16_16001_lane_1_0002",
+        "p16_16001_lane_2_0000",
+        "p16_16001_lane_2_0001",
+        "p16_16001_on_ramp_0000"
+      ]
+    },
+    {
+      "evidence_source": "expected_png_features",
+      "expected_visibility": "optional",
+      "feature_type": "planning_speed_marker",
+      "passed": true,
+      "renderer_status": "optional",
+      "required": false,
+      "vehicle_ids": [
+        "p16_16001_lane_1_0000",
+        "p16_16001_lane_1_0001",
+        "p16_16001_lane_1_0002",
+        "p16_16001_lane_2_0000",
+        "p16_16001_lane_2_0001",
+        "p16_16001_on_ramp_0000"
+      ]
+    },
+    {
+      "evidence_source": "expected_png_features",
+      "expected_visibility": "optional",
+      "feature_type": "commit_marker",
+      "passed": true,
+      "renderer_status": "optional",
+      "required": false,
+      "vehicle_ids": [
+        "p16_16001_lane_1_0000",
+        "p16_16001_lane_1_0001",
+        "p16_16001_lane_1_0002",
+        "p16_16001_lane_2_0000",
+        "p16_16001_lane_2_0001",
+        "p16_16001_on_ramp_0000"
+      ]
+    },
+    {
+      "evidence_source": "expected_png_features",
+      "expected_visibility": "optional",
+      "feature_type": "trajectory_quicklook",
+      "passed": true,
+      "renderer_status": "optional",
+      "required": false,
+      "vehicle_ids": [
+        "p16_16001_lane_1_0000",
+        "p16_16001_lane_1_0001",
+        "p16_16001_lane_1_0002",
+        "p16_16001_lane_2_0000",
+        "p16_16001_lane_2_0001",
+        "p16_16001_on_ramp_0000"
+      ]
+    },
+    {
+      "evidence_source": "expected_png_features",
+      "expected_visibility": "optional",
+      "feature_type": "source_chain_marker",
+      "passed": true,
+      "renderer_status": "optional",
+      "required": false,
+      "vehicle_ids": [
+        "p16_16001_lane_1_0000",
+        "p16_16001_lane_1_0001",
+        "p16_16001_lane_1_0002",
+        "p16_16001_lane_2_0000",
+        "p16_16001_lane_2_0001",
+        "p16_16001_on_ramp_0000"
+      ]
+    },
+    {
+      "evidence_source": "expected_png_features",
+      "expected_visibility": "visible",
+      "feature_type": "longitudinal_candidate_marker",
+      "passed": true,
+      "renderer_status": "visible",
+      "required": true,
+      "vehicle_ids": [
+        "p16_16001_lane_1_0000",
+        "p16_16001_lane_1_0001",
+        "p16_16001_lane_1_0002",
+        "p16_16001_lane_2_0000",
+        "p16_16001_lane_2_0001",
+        "p16_16001_lane_2_0002",
+        "p16_16001_on_ramp_0000"
+      ]
+    },
+    {
+      "evidence_source": "expected_png_features",
+      "expected_visibility": "optional",
+      "feature_type": "planning_speed_marker",
+      "passed": true,
+      "renderer_status": "optional",
+      "required": false,
+      "vehicle_ids": [
+        "p16_16001_lane_1_0000",
+        "p16_16001_lane_1_0001",
+        "p16_16001_lane_1_0002",
+        "p16_16001_lane_2_0000",
+        "p16_16001_lane_2_0001",
+        "p16_16001_lane_2_0002",
+        "p16_16001_on_ramp_0000"
+      ]
+    },
+    {
+      "evidence_source": "expected_png_features",
+      "expected_visibility": "optional",
+      "feature_type": "commit_marker",
+      "passed": true,
+      "renderer_status": "optional",
+      "required": false,
+      "vehicle_ids": [
+        "p16_16001_lane_1_0000",
+        "p16_16001_lane_1_0001",
+        "p16_16001_lane_1_0002",
+        "p16_16001_lane_2_0000",
+        "p16_16001_lane_2_0001",
+        "p16_16001_lane_2_0002",
+        "p16_16001_on_ramp_0000"
+      ]
+    },
+    {
+      "evidence_source": "expected_png_features",
+      "expected_visibility": "optional",
+      "feature_type": "trajectory_quicklook",
+      "passed": true,
+      "renderer_status": "optional",
+      "required": false,
+      "vehicle_ids": [
+        "p16_16001_lane_1_0000",
+        "p16_16001_lane_1_0001",
+        "p16_16001_lane_1_0002",
+        "p16_16001_lane_2_0000",
+        "p16_16001_lane_2_0001",
+        "p16_16001_lane_2_0002",
+        "p16_16001_on_ramp_0000"
+      ]
+    },
+    {
+      "evidence_source": "expected_png_features",
+      "expected_visibility": "optional",
+      "feature_type": "source_chain_marker",
+      "passed": true,
+      "renderer_status": "optional",
+      "required": false,
+      "vehicle_ids": [
+        "p16_16001_lane_1_0000",
+        "p16_16001_lane_1_0001",
+        "p16_16001_lane_1_0002",
+        "p16_16001_lane_2_0000",
+        "p16_16001_lane_2_0001",
+        "p16_16001_lane_2_0002",
+        "p16_16001_on_ramp_0000"
+      ]
+    },
+    {
+      "evidence_source": "expected_png_features",
+      "expected_visibility": "visible",
+      "feature_type": "longitudinal_candidate_marker",
+      "passed": true,
+      "renderer_status": "visible",
+      "required": true,
+      "vehicle_ids": [
+        "p16_16001_lane_1_0000",
+        "p16_16001_lane_1_0001",
+        "p16_16001_lane_1_0002",
+        "p16_16001_lane_2_0000",
+        "p16_16001_lane_2_0001",
+        "p16_16001_lane_2_0002",
+        "p16_16001_lane_2_0003",
+        "p16_16001_on_ramp_0000"
+      ]
+    },
+    {
+      "evidence_source": "expected_png_features",
+      "expected_visibility": "optional",
+      "feature_type": "planning_speed_marker",
+      "passed": true,
+      "renderer_status": "optional",
+      "required": false,
+      "vehicle_ids": [
+        "p16_16001_lane_1_0000",
+        "p16_16001_lane_1_0001",
+        "p16_16001_lane_1_0002",
+        "p16_16001_lane_2_0000",
+        "p16_16001_lane_2_0001",
+        "p16_16001_lane_2_0002",
+        "p16_16001_lane_2_0003",
+        "p16_16001_on_ramp_0000"
+      ]
+    },
+    {
+      "evidence_source": "expected_png_features",
+      "expected_visibility": "optional",
+      "feature_type": "commit_marker",
+      "passed": true,
+      "renderer_status": "optional",
+      "required": false,
+      "vehicle_ids": [
+        "p16_16001_lane_1_0000",
+        "p16_16001_lane_1_0001",
+        "p16_16001_lane_1_0002",
+        "p16_16001_lane_2_0000",
+        "p16_16001_lane_2_0001",
+        "p16_16001_lane_2_0002",
+        "p16_16001_lane_2_0003",
+        "p16_16001_on_ramp_0000"
+      ]
+    },
+    {
+      "evidence_source": "expected_png_features",
+      "expected_visibility": "optional",
+      "feature_type": "trajectory_quicklook",
+      "passed": true,
+      "renderer_status": "optional",
+      "required": false,
+      "vehicle_ids": [
+        "p16_16001_lane_1_0000",
+        "p16_16001_lane_1_0001",
+        "p16_16001_lane_1_0002",
+        "p16_16001_lane_2_0000",
+        "p16_16001_lane_2_0001",
+        "p16_16001_lane_2_0002",
+        "p16_16001_lane_2_0003",
+        "p16_16001_on_ramp_0000"
+      ]
+    },
+    {
+      "evidence_source": "expected_png_features",
+      "expected_visibility": "optional",
+      "feature_type": "source_chain_marker",
+      "passed": true,
+      "renderer_status": "optional",
+      "required": false,
+      "vehicle_ids": [
+        "p16_16001_lane_1_0000",
+        "p16_16001_lane_1_0001",
+        "p16_16001_lane_1_0002",
+        "p16_16001_lane_2_0000",
+        "p16_16001_lane_2_0001",
+        "p16_16001_lane_2_0002",
+        "p16_16001_lane_2_0003",
+        "p16_16001_on_ramp_0000"
+      ]
+    },
+    {
+      "evidence_source": "expected_png_features",
+      "expected_visibility": "visible",
+      "feature_type": "longitudinal_candidate_marker",
+      "passed": true,
+      "renderer_status": "visible",
+      "required": true,
+      "vehicle_ids": [
+        "p16_16001_lane_1_0000",
+        "p16_16001_lane_1_0001",
+        "p16_16001_lane_1_0002",
+        "p16_16001_lane_2_0000",
+        "p16_16001_lane_2_0001",
+        "p16_16001_lane_2_0002",
+        "p16_16001_lane_2_0003",
+        "p16_16001_on_ramp_0000",
+        "p16_16001_on_ramp_0001"
+      ]
+    },
+    {
+      "evidence_source": "expected_png_features",
+      "expected_visibility": "optional",
+      "feature_type": "planning_speed_marker",
+      "passed": true,
+      "renderer_status": "optional",
+      "required": false,
+      "vehicle_ids": [
+        "p16_16001_lane_1_0000",
+        "p16_16001_lane_1_0001",
+        "p16_16001_lane_1_0002",
+        "p16_16001_lane_2_0000",
+        "p16_16001_lane_2_0001",
+        "p16_16001_lane_2_0002",
+        "p16_16001_lane_2_0003",
+        "p16_16001_on_ramp_0000",
+        "p16_16001_on_ramp_0001"
+      ]
+    },
+    {
+      "evidence_source": "expected_png_features",
+      "expected_visibility": "optional",
+      "feature_type": "commit_marker",
+      "passed": true,
+      "renderer_status": "optional",
+      "required": false,
+      "vehicle_ids": [
+        "p16_16001_lane_1_0000",
+        "p16_16001_lane_1_0001",
+        "p16_16001_lane_1_0002",
+        "p16_16001_lane_2_0000",
+        "p16_16001_lane_2_0001",
+        "p16_16001_lane_2_0002",
+        "p16_16001_lane_2_0003",
+        "p16_16001_on_ramp_0000",
+        "p16_16001_on_ramp_0001"
+      ]
+    },
+    {
+      "evidence_source": "expected_png_features",
+      "expected_visibility": "optional",
+      "feature_type": "trajectory_quicklook",
+      "passed": true,
+      "renderer_status": "optional",
+      "required": false,
+      "vehicle_ids": [
+        "p16_16001_lane_1_0000",
+        "p16_16001_lane_1_0001",
+        "p16_16001_lane_1_0002",
+        "p16_16001_lane_2_0000",
+        "p16_16001_lane_2_0001",
+        "p16_16001_lane_2_0002",
+        "p16_16001_lane_2_0003",
+        "p16_16001_on_ramp_0000",
+        "p16_16001_on_ramp_0001"
+      ]
+    },
+    {
+      "evidence_source": "expected_png_features",
+      "expected_visibility": "optional",
+      "feature_type": "source_chain_marker",
+      "passed": true,
+      "renderer_status": "optional",
+      "required": false,
+      "vehicle_ids": [
+        "p16_16001_lane_1_0000",
+        "p16_16001_lane_1_0001",
+        "p16_16001_lane_1_0002",
+        "p16_16001_lane_2_0000",
+        "p16_16001_lane_2_0001",
+        "p16_16001_lane_2_0002",
+        "p16_16001_lane_2_0003",
+        "p16_16001_on_ramp_0000",
+        "p16_16001_on_ramp_0001"
+      ]
+    },
+    {
+      "evidence_source": "expected_png_features",
+      "expected_visibility": "visible",
+      "feature_type": "longitudinal_candidate_marker",
+      "passed": true,
+      "renderer_status": "visible",
+      "required": true,
+      "vehicle_ids": [
+        "p16_16001_lane_1_0000",
+        "p16_16001_lane_1_0001",
+        "p16_16001_lane_1_0002",
+        "p16_16001_lane_1_0003",
+        "p16_16001_lane_2_0000",
+        "p16_16001_lane_2_0001",
+        "p16_16001_lane_2_0002",
+        "p16_16001_lane_2_0003",
+        "p16_16001_on_ramp_0000",
+        "p16_16001_on_ramp_0001"
+      ]
+    },
+    {
+      "evidence_source": "expected_png_features",
+      "expected_visibility": "optional",
+      "feature_type": "planning_speed_marker",
+      "passed": true,
+      "renderer_status": "optional",
+      "required": false,
+      "vehicle_ids": [
+        "p16_16001_lane_1_0000",
+        "p16_16001_lane_1_0001",
+        "p16_16001_lane_1_0002",
+        "p16_16001_lane_1_0003",
+        "p16_16001_lane_2_0000",
+        "p16_16001_lane_2_0001",
+        "p16_16001_lane_2_0002",
+        "p16_16001_lane_2_0003",
+        "p16_16001_on_ramp_0000",
+        "p16_16001_on_ramp_0001"
+      ]
+    },
+    {
+      "evidence_source": "expected_png_features",
+      "expected_visibility": "optional",
+      "feature_type": "commit_marker",
+      "passed": true,
+      "renderer_status": "optional",
+      "required": false,
+      "vehicle_ids": [
+        "p16_16001_lane_1_0000",
+        "p16_16001_lane_1_0001",
+        "p16_16001_lane_1_0002",
+        "p16_16001_lane_1_0003",
+        "p16_16001_lane_2_0000",
+        "p16_16001_lane_2_0001",
+        "p16_16001_lane_2_0002",
+        "p16_16001_lane_2_0003",
+        "p16_16001_on_ramp_0000",
+        "p16_16001_on_ramp_0001"
+      ]
+    },
+    {
+      "evidence_source": "expected_png_features",
+      "expected_visibility": "optional",
+      "feature_type": "trajectory_quicklook",
+      "passed": true,
+      "renderer_status": "optional",
+      "required": false,
+      "vehicle_ids": [
+        "p16_16001_lane_1_0000",
+        "p16_16001_lane_1_0001",
+        "p16_16001_lane_1_0002",
+        "p16_16001_lane_1_0003",
+        "p16_16001_lane_2_0000",
+        "p16_16001_lane_2_0001",
+        "p16_16001_lane_2_0002",
+        "p16_16001_lane_2_0003",
+        "p16_16001_on_ramp_0000",
+        "p16_16001_on_ramp_0001"
+      ]
+    },
+    {
+      "evidence_source": "expected_png_features",
+      "expected_visibility": "optional",
+      "feature_type": "source_chain_marker",
+      "passed": true,
+      "renderer_status": "optional",
+      "required": false,
+      "vehicle_ids": [
+        "p16_16001_lane_1_0000",
+        "p16_16001_lane_1_0001",
+        "p16_16001_lane_1_0002",
+        "p16_16001_lane_1_0003",
+        "p16_16001_lane_2_0000",
+        "p16_16001_lane_2_0001",
+        "p16_16001_lane_2_0002",
+        "p16_16001_lane_2_0003",
+        "p16_16001_on_ramp_0000",
+        "p16_16001_on_ramp_0001"
+      ]
+    },
+    {
+      "evidence_source": "expected_png_features",
+      "expected_visibility": "visible",
+      "feature_type": "cmc_decision_marker",
+      "passed": true,
+      "renderer_status": "visible",
+      "required": true,
+      "vehicle_ids": [
+        "p16_16001_on_ramp_0000"
+      ]
+    },
+    {
+      "evidence_source": "expected_png_features",
+      "expected_visibility": "visible",
+      "feature_type": "boundary_cap_marker",
+      "passed": true,
+      "renderer_status": "visible",
+      "required": true,
+      "vehicle_ids": [
+        "p16_16001_on_ramp_0000"
+      ]
+    },
+    {
+      "evidence_source": "expected_png_features",
+      "expected_visibility": "visible",
+      "feature_type": "assigned_clv_cfv_marker",
+      "passed": true,
+      "renderer_status": "visible",
+      "required": true,
+      "vehicle_ids": [
+        "p16_16001_on_ramp_0000"
+      ]
+    },
+    {
+      "evidence_source": "expected_png_features",
+      "expected_visibility": "visible",
+      "feature_type": "assignment_invalid_marker",
+      "passed": true,
+      "renderer_status": "visible",
+      "required": true,
+      "vehicle_ids": [
+        "p16_16001_on_ramp_0000"
+      ]
+    },
+    {
+      "evidence_source": "expected_png_features",
+      "expected_visibility": "visible",
+      "feature_type": "waiting_marker",
+      "passed": true,
+      "renderer_status": "visible",
+      "required": true,
+      "vehicle_ids": [
+        "p16_16001_on_ramp_0000"
+      ]
+    },
+    {
+      "evidence_source": "expected_png_features",
+      "expected_visibility": "not_visible",
+      "feature_type": "no_replacement_assignment_arrow",
+      "passed": true,
+      "renderer_status": "not_visible",
+      "required": true,
+      "vehicle_ids": [
+        "p16_16001_on_ramp_0000"
+      ]
+    },
+    {
+      "evidence_source": "expected_png_features",
+      "expected_visibility": "visible",
+      "feature_type": "speed_cap_consumption_marker",
+      "passed": true,
+      "renderer_status": "visible",
+      "required": true,
+      "vehicle_ids": [
+        "p16_16001_on_ramp_0000"
+      ]
+    },
+    {
+      "evidence_source": "expected_png_features",
+      "expected_visibility": "visible",
+      "feature_type": "longitudinal_candidate_marker",
+      "passed": true,
+      "renderer_status": "visible",
+      "required": true,
+      "vehicle_ids": [
+        "p16_16001_lane_1_0000",
+        "p16_16001_lane_1_0001",
+        "p16_16001_lane_1_0002",
+        "p16_16001_lane_1_0003",
+        "p16_16001_lane_2_0000",
+        "p16_16001_lane_2_0001",
+        "p16_16001_lane_2_0002",
+        "p16_16001_lane_2_0003",
+        "p16_16001_lane_2_0004",
+        "p16_16001_on_ramp_0000",
+        "p16_16001_on_ramp_0001"
+      ]
+    },
+    {
+      "evidence_source": "expected_png_features",
+      "expected_visibility": "optional",
+      "feature_type": "planning_speed_marker",
+      "passed": true,
+      "renderer_status": "optional",
+      "required": false,
+      "vehicle_ids": [
+        "p16_16001_lane_1_0000",
+        "p16_16001_lane_1_0001",
+        "p16_16001_lane_1_0002",
+        "p16_16001_lane_1_0003",
+        "p16_16001_lane_2_0000",
+        "p16_16001_lane_2_0001",
+        "p16_16001_lane_2_0002",
+        "p16_16001_lane_2_0003",
+        "p16_16001_lane_2_0004",
+        "p16_16001_on_ramp_0000",
+        "p16_16001_on_ramp_0001"
+      ]
+    },
+    {
+      "evidence_source": "expected_png_features",
+      "expected_visibility": "optional",
+      "feature_type": "commit_marker",
+      "passed": true,
+      "renderer_status": "optional",
+      "required": false,
+      "vehicle_ids": [
+        "p16_16001_lane_1_0000",
+        "p16_16001_lane_1_0001",
+        "p16_16001_lane_1_0002",
+        "p16_16001_lane_1_0003",
+        "p16_16001_lane_2_0000",
+        "p16_16001_lane_2_0001",
+        "p16_16001_lane_2_0002",
+        "p16_16001_lane_2_0003",
+        "p16_16001_lane_2_0004",
+        "p16_16001_on_ramp_0000",
+        "p16_16001_on_ramp_0001"
+      ]
+    },
+    {
+      "evidence_source": "expected_png_features",
+      "expected_visibility": "optional",
+      "feature_type": "trajectory_quicklook",
+      "passed": true,
+      "renderer_status": "optional",
+      "required": false,
+      "vehicle_ids": [
+        "p16_16001_lane_1_0000",
+        "p16_16001_lane_1_0001",
+        "p16_16001_lane_1_0002",
+        "p16_16001_lane_1_0003",
+        "p16_16001_lane_2_0000",
+        "p16_16001_lane_2_0001",
+        "p16_16001_lane_2_0002",
+        "p16_16001_lane_2_0003",
+        "p16_16001_lane_2_0004",
+        "p16_16001_on_ramp_0000",
+        "p16_16001_on_ramp_0001"
+      ]
+    },
+    {
+      "evidence_source": "expected_png_features",
+      "expected_visibility": "optional",
+      "feature_type": "source_chain_marker",
+      "passed": true,
+      "renderer_status": "optional",
+      "required": false,
+      "vehicle_ids": [
+        "p16_16001_lane_1_0000",
+        "p16_16001_lane_1_0001",
+        "p16_16001_lane_1_0002",
+        "p16_16001_lane_1_0003",
+        "p16_16001_lane_2_0000",
+        "p16_16001_lane_2_0001",
+        "p16_16001_lane_2_0002",
+        "p16_16001_lane_2_0003",
+        "p16_16001_lane_2_0004",
+        "p16_16001_on_ramp_0000",
+        "p16_16001_on_ramp_0001"
+      ]
+    },
+    {
+      "evidence_source": "expected_png_features",
+      "expected_visibility": "visible",
+      "feature_type": "longitudinal_candidate_marker",
+      "passed": true,
+      "renderer_status": "visible",
+      "required": true,
+      "vehicle_ids": [
+        "p16_16001_lane_1_0000",
+        "p16_16001_lane_1_0001",
+        "p16_16001_lane_1_0002",
+        "p16_16001_lane_1_0003",
+        "p16_16001_lane_2_0000",
+        "p16_16001_lane_2_0001",
+        "p16_16001_lane_2_0002",
+        "p16_16001_lane_2_0003",
+        "p16_16001_lane_2_0004",
+        "p16_16001_lane_2_0005",
+        "p16_16001_on_ramp_0000",
+        "p16_16001_on_ramp_0001"
+      ]
+    },
+    {
+      "evidence_source": "expected_png_features",
+      "expected_visibility": "optional",
+      "feature_type": "planning_speed_marker",
+      "passed": true,
+      "renderer_status": "optional",
+      "required": false,
+      "vehicle_ids": [
+        "p16_16001_lane_1_0000",
+        "p16_16001_lane_1_0001",
+        "p16_16001_lane_1_0002",
+        "p16_16001_lane_1_0003",
+        "p16_16001_lane_2_0000",
+        "p16_16001_lane_2_0001",
+        "p16_16001_lane_2_0002",
+        "p16_16001_lane_2_0003",
+        "p16_16001_lane_2_0004",
+        "p16_16001_lane_2_0005",
+        "p16_16001_on_ramp_0000",
+        "p16_16001_on_ramp_0001"
+      ]
+    },
+    {
+      "evidence_source": "expected_png_features",
+      "expected_visibility": "optional",
+      "feature_type": "commit_marker",
+      "passed": true,
+      "renderer_status": "optional",
+      "required": false,
+      "vehicle_ids": [
+        "p16_16001_lane_1_0000",
+        "p16_16001_lane_1_0001",
+        "p16_16001_lane_1_0002",
+        "p16_16001_lane_1_0003",
+        "p16_16001_lane_2_0000",
+        "p16_16001_lane_2_0001",
+        "p16_16001_lane_2_0002",
+        "p16_16001_lane_2_0003",
+        "p16_16001_lane_2_0004",
+        "p16_16001_lane_2_0005",
+        "p16_16001_on_ramp_0000",
+        "p16_16001_on_ramp_0001"
+      ]
+    },
+    {
+      "evidence_source": "expected_png_features",
+      "expected_visibility": "optional",
+      "feature_type": "trajectory_quicklook",
+      "passed": true,
+      "renderer_status": "optional",
+      "required": false,
+      "vehicle_ids": [
+        "p16_16001_lane_1_0000",
+        "p16_16001_lane_1_0001",
+        "p16_16001_lane_1_0002",
+        "p16_16001_lane_1_0003",
+        "p16_16001_lane_2_0000",
+        "p16_16001_lane_2_0001",
+        "p16_16001_lane_2_0002",
+        "p16_16001_lane_2_0003",
+        "p16_16001_lane_2_0004",
+        "p16_16001_lane_2_0005",
+        "p16_16001_on_ramp_0000",
+        "p16_16001_on_ramp_0001"
+      ]
+    },
+    {
+      "evidence_source": "expected_png_features",
+      "expected_visibility": "optional",
+      "feature_type": "source_chain_marker",
+      "passed": true,
+      "renderer_status": "optional",
+      "required": false,
+      "vehicle_ids": [
+        "p16_16001_lane_1_0000",
+        "p16_16001_lane_1_0001",
+        "p16_16001_lane_1_0002",
+        "p16_16001_lane_1_0003",
+        "p16_16001_lane_2_0000",
+        "p16_16001_lane_2_0001",
+        "p16_16001_lane_2_0002",
+        "p16_16001_lane_2_0003",
+        "p16_16001_lane_2_0004",
+        "p16_16001_lane_2_0005",
+        "p16_16001_on_ramp_0000",
+        "p16_16001_on_ramp_0001"
+      ]
+    },
+    {
+      "evidence_source": "expected_png_features",
+      "expected_visibility": "visible",
+      "feature_type": "longitudinal_candidate_marker",
+      "passed": true,
+      "renderer_status": "visible",
+      "required": true,
+      "vehicle_ids": [
+        "p16_16001_lane_1_0000",
+        "p16_16001_lane_1_0001",
+        "p16_16001_lane_1_0002",
+        "p16_16001_lane_1_0003",
+        "p16_16001_lane_1_0004",
+        "p16_16001_lane_2_0000",
+        "p16_16001_lane_2_0001",
+        "p16_16001_lane_2_0002",
+        "p16_16001_lane_2_0003",
+        "p16_16001_lane_2_0004",
+        "p16_16001_lane_2_0005",
+        "p16_16001_on_ramp_0000",
+        "p16_16001_on_ramp_0001"
+      ]
+    },
+    {
+      "evidence_source": "expected_png_features",
+      "expected_visibility": "optional",
+      "feature_type": "planning_speed_marker",
+      "passed": true,
+      "renderer_status": "optional",
+      "required": false,
+      "vehicle_ids": [
+        "p16_16001_lane_1_0000",
+        "p16_16001_lane_1_0001",
+        "p16_16001_lane_1_0002",
+        "p16_16001_lane_1_0003",
+        "p16_16001_lane_1_0004",
+        "p16_16001_lane_2_0000",
+        "p16_16001_lane_2_0001",
+        "p16_16001_lane_2_0002",
+        "p16_16001_lane_2_0003",
+        "p16_16001_lane_2_0004",
+        "p16_16001_lane_2_0005",
+        "p16_16001_on_ramp_0000",
+        "p16_16001_on_ramp_0001"
+      ]
+    },
+    {
+      "evidence_source": "expected_png_features",
+      "expected_visibility": "optional",
+      "feature_type": "commit_marker",
+      "passed": true,
+      "renderer_status": "optional",
+      "required": false,
+      "vehicle_ids": [
+        "p16_16001_lane_1_0000",
+        "p16_16001_lane_1_0001",
+        "p16_16001_lane_1_0002",
+        "p16_16001_lane_1_0003",
+        "p16_16001_lane_1_0004",
+        "p16_16001_lane_2_0000",
+        "p16_16001_lane_2_0001",
+        "p16_16001_lane_2_0002",
+        "p16_16001_lane_2_0003",
+        "p16_16001_lane_2_0004",
+        "p16_16001_lane_2_0005",
+        "p16_16001_on_ramp_0000",
+        "p16_16001_on_ramp_0001"
+      ]
+    },
+    {
+      "evidence_source": "expected_png_features",
+      "expected_visibility": "optional",
+      "feature_type": "trajectory_quicklook",
+      "passed": true,
+      "renderer_status": "optional",
+      "required": false,
+      "vehicle_ids": [
+        "p16_16001_lane_1_0000",
+        "p16_16001_lane_1_0001",
+        "p16_16001_lane_1_0002",
+        "p16_16001_lane_1_0003",
+        "p16_16001_lane_1_0004",
+        "p16_16001_lane_2_0000",
+        "p16_16001_lane_2_0001",
+        "p16_16001_lane_2_0002",
+        "p16_16001_lane_2_0003",
+        "p16_16001_lane_2_0004",
+        "p16_16001_lane_2_0005",
+        "p16_16001_on_ramp_0000",
+        "p16_16001_on_ramp_0001"
+      ]
+    },
+    {
+      "evidence_source": "expected_png_features",
+      "expected_visibility": "optional",
+      "feature_type": "source_chain_marker",
+      "passed": true,
+      "renderer_status": "optional",
+      "required": false,
+      "vehicle_ids": [
+        "p16_16001_lane_1_0000",
+        "p16_16001_lane_1_0001",
+        "p16_16001_lane_1_0002",
+        "p16_16001_lane_1_0003",
+        "p16_16001_lane_1_0004",
+        "p16_16001_lane_2_0000",
+        "p16_16001_lane_2_0001",
+        "p16_16001_lane_2_0002",
+        "p16_16001_lane_2_0003",
+        "p16_16001_lane_2_0004",
+        "p16_16001_lane_2_0005",
+        "p16_16001_on_ramp_0000",
+        "p16_16001_on_ramp_0001"
+      ]
+    }
+  ],
+  "png_paths": [
+    "artifacts\\random\\p16_seeded_demo\\p16_seeded_demo\\time_space.png"
+  ],
+  "profile_id": "p16_internal_demo_v1",
+  "random_enabled": true,
+  "run_id": "p16_seeded_demo",
+  "scenario_id": "P16-RANDOM-DEMO-internal",
+  "seed": 16001,
+  "status": "max_steps_reached"
+}

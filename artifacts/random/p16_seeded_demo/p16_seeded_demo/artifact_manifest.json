@@ -1,0 +1,17 @@
+{
+  "blocked_spawn_count": 0,
+  "generated_count": 13,
+  "max_steps": 100,
+  "output_paths": {
+    "events": "artifacts\\random\\p16_seeded_demo\\p16_seeded_demo\\events.jsonl",
+    "sanity": "artifacts\\random\\p16_seeded_demo\\p16_seeded_demo\\sanity.jsonl",
+    "scenario_report": "artifacts\\random\\p16_seeded_demo\\p16_seeded_demo\\scenario_report.json",
+    "time_space_png": "artifacts\\random\\p16_seeded_demo\\p16_seeded_demo\\time_space.png",
+    "trajectory": "artifacts\\random\\p16_seeded_demo\\p16_seeded_demo\\trajectory.csv"
+  },
+  "profile_id": "p16_internal_demo_v1",
+  "random_enabled": true,
+  "run_id": "p16_seeded_demo",
+  "scenario_id": "P16-RANDOM-DEMO-internal",
+  "seed": 16001
+}

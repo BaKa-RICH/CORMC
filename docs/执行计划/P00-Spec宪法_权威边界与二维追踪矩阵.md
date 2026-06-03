@@ -4,7 +4,7 @@
 
 - Algorithm-Step Coverage:
   - Primary Steps: 全局；不实现任何运行时代码；覆盖 Step 0-11 的权威边界、状态写入规则、MVS 追踪矩阵和证据链口径。
-  - Secondary Steps: 为 P01-P17 分配 Step 范围、MVS gate、上游 spec、event / sanity / PNG / artifact 证据责任；建立工程补丁分类表。
+  - Secondary Steps: 为 P01-P18 分配 Step 范围、MVS gate、上游 spec、event / sanity / PNG / artifact 证据责任；建立工程补丁分类表。
 - MVS Acceptance Gate:
   - required:
     - 静态追踪检查：每个后续 Pxx 至少绑定一个 Step 范围。
@@ -49,7 +49,7 @@
 
 ### 1.1 Pxx 成熟度状态与当前执行边界
 
-P00 的追踪矩阵必须覆盖 P01-P17，但不同 Pxx 在不同阶段具有不同成熟度状态。P00 必须区分以下四类状态：
+P00 的追踪矩阵必须覆盖 P01-P18，但不同 Pxx 在不同阶段具有不同成熟度状态。P00 必须区分以下四类状态：
 
 ```text
 trace_registered:
@@ -82,14 +82,16 @@ P01-P03:
 P04-P11:
     当前已完成对应算法切片、输出基础能力或 full required smoke suite aggregation 基础，不再只是 trace_registered。
 
-P12-P13:
-    P12 deterministic full simulation loop 已完成；P13 official required MVS closure 已完成。
+P12-P15:
+    P12 deterministic full simulation loop 已完成；P13 official required MVS closure 已完成；P14 formal artifact bundle baseline 已完成；P15 engine core consolidation 已完成。
 
-P14-P17:
-    当前只登记后续路线：P14 formal artifact bundle baseline、P15 engine core consolidation、P16 seeded random simulation、P17 paper experiment grid。
+P16-P18:
+    P16 internal seeded random simulation 已完成；P17/P18 只登记后续路线：P17 SUMO coupling minimal closure、P18 dual-track paper experiment grid。
 ```
 
-P00 的追踪矩阵必须反映当前事实：P04-P13 已有完成证据，P14-P17 是后续路线。不得把 P04-P13 继续写成早期占位，也不得把 P16/P17 的随机和论文实验职责回填到 P12。
+P00 的追踪矩阵必须反映当前事实：P04-P16 已有完成证据，P17-P18 是后续路线。不得把 P04-P16 继续写成早期占位，也不得把 P17/P18 的 SUMO 和论文实验职责回填到 P12/P14/P15/P16。
+
+P15.5 状态收口补充：中文文档读取若遇到 PowerShell 输出乱码、截断或卡住，优先按终端编码 / 缓冲问题处理，不要误判为文件缺失。项目命令优先使用非登录 shell（`login:false`）；必要时设置 `$env:PYTHONIOENCODING='utf-8'`，用 Python 枚举 `docs` 后按 Unicode escape 文件名匹配，并只输出小块摘要或匹配行，避免直接倾倒大段中文文档或大型 JSONL artifact。
 
 
 ## 2. 非目标 / 禁止事项
@@ -185,7 +187,7 @@ P00 的追踪矩阵必须反映当前事实：P04-P13 已有完成证据，P14-P
 
 ### 7.1 Step × MVS × Pxx × evidence × maturity 追踪矩阵
 
-本矩阵是 P00 的静态追踪入口。P01-P13 反映当前已完成或已实现事实；P14-P17 只登记后续路线，不能由 P00 代替后续完整执行计划。
+本矩阵是 P00 的静态追踪入口。P01-P16 反映当前已完成或已实现事实；P17-P18 只登记后续路线，不能由 P00 代替后续完整执行计划。
 
 | Pxx | Step 覆盖 | Required Gate | Probe | Deferred | 主要 event evidence | 主要 sanity evidence | PNG / artifact evidence | 主要上游 spec | 成熟度状态 | 当前阶段是否可执行 | 阻塞条件 / 后续补全点 |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -202,20 +204,21 @@ P00 的追踪矩阵必须反映当前事实：P04-P13 已有完成证据，P14-P
 | P11 | 交付级收口：导出、PNG、artifact 基础、required smoke suite、regression report | 全部 required MVS 聚合执行与报告 | probe 场景非阻塞报告 | deferred 场景不进入第一版强验收 | exported event history、regression event summary | exported sanity summary、suite result | PNG / artifact manifest / regression report 基础能力 | 输出日志、代码数据结构、最小验证场景、道路几何 | implemented_green | 是 | 当前 suite `passed`、20 green、无 required blocked / runner gaps；正式自然输出包交给 P14 |
 | P12 | Deterministic full simulation loop：Step0-11 多步推进 | `MVS-E2E-1` deterministic loop；P12 branch scenarios | deterministic demo PNG | 随机边界生成关闭 | full loop event chain、cache reuse、active maneuver continuation | multi-step commit / time advance consistency | demo PNG、expected_png_features | 时间步总纲、状态接口、代码数据结构、输出日志、最小验证场景 | implemented_green | 是 | 固定场景、关闭随机，已能从 `S(t)` 推进到后续时间步 |
 | P13 | Required MVS closure：official loader / deterministic runner / matcher | 20 个 required MVS 全部 green | `MVS-CUC-1B_real_utility_probe` | `MVS-CUC-1C_real_utility_choice1_locked` | official required scenario events | required sanity checks | required PNG feature evidence | 最小验证场景、P11 output、P12 loop | implemented_green | 是 | `suite_status=passed`、`required_failed=[]`、`required_blocked=[]`、`runner_gaps=[]` |
-| P14 | Formal artifact bundle baseline | deterministic run 自然生成正式输出包 | PNG / export diagnostics | paper-level metrics | scenario report / manifest references | sanity export / regression summary | trajectory CSV、events JSONL、sanity JSONL、PNG、manifest、regression report | 输出日志、代码数据结构、P11、P12、P13 | trace_registered | 否 | P15 启动前必须完成的输出基线 |
-| P15 | Engine core consolidation | P14 artifact baseline 前后可比较；20 required MVS 仍 green | engine boundary diagnostics | 随机生成关闭 | engine / recorder / output handoff events as needed | regression equivalence sanity | artifact baseline comparison | P12 loop、P13 suite、P14 artifacts | trace_registered | 否 | 不推倒重来；不在 P14 baseline 前启动 |
-| P16 | Seeded random simulation：边界生成、arrival headway、随机车型、随机 compliance | random disabled 时 required suite 仍 green；seeded run 可复现 | random diagnostics | paper grid 不在本阶段 | boundary_generation / random attribute event | pre-freeze only、entry safety sanity | random run artifact entry | 时间步总纲、参数、车辆生成、输出日志 | trace_registered | 否 | 只在 deterministic loop 和 engine 稳定后进入 |
-| P17 | Paper experiment grid：批量运行、统计指标、复现报告 | 基于 P16 seeded random simulation 的批量实验 | metric diagnostics | SUMO comparison 可后续决定 | experiment config / run summary event | batch sanity summary | metrics CSV / report / plots | 参数、输出指标、论文实验规格 | trace_registered | 否 | 不与 P16 混在一起；不替代 deterministic required suite |
+| P14 | Formal artifact bundle baseline | deterministic run 自然生成正式输出包 | PNG / export diagnostics | paper-level metrics | scenario report / manifest references | sanity export / regression summary | trajectory CSV、events JSONL、sanity JSONL、PNG、manifest、regression report | 输出日志、代码数据结构、P11、P12、P13 | implemented_green | 是 | `pre_p15` baseline 已生成；8 deterministic scenarios 的 formal artifact bundle / manifest / scenario report / regression report 可用；作为 P15 前置已完成 |
+| P15 | Engine core consolidation | P14 artifact baseline 前后可比较；20 required MVS 仍 green | engine boundary diagnostics | 随机生成关闭 | engine / recorder / output handoff events as needed | regression equivalence sanity | artifact baseline comparison | P12 loop、P13 suite、P14 artifacts | implemented_green | 是 | `post_p15` baseline 已生成；`p15_comparison_report.json` status=passed；20 required MVS 仍 green；engine core consolidation 已完成且未引入随机性 |
+| P16 | Seeded random simulation：边界生成、arrival headway、随机车型、随机 compliance | random disabled 时 required suite 仍 green；same seed same config 可复现；different seed 有差异 | random diagnostics | paper grid / SUMO 不在本阶段 | boundary_generation event with seed / profile / generated / blocked payload | pre-freeze only、entry safety sanity、no RNG in APS/CUC/CMC | `artifacts/random/p16_seeded_demo/<run_id>/` random run artifact entry | 时间步总纲、参数、车辆生成、输出日志 | implemented_green | 是 | `SeededRandomProfile` / `BoundaryQueueItem` / `SpawnDecision` 已实现；`run_seeded_random_simulation(...)` 与 `run_p16_seeded_random_artifact_bundle(...)` 已接入；不覆盖 P14/P15 baseline |
+| P17 | SUMO coupling minimal closure：external simulator handoff / minimal closed loop | 不替代 deterministic required MVS；不做 paper grid；internal-SUMO step handoff 可对齐 | SUMO coupling diagnostics | paper grid 不在本阶段 | simulator handoff / step sync event | coupling consistency sanity | minimal SUMO run report / handoff trace | 时间步总纲、输出日志、道路几何、P16 seeded runner | trace_registered | 否 | 接通外部仿真器最小闭环；不与 P18 paper grid 混在一起 |
+| P18 | Dual-track paper experiment grid：internal 与 SUMO 双轨批量运行、统计指标、复现报告 | 基于 P16 internal seeded random simulation 与 P17 SUMO coupling 的批量实验 | metric diagnostics | 后续真实论文复现实验扩展 | experiment config / run summary event | batch sanity summary | metrics CSV / report / plots / internal-SUMO comparison | 参数、输出指标、论文实验规格、P16、P17 | trace_registered | 否 | 不与 P16/P17 混在一起；不替代 deterministic required suite |
 
 ## 8. 完成标准
 
 - P00 文档完成，并可作为后续 Pxx 的审阅 checklist。
 - P01-P03 的追踪条目存在，且必须达到 spec_ready / implementation_ready。
-- P04-P13 的追踪条目反映当前已完成事实；P14-P17 的追踪条目存在，且至少达到 trace_registered。
+- P04-P16 的追踪条目反映当前已完成事实；P17-P18 的追踪条目存在，且至少达到 trace_registered。
 - 每个后续 Pxx 至少有一个 Step 范围、一个 gate、一个上游 spec、一个 event / sanity / PNG 证据入口。
-- P00 不得把 P04-P13 继续写成早期占位；P14-P17 的完整执行计划在对应阶段另行编写。
+- P00 不得把 P04-P16 继续写成早期占位；P17-P18 的完整执行计划在对应阶段另行编写。
 - 所有工程补丁均被分类为工程补丁或第一版实现约束，并要求保留 `source`、`reason`、`is_engineering_patch`。
-- 当前 20 个 required MVS 已全部进入 P13 closure，并在追踪矩阵中有对应承接阶段。
+- 当前 20 个 required MVS 已全部进入 P13 closure；P14/P15 artifact baseline comparison 证据链已完成；P16 seeded random internal demo 与 artifact 证据链已完成，并在追踪矩阵中有对应承接阶段。
 - probe 场景只要求可配置、可观测，不阻塞 required suite。
 - deferred 场景不进入第一版强验收。
 - P11 只被定义为交付级导出、正式 PNG、artifact record、全部 required smoke suite 聚合和 regression report。
@@ -234,4 +237,4 @@ P00 的追踪矩阵必须反映当前事实：P04-P13 已有完成证据，P14-P
 - 执行计划不得首次决定核心字段、参数、公式或 schema。
 - P04-P10 不得以“等待 P11 统一补日志 / sanity / PNG”为完成理由。
 - P01-P03 不得以“薄切片”方式削减已经写入 spec 的完成标准。
-- P14-P17 在 P00 中只登记后续路线，不得由 P00 代替后续完整执行计划。
+- P17-P18 在 P00 中只登记后续路线，不得由 P00 代替后续完整执行计划。

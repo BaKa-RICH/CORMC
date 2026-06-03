@@ -6,6 +6,7 @@ from types import MappingProxyType
 from typing import Any, Iterable, Mapping
 
 from cormc.mvs.loader import load_scenario_config
+from cormc.random_generation import BoundaryQueueItem, compute_spawn_decisions
 from cormc.step0_3 import (
     DEFAULT_ROAD_GEOMETRY,
     ManeuverTrajectoryState,
@@ -119,6 +120,8 @@ class CormcEngine:
     scenario_config: Mapping[str, Any]
     run_id: str = "p12-run"
     geometry: RoadGeometryConfig = DEFAULT_ROAD_GEOMETRY
+    random_queue: tuple[BoundaryQueueItem, ...] = ()
+    safe_spawn_gap_m: float = 20.0
 
     def advance_one_step(self, state: SimulationState) -> EngineStepResult:
         started = perf_counter()
@@ -132,7 +135,17 @@ class CormcEngine:
             normalized_config=MappingProxyType(dict(config)),
         )
 
-        step0_3 = _run_step0_to_3_from_state(state, config, geometry=self.geometry)
+        spawn_decisions = compute_spawn_decisions(
+            self.random_queue,
+            state,
+            safe_spawn_gap_m=self.safe_spawn_gap_m,
+        )
+        step0_3 = _run_step0_to_3_from_state(
+            state,
+            config,
+            geometry=self.geometry,
+            spawn_decisions=spawn_decisions,
+        )
         workspace.step0_3_result = step0_3
         frozen = step0_3.state
         relations = step0_3.relations
@@ -406,10 +419,15 @@ def _run_step0_to_3_from_state(
     config: Mapping[str, Any],
     *,
     geometry: RoadGeometryConfig = DEFAULT_ROAD_GEOMETRY,
+    spawn_decisions: tuple[Any, ...] = (),
 ) -> Step0To3LoopResult:
     workspace = _workspace_from_state(state)
     cleanup = step0_cleanup_and_prepare(workspace, geometry=geometry)
-    boundary = step1_prefreeze_boundary_generation_hook(workspace, dict(config))
+    boundary = step1_prefreeze_boundary_generation_hook(
+        workspace,
+        dict(config),
+        spawn_decisions=spawn_decisions,
+    )
     frozen = freeze_simulation_state(workspace)
     relations = refresh_relations_snapshot(frozen, geometry=geometry)
     events = [

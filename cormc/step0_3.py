@@ -284,10 +284,17 @@ def step1_prefreeze_boundary_generation_hook(
     scenario_config: dict[str, Any],
     *,
     new_vehicle_candidates: list[tuple[VehicleState, VehicleSpec]] | None = None,
+    spawn_decisions: list[Any] | tuple[Any, ...] | None = None,
 ) -> dict[str, Any]:
     module_overrides = scenario_config.get("module_overrides") or {}
     enabled = bool(module_overrides.get("boundary_generation_enabled", False))
     generated_vehicle_ids: list[str] = []
+    blocked_spawn_vehicle_ids: list[str] = []
+    blocked_reasons: dict[str, str] = {}
+    lane_ids: dict[str, str] = {}
+    assigned_arrival_headways: dict[str, float] = {}
+    seed: int | None = None
+    profile_id: str | None = None
     reason = "disabled"
 
     if enabled:
@@ -298,14 +305,47 @@ def step1_prefreeze_boundary_generation_hook(
             workspace.vehicle_states[state.vehicle_id] = state
             workspace.vehicle_specs[spec.vehicle_id] = spec
             generated_vehicle_ids.append(state.vehicle_id)
+            lane_ids[state.vehicle_id] = state.physical_lane
+            if spec.assigned_arrival_headway is not None:
+                assigned_arrival_headways[state.vehicle_id] = spec.assigned_arrival_headway
+        for decision in spawn_decisions or ():
+            item = getattr(decision, "queue_item")
+            state = getattr(item, "initial_state")
+            spec = getattr(item, "spec")
+            vehicle_id = str(getattr(item, "vehicle_id"))
+            lane_ids[vehicle_id] = str(getattr(item, "lane_id"))
+            assigned_arrival_headways[vehicle_id] = float(getattr(item, "assigned_arrival_headway"))
+            seed = int(getattr(item, "seed"))
+            profile_id = str(getattr(item, "profile_id"))
+            if bool(getattr(decision, "generated")):
+                if state.vehicle_id not in workspace.vehicle_states:
+                    workspace.active_vehicle_ids.append(state.vehicle_id)
+                workspace.vehicle_states[state.vehicle_id] = state
+                workspace.vehicle_specs[spec.vehicle_id] = spec
+                generated_vehicle_ids.append(state.vehicle_id)
+            else:
+                blocked_spawn_vehicle_ids.append(vehicle_id)
+                blocked_reasons[vehicle_id] = str(
+                    getattr(decision, "blocked_reason") or getattr(decision, "reason")
+                )
         if generated_vehicle_ids:
             reason = "generated_pre_freeze"
+        if blocked_spawn_vehicle_ids and not generated_vehicle_ids:
+            reason = "blocked_safe_spawn_gap"
+        elif blocked_spawn_vehicle_ids and generated_vehicle_ids:
+            reason = "generated_and_blocked_pre_freeze"
 
     return emit_boundary_generation_event_candidate(
         workspace,
         enabled=enabled,
         reason=reason,
         generated_vehicle_ids=generated_vehicle_ids,
+        blocked_spawn_vehicle_ids=blocked_spawn_vehicle_ids,
+        blocked_reasons=blocked_reasons,
+        lane_ids=lane_ids,
+        assigned_arrival_headways=assigned_arrival_headways,
+        seed=seed,
+        profile_id=profile_id,
     )
 
 
@@ -526,7 +566,33 @@ def emit_boundary_generation_event_candidate(
     enabled: bool,
     reason: str,
     generated_vehicle_ids: list[str],
+    blocked_spawn_vehicle_ids: list[str] | None = None,
+    blocked_reasons: Mapping[str, str] | None = None,
+    lane_ids: Mapping[str, str] | None = None,
+    assigned_arrival_headways: Mapping[str, float] | None = None,
+    seed: int | None = None,
+    profile_id: str | None = None,
 ) -> dict[str, Any]:
+    blocked_spawn_vehicle_ids = list(blocked_spawn_vehicle_ids or [])
+    payload = {
+        "enabled": enabled,
+        "generated_vehicle_ids": list(generated_vehicle_ids),
+        "blocked_spawn_vehicle_ids": blocked_spawn_vehicle_ids,
+        "blocked_reason": dict(blocked_reasons or {}),
+        "lane_id": dict(lane_ids or {}),
+        "assigned_arrival_headway": dict(assigned_arrival_headways or {}),
+        "active_vehicle_ids": list(workspace.active_vehicle_ids),
+        "freeze_phase": "pre_freeze",
+    }
+    if seed is not None:
+        payload["seed"] = seed
+    if profile_id is not None:
+        payload["profile_id"] = profile_id
+    payload["random_generation_complete_mechanism"] = (
+        "p16_seeded_boundary_queue_spawn_decisions"
+        if enabled and (generated_vehicle_ids or blocked_spawn_vehicle_ids)
+        else "disabled_or_not_applicable"
+    )
     return _event(
         step=workspace.step,
         t=workspace.t,
@@ -534,13 +600,7 @@ def emit_boundary_generation_event_candidate(
         event_type="boundary_generation",
         vehicle_ids=list(generated_vehicle_ids),
         reason=reason,
-        payload={
-            "enabled": enabled,
-            "generated_vehicle_ids": list(generated_vehicle_ids),
-            "active_vehicle_ids": list(workspace.active_vehicle_ids),
-            "freeze_phase": "pre_freeze",
-            "random_generation_complete_mechanism": "not_implemented_in_p02",
-        },
+        payload=payload,
     )
 
 
@@ -727,6 +787,7 @@ def run_step0_to_step3(
     command_buffer: dict[str, Any] | None = None,
     next_state_buffer: dict[str, Any] | None = None,
     boundary_vehicle_candidates: list[tuple[VehicleState, VehicleSpec]] | None = None,
+    boundary_spawn_decisions: list[Any] | tuple[Any, ...] | None = None,
 ) -> Step0To3RunResult:
     workspace, config = build_prefreeze_workspace_from_scenario(
         scenario,
@@ -740,6 +801,7 @@ def run_step0_to_step3(
             workspace,
             config,
             new_vehicle_candidates=boundary_vehicle_candidates,
+            spawn_decisions=boundary_spawn_decisions,
         ),
     ]
     state = freeze_simulation_state(workspace)

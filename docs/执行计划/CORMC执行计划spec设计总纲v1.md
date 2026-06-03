@@ -194,15 +194,23 @@ P13.5 后，执行计划路线按当前代码事实重新校准：
 - P11 已具备输出 / PNG / artifact manifest / regression report 的基础函数，以及 full required MVS suite aggregation 基础。
 - P12 已完成 deterministic CORMC full simulation loop：固定场景、关闭随机边界生成，按 Step0-11 多步推进并能生成 demo PNG。
 - P13 已完成 required MVS closure：20 个 required MVS 通过 official `MVS-*` ID、official loader、统一 deterministic runner 和 P11 matcher 进入验收，当前 suite 为 20 green。
-- P14 是下一步正式 artifact bundle 阶段，把“测试中能生成输出”升级为“一次仿真自然生成正式输出包”。
-- P15 是 engine core consolidation，但必须等 P14 产出可比较的 trajectory / event / sanity / PNG / manifest / regression report baseline 后再启动。
-- P16 才进入 seeded random simulation：边界车辆生成、arrival headway、随机车型、随机 CHV compliance。
-- P17 才进入论文实验网格、批量运行、统计指标和复现报告。
+- P14 已完成 formal artifact bundle baseline：`artifacts/baseline/pre_p15/` 是 P15 前正式 artifact baseline；8 个 deterministic scenarios 已自然生成 trajectory CSV、event JSONL、sanity JSONL、PNG、manifest、scenario report、regression report。
+- P15 已完成 engine core consolidation：`artifacts/baseline/post_p15/` 已生成，`artifacts/baseline/p15_comparison_report.json` 为 `status=passed`、`failures=[]`，20 required MVS 仍 green；`CormcEngine.advance_one_step()` 是单步推进核心入口，`simulation_loop.py` 保持兼容包装入口。
+- P15.5 是状态与交付收口：只同步文档、追踪矩阵和现有静态测试，不改算法、不重写 baseline、不引入随机性。
+- P16 已完成 internal seeded random simulation：Step 1 pre-freeze boundary generation 接入 seeded queue，支持 arrival headway、随机车型、随机 CHV compliance、desired speed、CAV inertial lag，并复用 P11/P14 输出链生成随机 demo artifact。
+- P17 是 SUMO coupling minimal closure：接通外部仿真器最小闭环，不做论文级实验 grid。
+- P18 是 dual-track paper experiment grid：保留 internal 与 SUMO 两条轨道的实验网格和指标对照。
 
 P13.5 复核命令与结果摘要：
 
 - `python -m pytest tests\test_p11_output_export.py tests\test_p12_deterministic_simulation_loop.py` -> `30 passed`
 - P11 suite summary -> `suite_status=passed`，`required_green=20`，`required_failed=[]`，`required_blocked=[]`，`runner_gaps=[]`，`probe=[MVS-CUC-1B_real_utility_probe]`，`deferred=[MVS-CUC-1C_real_utility_choice1_locked]`
+
+P15.5 文档读取与命令执行说明：
+
+- 读取中文文档遇到 PowerShell 输出乱码、截断或卡住时，优先判断为终端输出编码 / 缓冲问题，不要误判为文件缺失。
+- 项目命令优先使用非登录 shell（`login:false`）；必要时设置 `$env:PYTHONIOENCODING='utf-8'`。
+- 中文路径优先通过 Python 枚举 `docs` 后用 Unicode escape 文件名匹配；只输出小块摘要或匹配行，避免大段中文和大型 JSONL artifact 直接倾倒到终端。
 
 ### P00 - Spec 宪法、权威边界与二维追踪矩阵
 
@@ -629,15 +637,17 @@ P13.5 复核命令与结果摘要：
 **MVS Gate**：deterministic scenario run 能自然生成正式输出包；required suite regression report 能引用 artifact paths。
 **目标**：把 trajectory CSV、event JSONL、sanity JSONL、PNG、manifest、scenario report、regression report 串成一次仿真的正式 artifact bundle。
 
-P14 是 P15 的硬前置。没有 P14 输出基线，不得启动 engine consolidation。
+当前状态：P14 已完成，并已作为 P15 的硬前置履行完毕。`artifacts/baseline/pre_p15/` 是 P15 前正式 baseline；manifest 覆盖 8 个 deterministic scenarios：`MVS-E2E-1`、`MVS-CUC-1A_override_choice1`、`MVS-CUC-2`、`MVS-CUC-3`、`MVS-SAFE-1A_waiting_cap`、`MVS-SAFE-1B_executing_cap_lateral_consumption`、`MVS-SAFE-2`、`MVS-COMMIT-1-full`。该 baseline 已串起 trajectory CSV、event JSONL、sanity JSONL、PNG、manifest、scenario report、regression report。
 
 ---
 
 ### P15 - Engine Core Consolidation
 
 **Step 覆盖**：engine / workspace / recorder / output 边界整理。
-**MVS Gate**：P14 artifact baseline 前后可比较，20 required MVS 仍 green。
+**MVS Gate**：P14 artifact baseline 前后可比较，20 required MVS 仍 green。  
 **目标**：在 P12/P13/P14 保护下逐步让 `simulation_loop.py` 变薄，不推倒重来，不引入随机性。
+
+当前状态：P15 已完成。`artifacts/baseline/post_p15/` 是 consolidation 后 baseline；`artifacts/baseline/p15_comparison_report.json` 为 `status=passed`、`failures=[]`；`artifacts/baseline/post_p15/regression_report.json` 为 `suite_status=passed`、20 required green、`required_failed=[]`、`required_blocked=[]`、`runner_gaps=[]`。本阶段没有改公式、没有引入随机性；P15.5 收口后下一实现阶段是 P16。
 
 ---
 
@@ -647,13 +657,33 @@ P14 是 P15 的硬前置。没有 P14 输出基线，不得启动 engine consoli
 **MVS Gate**：随机入口关闭时不得破坏全部 required MVS；seeded random run 可复现。
 **目标**：实现边界车辆生成、arrival headway、随机车型、随机 CHV compliance 和 seed 管理。
 
+当前状态：P16 已完成。`cormc/random_generation.py` 定义 `SeededRandomProfile`、`ArrivalStream`、`BoundaryQueueItem` 和 `SpawnDecision`；`CormcEngine.advance_one_step()` 在 Step 1 前消费 seeded boundary queue 并把 spawn decisions 交给 `step1_prefreeze_boundary_generation_hook()`；APS / CUC / CMC / longitudinal / lateral / commit 不读取 seed、不调用 RNG。`run_seeded_random_simulation(...)` 是 deterministic runner 的 sibling，`random_enabled=False` 时回到 `run_deterministic_simulation(...)` 默认语义。
+
+P16.0-P16.4 收口：
+
+- P16.0 random spec / route closure：P16 边界明确为 Step 1 pre-freeze 插车；freeze 后不插车，不改已有车辆 `x/y/v/a`；不实现 SUMO，不实现 paper grid。
+- P16.1 seeded random config / queue：局部 `random.Random(seed)` 生成可复现 boundary queue；lane 仅允许 `lane_1`、`lane_2`、`on_ramp`；默认 demo profile 使用 `seed=16001`、lane 1/2 入口 `x_global=0`、on-ramp 入口 `x_global=x0_m_global - 100`、shifted headway 1.2s/1.2s/3.5s。
+- P16.2 Step 1 boundary generation：支持 generated / blocked spawn decision；event payload 记录 `freeze_phase=pre_freeze`、`seed`、`profile_id`、`generated_vehicle_ids`、`blocked_spawn_vehicle_ids`、`blocked_reason`、`lane_id`、`assigned_arrival_headway`。
+- P16.3 seeded runner：`P16-RANDOM-DEMO-internal` 不进入 required MVS suite；same seed same config 的 trajectory / events / sanity 可复现；different seed 可产生不同车辆流。
+- P16.4 artifact：`run_p16_seeded_random_artifact_bundle(...)` 复用 P11/P14 输出链，输出 `trajectory.csv`、`events.jsonl`、`sanity.jsonl`、`time_space.png`、`artifact_manifest.json`、`scenario_report.json`、`run_report.md` 到 `artifacts/random/p16_seeded_demo/<run_id>/`，不覆盖 `artifacts/baseline/pre_p15/` 或 `artifacts/baseline/post_p15/`。
+
+P16 gate 证据：新增 `tests/test_p16_random_generation.py`、`tests/test_p16_boundary_generation.py`、`tests/test_p16_seeded_runner.py`、`tests/test_p16_seeded_artifact.py`；P16 验证 same seed same config、different seed difference、random disabled required suite remains green、boundary generation before freeze、generated vehicle commit/time advance invariants、artifact completeness 和 baseline untouched。
+
 ---
 
-### P17 - Paper Experiment Grid
+### P17 - SUMO Coupling Minimal Closure
 
-**Step 覆盖**：论文实验网格、批量运行、统计指标、复现报告。
-**MVS Gate**：不替代 deterministic required MVS；基于 P16 seeded random simulation 批量运行。
-**目标**：实现论文级 grid、重复种子、统计指标和复现报告，不与 P16 混在一起。
+**Step 覆盖**：external simulator coupling / minimal closed-loop boundary。
+**MVS Gate**：不替代 deterministic required MVS；不做 paper grid；最小闭环能把 internal state / control handoff 与 SUMO step 对齐。
+**目标**：接通外部 SUMO 仿真器最小闭环，保留 internal seeded random runner 作为独立轨道。
+
+---
+
+### P18 - Dual-Track Paper Experiment Grid
+
+**Step 覆盖**：experiment runner / metrics / internal-SUMO comparison。
+**MVS Gate**：不替代 deterministic required MVS；基于 P16 internal seeded random simulation 和 P17 SUMO coupling 双轨批量运行。
+**目标**：实现论文级 grid、重复种子、统计指标和复现报告，同时保留 internal 与 SUMO 指标对照，不与 P16/P17 混在一起。
 
 ## 5. 最终验收标准
 
