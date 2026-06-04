@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<routes>
+  <vType id="cormc_active" length="5.0" width="1.8" minGap="2.5" accel="2.6" decel="4.5" sigma="0.0" color="0,90,220" latAlignment="center" />
+  <vType id="sumo_background" length="5.0" width="1.8" minGap="2.5" accel="2.0" decel="4.5" tau="1.0" sigma="0.5" carFollowModel="IDM" laneChangeModel="SL2015" color="160,160,160" latAlignment="center" />
+  <route id="route_main" edges="main_pre merge_zone main_post" />
+  <route id="route_ramp" edges="ramp_pre merge_zone main_post" />
+</routes>

@@ -11,7 +11,7 @@ def test_p17_edge_metadata_and_lane_role_map_are_fixed() -> None:
     assert EDGE_METADATA["main_pre"].lane_count == 2
     assert EDGE_METADATA["merge_zone"].lane_count == 3
     assert EDGE_METADATA["main_post"].end_x == 10000
-    assert EDGE_METADATA["ramp_pre"].start_x == 6850
+    assert EDGE_METADATA["ramp_pre"].start_x == 6650
 
     assert [(lane.lane_index, lane.role, lane.y) for lane in LANE_ROLE_MAP["merge_zone"]] == [
         (0, "on_ramp", -3.5),
@@ -30,8 +30,8 @@ def test_p17_edge_metadata_and_lane_role_map_are_fixed() -> None:
         (6950.0, "on_ramp", "on_ramp_mv", ("merge_zone", 0, 0.0)),
         (7250.0, "lane_1", "mainline", ("main_post", 1, 0.0)),
         (10000.0, "lane_2", "mainline", ("main_post", 0, 2750.0)),
-        (6850.0, "on_ramp", "on_ramp", ("ramp_pre", 0, 0.0)),
-        (6949.9, "on_ramp", "on_ramp", ("ramp_pre", 0, 99.9)),
+        (6650.0, "on_ramp", "on_ramp", ("ramp_pre", 0, 0.0)),
+        (6949.9, "on_ramp", "on_ramp", ("ramp_pre", 0, 299.9)),
     ],
 )
 def test_p17_to_sumo_position_boundaries(
@@ -62,7 +62,7 @@ def test_p17_mapping_errors_are_clear() -> None:
     with pytest.raises(ValueError, match="outside supported P17 range"):
         to_sumo_position(10000.1, "lane_2", "mainline")
     with pytest.raises(ValueError, match="outside ramp_pre range"):
-        to_sumo_position(6849.9, "on_ramp", "on_ramp")
+        to_sumo_position(6649.9, "on_ramp", "on_ramp")
     with pytest.raises(ValueError, match="invalid on edge"):
         to_sumo_position(10.0, "on_ramp", "mainline")
     with pytest.raises(ValueError, match="Unknown SUMO edge_id"):

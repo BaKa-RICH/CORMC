@@ -1,0 +1,15 @@
+{
+  "closed_on_finish": true,
+  "error": null,
+  "replay_jsonl": "D:\\PycharmProjects\\CORMC\\artifacts\\sumo\\p17_1_mvs_replay\\scenarios\\MVS-SAFE-1B-cap\\replay_trajectory.jsonl",
+  "replayed_steps": 320,
+  "replayed_vehicle_ids": [
+    "CFV_SAFE_EXEC",
+    "CLV_SAFE_EXEC",
+    "MV_SAFE_EXEC"
+  ],
+  "status": "ok",
+  "sumo_gui_started": true,
+  "sumocfg_file": "D:\\PycharmProjects\\CORMC\\artifacts\\sumo\\p17_1_mvs_replay\\scenarios\\MVS-SAFE-1B-cap\\sumo\\p17.sumocfg",
+  "track_vehicle_id": "MV_SAFE_EXEC"
+}

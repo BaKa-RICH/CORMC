@@ -1,0 +1,18 @@
+<?xml version='1.0' encoding='utf-8'?>
+<configuration>
+  <input>
+    <net-file value="p17.net.xml" />
+    <route-files value="p17.rou.xml" />
+    <additional-files value="p17_1.markers.add.xml" />
+  </input>
+  <time>
+    <begin value="0.0" />
+    <end value="33.9" />
+    <step-length value="0.1" />
+  </time>
+  <processing>
+    <lateral-resolution value="0.25" />
+    <collision.action value="warn" />
+    <collision.check-junctions value="true" />
+  </processing>
+</configuration>

@@ -1,0 +1,6 @@
+<?xml version='1.0' encoding='utf-8'?>
+<additional>
+  <poi id="merge_start" type="merge_marker" color="0,90,220" x="6950.000" y="-7.000" layer="10" />
+  <poi id="merge_end" type="merge_marker" color="245,140,0" x="7250.000" y="-7.000" layer="10" />
+  <poly id="MVS-COMMIT-1-full-extended_local_replay_window" type="local_replay_window" color="60,60,60" fill="false" layer="2" shape="6650.000,-8.000 7350.000,-8.000 7350.000,6.000 6650.000,6.000" />
+</additional>

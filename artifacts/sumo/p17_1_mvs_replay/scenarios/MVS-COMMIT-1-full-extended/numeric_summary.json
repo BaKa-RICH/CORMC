@@ -1,0 +1,255 @@
+{
+  "actual_steps": 140,
+  "event_hits": {
+    "commit_sanity_all_pass": {
+      "detail": null,
+      "passed": true
+    },
+    "cv_active_lc_y_to_lane1": {
+      "detail": {
+        "first_step": 20,
+        "lane_change_states": [
+          "executing",
+          "normal"
+        ],
+        "last_step": 159,
+        "merge_states": [
+          "none"
+        ],
+        "v_max": 32.36032394516494,
+        "v_min": 20.4,
+        "x_max": 7313.850288405334,
+        "x_min": 6902.04,
+        "y_max": 3.5,
+        "y_min": 1.0570099874477326
+      },
+      "passed": true
+    },
+    "mv_active_merge_y_to_mainline": {
+      "detail": {
+        "first_step": 20,
+        "lane_change_states": [
+          "normal"
+        ],
+        "last_step": 159,
+        "merge_states": [
+          "executing",
+          "merged"
+        ],
+        "v_max": 29.862444021950008,
+        "v_min": 18.0,
+        "x_max": 7364.9301343473235,
+        "x_min": 7011.8,
+        "y_max": 0.0,
+        "y_min": -2.195848769945919
+      },
+      "passed": true
+    },
+    "mv_cache_y_to_mainline": {
+      "detail": {
+        "first_step": 20,
+        "lane_change_states": [
+          "normal"
+        ],
+        "last_step": 159,
+        "merge_states": [
+          "executing",
+          "merged",
+          "not_started"
+        ],
+        "v_max": 28.107111770704307,
+        "v_min": 19.874380165289256,
+        "x_max": 7199.0107484808705,
+        "x_min": 6892.0,
+        "y_max": 0.0,
+        "y_min": -3.5
+      },
+      "passed": true
+    },
+    "unique_commit_per_vehicle_step": {
+      "detail": null,
+      "passed": true
+    }
+  },
+  "event_type_counts": {
+    "APS": 107,
+    "CMC": 264,
+    "CUC": 140,
+    "assignment_cache": 30,
+    "boundary_generation": 140,
+    "cleanup": 140,
+    "commit": 1260,
+    "freeze": 140,
+    "geometry": 140,
+    "information_integration": 140,
+    "lateral_trajectory": 101,
+    "longitudinal_model": 1260,
+    "relation_refresh": 140,
+    "speed_cap": 77,
+    "time_advance": 140
+  },
+  "extended": true,
+  "numeric_gate_failures": [],
+  "numeric_gate_status": "passed",
+  "replay_id": "MVS-COMMIT-1-full-extended",
+  "replay_max_steps": 140,
+  "source_scenario_id": "MVS-COMMIT-1-full",
+  "step_range": [
+    20,
+    159
+  ],
+  "t_range": [
+    2.0,
+    15.89999999999996
+  ],
+  "vehicle_ranges": {
+    "CFV_CACHE": {
+      "first_step": 20,
+      "lane_change_states": [
+        "normal"
+      ],
+      "last_step": 159,
+      "merge_states": [
+        "none"
+      ],
+      "v_max": 32.408125011009034,
+      "v_min": 20.4,
+      "x_max": 7239.512845537333,
+      "x_min": 6842.04,
+      "y_max": 0.0,
+      "y_min": 0.0
+    },
+    "CFV_MERGE": {
+      "first_step": 20,
+      "lane_change_states": [
+        "normal"
+      ],
+      "last_step": 159,
+      "merge_states": [
+        "none"
+      ],
+      "v_max": 29.79698614487779,
+      "v_min": 18.4,
+      "x_max": 7322.766042179458,
+      "x_min": 6971.84,
+      "y_max": 0.0,
+      "y_min": 0.0
+    },
+    "CLV_CACHE": {
+      "first_step": 20,
+      "lane_change_states": [
+        "normal"
+      ],
+      "last_step": 159,
+      "merge_states": [
+        "none"
+      ],
+      "v_max": 29.605357998719498,
+      "v_min": 19.789213583334295,
+      "x_max": 7280.758467611067,
+      "x_min": 6941.993939393939,
+      "y_max": 0.0,
+      "y_min": 0.0
+    },
+    "CLV_MERGE": {
+      "first_step": 20,
+      "lane_change_states": [
+        "normal"
+      ],
+      "last_step": 159,
+      "merge_states": [
+        "none"
+      ],
+      "v_max": 29.959578124477936,
+      "v_min": 18.4,
+      "x_max": 7450.697012501253,
+      "x_min": 7061.84,
+      "y_max": 0.0,
+      "y_min": 0.0
+    },
+    "CV_ACTIVE_LC": {
+      "first_step": 20,
+      "lane_change_states": [
+        "executing",
+        "normal"
+      ],
+      "last_step": 159,
+      "merge_states": [
+        "none"
+      ],
+      "v_max": 32.36032394516494,
+      "v_min": 20.4,
+      "x_max": 7313.850288405334,
+      "x_min": 6902.04,
+      "y_max": 3.5,
+      "y_min": 1.0570099874477326
+    },
+    "MV_ACTIVE_MERGE": {
+      "first_step": 20,
+      "lane_change_states": [
+        "normal"
+      ],
+      "last_step": 159,
+      "merge_states": [
+        "executing",
+        "merged"
+      ],
+      "v_max": 29.862444021950008,
+      "v_min": 18.0,
+      "x_max": 7364.9301343473235,
+      "x_min": 7011.8,
+      "y_max": 0.0,
+      "y_min": -2.195848769945919
+    },
+    "MV_CACHE": {
+      "first_step": 20,
+      "lane_change_states": [
+        "normal"
+      ],
+      "last_step": 159,
+      "merge_states": [
+        "executing",
+        "merged",
+        "not_started"
+      ],
+      "v_max": 28.107111770704307,
+      "v_min": 19.874380165289256,
+      "x_max": 7199.0107484808705,
+      "x_min": 6892.0,
+      "y_max": 0.0,
+      "y_min": -3.5
+    },
+    "TFV_ACTIVE": {
+      "first_step": 20,
+      "lane_change_states": [
+        "normal"
+      ],
+      "last_step": 159,
+      "merge_states": [
+        "none"
+      ],
+      "v_max": 29.967041106313523,
+      "v_min": 20.4,
+      "x_max": 7216.079101344847,
+      "x_min": 6822.04,
+      "y_max": 3.5,
+      "y_min": 3.5
+    },
+    "TLV_ACTIVE": {
+      "first_step": 20,
+      "lane_change_states": [
+        "normal"
+      ],
+      "last_step": 159,
+      "merge_states": [
+        "none"
+      ],
+      "v_max": 29.967041106313523,
+      "v_min": 20.4,
+      "x_max": 7356.079101344847,
+      "x_min": 6962.04,
+      "y_max": 3.5,
+      "y_min": 3.5
+    }
+  }
+}

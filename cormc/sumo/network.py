@@ -68,6 +68,8 @@ def build_p17_sumo_network(output_dir: str | Path, config: P17SumoNetworkConfig 
             str(net_file),
             "--no-turnarounds",
             "true",
+            "--offset.disable-normalization",
+            "true",
         ],
         check=True,
         capture_output=True,
@@ -96,7 +98,7 @@ def _nodes_xml() -> ET.Element:
         ("merge_start", 6950.0, 0.0),
         ("merge_end", 7250.0, 0.0),
         ("main_end", 10000.0, 0.0),
-        ("ramp_start", 6850.0, -3.5),
+        ("ramp_start", 6650.0, -3.5),
     ):
         ET.SubElement(nodes, "node", id=node_id, x=f"{x:.3f}", y=f"{y:.3f}", type="priority")
     return nodes
@@ -105,10 +107,10 @@ def _nodes_xml() -> ET.Element:
 def _edges_xml(config: P17SumoNetworkConfig) -> ET.Element:
     edges = ET.Element("edges")
     edge_specs = (
-        ("main_pre", "main_start", "merge_start", 2, "0.000,0.000 6950.000,0.000"),
+        ("main_pre", "main_start", "merge_start", 2, "0.000,1.750 6950.000,1.750"),
         ("merge_zone", "merge_start", "merge_end", 3, "6950.000,0.000 7250.000,0.000"),
-        ("main_post", "merge_end", "main_end", 2, "7250.000,0.000 10000.000,0.000"),
-        ("ramp_pre", "ramp_start", "merge_start", 1, "6850.000,-3.500 6950.000,-3.500 6950.000,0.000"),
+        ("main_post", "merge_end", "main_end", 2, "7250.000,1.750 10000.000,1.750"),
+        ("ramp_pre", "ramp_start", "merge_start", 1, "6650.000,-3.500 6950.000,-3.500"),
     )
     for edge_id, from_node, to_node, lanes, shape in edge_specs:
         ET.SubElement(
@@ -120,6 +122,7 @@ def _edges_xml(config: P17SumoNetworkConfig) -> ET.Element:
             speed=f"{config.speed_limit_mps:.2f}",
             width=f"{config.lane_width:.2f}",
             shape=shape,
+            spreadType="center",
         )
     return edges
 

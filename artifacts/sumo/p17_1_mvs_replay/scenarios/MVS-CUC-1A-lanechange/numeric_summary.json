@@ -1,0 +1,156 @@
+{
+  "actual_steps": 50,
+  "event_hits": {
+    "cfv_x_y_from_lane2_to_lane1": {
+      "detail": {
+        "first_step": 0,
+        "lane_change_states": [
+          "executing",
+          "normal"
+        ],
+        "last_step": 49,
+        "merge_states": [
+          "none"
+        ],
+        "v_max": 31.343892394543214,
+        "v_min": 20.072727272727274,
+        "x_max": 6973.834389762212,
+        "x_min": 6846.007272727273,
+        "y_max": 3.5,
+        "y_min": 0.0034783769402995657
+      },
+      "passed": true
+    },
+    "final_choice_change_to_lane_1": {
+      "detail": null,
+      "passed": true
+    },
+    "lane_change_command_created": {
+      "detail": null,
+      "passed": true
+    },
+    "lateral_trajectory_completed": {
+      "detail": null,
+      "passed": true
+    },
+    "same_step_overlay": {
+      "detail": null,
+      "passed": true
+    }
+  },
+  "event_type_counts": {
+    "APS": 50,
+    "CMC": 50,
+    "CUC": 90,
+    "assignment_cache": 50,
+    "boundary_generation": 50,
+    "cleanup": 50,
+    "commit": 250,
+    "cooperative_request": 50,
+    "freeze": 50,
+    "geometry": 50,
+    "information_integration": 50,
+    "lateral_trajectory": 38,
+    "longitudinal_model": 250,
+    "relation_refresh": 50,
+    "spacing_override_consumption": 12,
+    "time_advance": 50
+  },
+  "extended": true,
+  "numeric_gate_failures": [],
+  "numeric_gate_status": "passed",
+  "replay_id": "MVS-CUC-1A-lanechange",
+  "replay_max_steps": 50,
+  "source_scenario_id": "MVS-CUC-1A_override_choice1",
+  "step_range": [
+    0,
+    49
+  ],
+  "t_range": [
+    0.0,
+    4.899999999999999
+  ],
+  "vehicle_ranges": {
+    "CFV_X": {
+      "first_step": 0,
+      "lane_change_states": [
+        "executing",
+        "normal"
+      ],
+      "last_step": 49,
+      "merge_states": [
+        "none"
+      ],
+      "v_max": 31.343892394543214,
+      "v_min": 20.072727272727274,
+      "x_max": 6973.834389762212,
+      "x_min": 6846.007272727273,
+      "y_max": 3.5,
+      "y_min": 0.0034783769402995657
+    },
+    "CLV_Y": {
+      "first_step": 0,
+      "lane_change_states": [
+        "normal"
+      ],
+      "last_step": 49,
+      "merge_states": [
+        "none"
+      ],
+      "v_max": 28.701142064779617,
+      "v_min": 20.4,
+      "x_max": 7013.117259044528,
+      "x_min": 6886.04,
+      "y_max": 0.0,
+      "y_min": 0.0
+    },
+    "MV_CUC": {
+      "first_step": 0,
+      "lane_change_states": [
+        "normal"
+      ],
+      "last_step": 49,
+      "merge_states": [
+        "not_started"
+      ],
+      "v_max": 20.0,
+      "v_min": 20.0,
+      "x_max": 6950.0,
+      "x_min": 6852.0,
+      "y_max": -3.5,
+      "y_min": -3.5
+    },
+    "TFV": {
+      "first_step": 0,
+      "lane_change_states": [
+        "normal"
+      ],
+      "last_step": 49,
+      "merge_states": [
+        "none"
+      ],
+      "v_max": 28.701142064779617,
+      "v_min": 20.4,
+      "x_max": 6879.117259044528,
+      "x_min": 6752.04,
+      "y_max": 3.5,
+      "y_min": 3.5
+    },
+    "TLV": {
+      "first_step": 0,
+      "lane_change_states": [
+        "normal"
+      ],
+      "last_step": 49,
+      "merge_states": [
+        "none"
+      ],
+      "v_max": 28.960913651823695,
+      "v_min": 22.32,
+      "x_max": 7053.293807235623,
+      "x_min": 6922.232,
+      "y_max": 3.5,
+      "y_min": 3.5
+    }
+  }
+}

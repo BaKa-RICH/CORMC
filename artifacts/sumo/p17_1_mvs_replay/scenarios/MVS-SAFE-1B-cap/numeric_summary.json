@@ -1,0 +1,103 @@
+{
+  "actual_steps": 320,
+  "event_hits": {
+    "lateral_trajectory_consumes_speed_cap": {
+      "detail": null,
+      "passed": true
+    },
+    "mv_safe_exec_remains_executing": {
+      "detail": [
+        "executing"
+      ],
+      "passed": true
+    },
+    "no_merge_complete": {
+      "detail": null,
+      "passed": true
+    },
+    "speed_cap_binding": {
+      "detail": null,
+      "passed": true
+    }
+  },
+  "event_type_counts": {
+    "APS": 320,
+    "CMC": 960,
+    "CUC": 320,
+    "boundary_generation": 320,
+    "cleanup": 320,
+    "commit": 960,
+    "freeze": 320,
+    "geometry": 320,
+    "information_integration": 320,
+    "lateral_trajectory": 320,
+    "longitudinal_model": 960,
+    "relation_refresh": 320,
+    "speed_cap": 320,
+    "time_advance": 320
+  },
+  "extended": true,
+  "numeric_gate_failures": [],
+  "numeric_gate_status": "passed",
+  "replay_id": "MVS-SAFE-1B-cap",
+  "replay_max_steps": 320,
+  "source_scenario_id": "MVS-SAFE-1B_executing_cap_lateral_consumption",
+  "step_range": [
+    0,
+    319
+  ],
+  "t_range": [
+    0.0,
+    31.900000000000183
+  ],
+  "vehicle_ranges": {
+    "CFV_SAFE_EXEC": {
+      "first_step": 0,
+      "lane_change_states": [
+        "normal"
+      ],
+      "last_step": 319,
+      "merge_states": [
+        "none"
+      ],
+      "v_max": 29.99996807857706,
+      "v_min": 16.4,
+      "x_max": 8114.200076611415,
+      "x_min": 7191.64,
+      "y_max": 0.0,
+      "y_min": 0.0
+    },
+    "CLV_SAFE_EXEC": {
+      "first_step": 0,
+      "lane_change_states": [
+        "normal"
+      ],
+      "last_step": 319,
+      "merge_states": [
+        "none"
+      ],
+      "v_max": 29.99996807857706,
+      "v_min": 16.4,
+      "x_max": 8194.200076611416,
+      "x_min": 7271.64,
+      "y_max": 0.0,
+      "y_min": 0.0
+    },
+    "MV_SAFE_EXEC": {
+      "first_step": 0,
+      "lane_change_states": [
+        "normal"
+      ],
+      "last_step": 319,
+      "merge_states": [
+        "executing"
+      ],
+      "v_max": 2.6295029405356662,
+      "v_min": 0.0011692583867280875,
+      "x_max": 7245.995225567074,
+      "x_min": 7235.262950294054,
+      "y_max": -2.238486495797157,
+      "y_min": -2.76689371574826
+    }
+  }
+}

@@ -1,0 +1,281 @@
+{
+  "actual_steps": 50,
+  "artifact_schema": "p17_1_mvs_replay_scenario.v1",
+  "extended": true,
+  "gui_smoke_status": {
+    "closed_on_finish": true,
+    "error": null,
+    "replay_jsonl": "D:\\PycharmProjects\\CORMC\\artifacts\\sumo\\p17_1_mvs_replay\\scenarios\\MVS-CUC-1A-lanechange\\replay_trajectory.jsonl",
+    "replayed_steps": 50,
+    "replayed_vehicle_ids": [
+      "CFV_X",
+      "CLV_Y",
+      "MV_CUC",
+      "TFV",
+      "TLV"
+    ],
+    "status": "ok",
+    "sumo_gui_started": true,
+    "sumocfg_file": "D:\\PycharmProjects\\CORMC\\artifacts\\sumo\\p17_1_mvs_replay\\scenarios\\MVS-CUC-1A-lanechange\\sumo\\p17.sumocfg",
+    "track_vehicle_id": "CFV_X"
+  },
+  "lane_centerline_check": {
+    "expected_centerlines": {
+      "main_post_0": 0.0,
+      "main_post_1": 3.5,
+      "main_pre_0": 0.0,
+      "main_pre_1": 3.5,
+      "merge_zone_0": -3.5,
+      "merge_zone_1": 0.0,
+      "merge_zone_2": 3.5,
+      "ramp_pre_0": -3.5
+    },
+    "failures": [],
+    "observed_centerlines": {
+      "main_post_0": 0.0,
+      "main_post_1": 3.5,
+      "main_pre_0": 0.0,
+      "main_pre_1": 3.5,
+      "merge_zone_0": -3.5,
+      "merge_zone_1": 0.0,
+      "merge_zone_2": 3.5,
+      "ramp_pre_0": -3.5
+    },
+    "status": "passed",
+    "tolerance_m": 0.05
+  },
+  "manual_replay_command": "& \"D:\\PycharmProjects\\CORMC\\artifacts\\sumo\\p17_1_mvs_replay\\scenarios\\MVS-CUC-1A-lanechange\\play_gui_replay.ps1\"",
+  "numeric_gate_status": "passed",
+  "numeric_summary": {
+    "actual_steps": 50,
+    "event_hits": {
+      "cfv_x_y_from_lane2_to_lane1": {
+        "detail": {
+          "first_step": 0,
+          "lane_change_states": [
+            "executing",
+            "normal"
+          ],
+          "last_step": 49,
+          "merge_states": [
+            "none"
+          ],
+          "v_max": 31.343892394543214,
+          "v_min": 20.072727272727274,
+          "x_max": 6973.834389762212,
+          "x_min": 6846.007272727273,
+          "y_max": 3.5,
+          "y_min": 0.0034783769402995657
+        },
+        "passed": true
+      },
+      "final_choice_change_to_lane_1": {
+        "detail": null,
+        "passed": true
+      },
+      "lane_change_command_created": {
+        "detail": null,
+        "passed": true
+      },
+      "lateral_trajectory_completed": {
+        "detail": null,
+        "passed": true
+      },
+      "same_step_overlay": {
+        "detail": null,
+        "passed": true
+      }
+    },
+    "event_type_counts": {
+      "APS": 50,
+      "CMC": 50,
+      "CUC": 90,
+      "assignment_cache": 50,
+      "boundary_generation": 50,
+      "cleanup": 50,
+      "commit": 250,
+      "cooperative_request": 50,
+      "freeze": 50,
+      "geometry": 50,
+      "information_integration": 50,
+      "lateral_trajectory": 38,
+      "longitudinal_model": 250,
+      "relation_refresh": 50,
+      "spacing_override_consumption": 12,
+      "time_advance": 50
+    },
+    "extended": true,
+    "numeric_gate_failures": [],
+    "numeric_gate_status": "passed",
+    "replay_id": "MVS-CUC-1A-lanechange",
+    "replay_max_steps": 50,
+    "source_scenario_id": "MVS-CUC-1A_override_choice1",
+    "step_range": [
+      0,
+      49
+    ],
+    "t_range": [
+      0.0,
+      4.899999999999999
+    ],
+    "vehicle_ranges": {
+      "CFV_X": {
+        "first_step": 0,
+        "lane_change_states": [
+          "executing",
+          "normal"
+        ],
+        "last_step": 49,
+        "merge_states": [
+          "none"
+        ],
+        "v_max": 31.343892394543214,
+        "v_min": 20.072727272727274,
+        "x_max": 6973.834389762212,
+        "x_min": 6846.007272727273,
+        "y_max": 3.5,
+        "y_min": 0.0034783769402995657
+      },
+      "CLV_Y": {
+        "first_step": 0,
+        "lane_change_states": [
+          "normal"
+        ],
+        "last_step": 49,
+        "merge_states": [
+          "none"
+        ],
+        "v_max": 28.701142064779617,
+        "v_min": 20.4,
+        "x_max": 7013.117259044528,
+        "x_min": 6886.04,
+        "y_max": 0.0,
+        "y_min": 0.0
+      },
+      "MV_CUC": {
+        "first_step": 0,
+        "lane_change_states": [
+          "normal"
+        ],
+        "last_step": 49,
+        "merge_states": [
+          "not_started"
+        ],
+        "v_max": 20.0,
+        "v_min": 20.0,
+        "x_max": 6950.0,
+        "x_min": 6852.0,
+        "y_max": -3.5,
+        "y_min": -3.5
+      },
+      "TFV": {
+        "first_step": 0,
+        "lane_change_states": [
+          "normal"
+        ],
+        "last_step": 49,
+        "merge_states": [
+          "none"
+        ],
+        "v_max": 28.701142064779617,
+        "v_min": 20.4,
+        "x_max": 6879.117259044528,
+        "x_min": 6752.04,
+        "y_max": 3.5,
+        "y_min": 3.5
+      },
+      "TLV": {
+        "first_step": 0,
+        "lane_change_states": [
+          "normal"
+        ],
+        "last_step": 49,
+        "merge_states": [
+          "none"
+        ],
+        "v_max": 28.960913651823695,
+        "v_min": 22.32,
+        "x_max": 7053.293807235623,
+        "x_min": 6922.232,
+        "y_max": 3.5,
+        "y_min": 3.5
+      }
+    }
+  },
+  "p17_1_replay_max_steps": 50,
+  "paths": {
+    "artifact_manifest_json": "D:\\PycharmProjects\\CORMC\\artifacts\\sumo\\p17_1_mvs_replay\\scenarios\\MVS-CUC-1A-lanechange\\artifact_manifest.json",
+    "events_jsonl": "D:\\PycharmProjects\\CORMC\\artifacts\\sumo\\p17_1_mvs_replay\\scenarios\\MVS-CUC-1A-lanechange\\events.jsonl",
+    "gui_smoke_status_json": "D:\\PycharmProjects\\CORMC\\artifacts\\sumo\\p17_1_mvs_replay\\scenarios\\MVS-CUC-1A-lanechange\\gui_smoke_status.json",
+    "numeric_summary_json": "D:\\PycharmProjects\\CORMC\\artifacts\\sumo\\p17_1_mvs_replay\\scenarios\\MVS-CUC-1A-lanechange\\numeric_summary.json",
+    "play_gui_replay_ps1": "D:\\PycharmProjects\\CORMC\\artifacts\\sumo\\p17_1_mvs_replay\\scenarios\\MVS-CUC-1A-lanechange\\play_gui_replay.ps1",
+    "replay_trajectory_jsonl": "D:\\PycharmProjects\\CORMC\\artifacts\\sumo\\p17_1_mvs_replay\\scenarios\\MVS-CUC-1A-lanechange\\replay_trajectory.jsonl",
+    "sanity_jsonl": "D:\\PycharmProjects\\CORMC\\artifacts\\sumo\\p17_1_mvs_replay\\scenarios\\MVS-CUC-1A-lanechange\\sanity.jsonl",
+    "scenario_report_md": "D:\\PycharmProjects\\CORMC\\artifacts\\sumo\\p17_1_mvs_replay\\scenarios\\MVS-CUC-1A-lanechange\\scenario_report.md",
+    "sumo_config": "D:\\PycharmProjects\\CORMC\\artifacts\\sumo\\p17_1_mvs_replay\\scenarios\\MVS-CUC-1A-lanechange\\sumo\\p17.sumocfg",
+    "trajectory_csv": "D:\\PycharmProjects\\CORMC\\artifacts\\sumo\\p17_1_mvs_replay\\scenarios\\MVS-CUC-1A-lanechange\\trajectory.csv"
+  },
+  "primary_vehicle_ids": [
+    "CFV_X",
+    "MV_CUC",
+    "CLV_Y",
+    "TLV",
+    "TFV"
+  ],
+  "replay_fidelity": {
+    "checked_records": 250,
+    "mismatches": [],
+    "status": "passed"
+  },
+  "replay_id": "MVS-CUC-1A-lanechange",
+  "required_suite_default_steps": 1,
+  "role_color_legend": {
+    "background": [
+      160,
+      160,
+      160
+    ],
+    "cfv_active_cooperative": [
+      245,
+      140,
+      0
+    ],
+    "clv": [
+      0,
+      160,
+      90
+    ],
+    "mv_on_ramp_active": [
+      0,
+      90,
+      220
+    ],
+    "tfv": [
+      0,
+      170,
+      180
+    ],
+    "tlv": [
+      120,
+      80,
+      220
+    ]
+  },
+  "role_map": {
+    "CFV_X": "cfv_active_cooperative",
+    "CLV_Y": "clv",
+    "MV_CUC": "mv_on_ramp_active",
+    "TFV": "tfv",
+    "TLV": "tlv"
+  },
+  "run_id": "p17_1_mvs_replay",
+  "simulation_status": "max_steps_reached",
+  "source_scenario_id": "MVS-CUC-1A_override_choice1",
+  "t_range": [
+    0.0,
+    4.899999999999999
+  ],
+  "track_vehicle_id": "CFV_X",
+  "what_this_does_not_validate": "It does not show a full CUC-to-CMC merge completion chain. It is not SUMO-native traffic behavior and does not replace P17 true closed-loop validation.",
+  "what_this_validates": "CUC choice 1, lane-change command, same-step overlay, and mainline lateral intervention."
+}

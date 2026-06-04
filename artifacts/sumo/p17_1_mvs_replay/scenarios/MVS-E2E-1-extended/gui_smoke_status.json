@@ -1,0 +1,16 @@
+{
+  "closed_on_finish": false,
+  "error": null,
+  "replay_jsonl": "D:\\PycharmProjects\\CORMC\\artifacts\\sumo\\p17_1_mvs_replay\\scenarios\\MVS-E2E-1-extended\\replay_trajectory.jsonl",
+  "replayed_steps": 140,
+  "replayed_vehicle_ids": [
+    "BG_LANE1_DEMO",
+    "CFV_DEMO",
+    "CLV_DEMO",
+    "MV_DEMO"
+  ],
+  "status": "ok",
+  "sumo_gui_started": true,
+  "sumocfg_file": "D:\\PycharmProjects\\CORMC\\artifacts\\sumo\\p17_1_mvs_replay\\scenarios\\MVS-E2E-1-extended\\sumo\\p17.sumocfg",
+  "track_vehicle_id": "MV_DEMO"
+}

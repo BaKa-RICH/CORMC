@@ -1,0 +1,114 @@
+{
+  "actual_steps": 90,
+  "event_hits": {
+    "mv_cmc_1_y_from_ramp_to_mainline": {
+      "detail": {
+        "first_step": 0,
+        "lane_change_states": [
+          "normal"
+        ],
+        "last_step": 89,
+        "merge_states": [
+          "executing",
+          "merged"
+        ],
+        "v_max": 28.913500181635186,
+        "v_min": 20.4,
+        "x_max": 7235.322978130204,
+        "x_min": 7002.04,
+        "y_max": 0.0,
+        "y_min": -3.496407312203532
+      },
+      "passed": true
+    },
+    "step0_eq53_pass": {
+      "detail": null,
+      "passed": true
+    },
+    "step0_merge_start": {
+      "detail": null,
+      "passed": true
+    }
+  },
+  "event_type_counts": {
+    "APS": 38,
+    "CMC": 117,
+    "CUC": 90,
+    "boundary_generation": 90,
+    "cleanup": 90,
+    "commit": 270,
+    "freeze": 90,
+    "geometry": 90,
+    "information_integration": 90,
+    "lateral_trajectory": 38,
+    "longitudinal_model": 270,
+    "relation_refresh": 90,
+    "speed_cap": 38,
+    "time_advance": 90
+  },
+  "extended": true,
+  "numeric_gate_failures": [],
+  "numeric_gate_status": "passed",
+  "replay_id": "MVS-CMC-1-extended",
+  "replay_max_steps": 90,
+  "source_scenario_id": "MVS-CMC-1",
+  "step_range": [
+    0,
+    89
+  ],
+  "t_range": [
+    0.0,
+    8.899999999999984
+  ],
+  "vehicle_ranges": {
+    "CFV_CMC_1": {
+      "first_step": 0,
+      "lane_change_states": [
+        "normal"
+      ],
+      "last_step": 89,
+      "merge_states": [
+        "none"
+      ],
+      "v_max": 32.272876841861745,
+      "v_min": 19.878215054231053,
+      "x_max": 7199.4704366819215,
+      "x_min": 6972.04,
+      "y_max": 0.0,
+      "y_min": 0.0
+    },
+    "CLV_CMC_1": {
+      "first_step": 0,
+      "lane_change_states": [
+        "normal"
+      ],
+      "last_step": 89,
+      "merge_states": [
+        "none"
+      ],
+      "v_max": 29.7462471237789,
+      "v_min": 20.4,
+      "x_max": 7276.609006902929,
+      "x_min": 7032.04,
+      "y_max": 0.0,
+      "y_min": 0.0
+    },
+    "MV_CMC_1": {
+      "first_step": 0,
+      "lane_change_states": [
+        "normal"
+      ],
+      "last_step": 89,
+      "merge_states": [
+        "executing",
+        "merged"
+      ],
+      "v_max": 28.913500181635186,
+      "v_min": 20.4,
+      "x_max": 7235.322978130204,
+      "x_min": 7002.04,
+      "y_max": 0.0,
+      "y_min": -3.496407312203532
+    }
+  }
+}

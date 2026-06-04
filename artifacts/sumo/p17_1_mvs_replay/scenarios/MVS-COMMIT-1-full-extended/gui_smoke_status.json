@@ -1,0 +1,21 @@
+{
+  "closed_on_finish": false,
+  "error": null,
+  "replay_jsonl": "D:\\PycharmProjects\\CORMC\\artifacts\\sumo\\p17_1_mvs_replay\\scenarios\\MVS-COMMIT-1-full-extended\\replay_trajectory.jsonl",
+  "replayed_steps": 140,
+  "replayed_vehicle_ids": [
+    "CFV_CACHE",
+    "CFV_MERGE",
+    "CLV_CACHE",
+    "CLV_MERGE",
+    "CV_ACTIVE_LC",
+    "MV_ACTIVE_MERGE",
+    "MV_CACHE",
+    "TFV_ACTIVE",
+    "TLV_ACTIVE"
+  ],
+  "status": "ok",
+  "sumo_gui_started": true,
+  "sumocfg_file": "D:\\PycharmProjects\\CORMC\\artifacts\\sumo\\p17_1_mvs_replay\\scenarios\\MVS-COMMIT-1-full-extended\\sumo\\p17.sumocfg",
+  "track_vehicle_id": "MV_ACTIVE_MERGE"
+}

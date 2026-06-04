@@ -1,0 +1,391 @@
+{
+  "actual_steps": 140,
+  "artifact_schema": "p17_1_mvs_replay_scenario.v1",
+  "extended": true,
+  "gui_smoke_status": {
+    "closed_on_finish": true,
+    "error": null,
+    "replay_jsonl": "D:\\PycharmProjects\\CORMC\\artifacts\\sumo\\p17_1_mvs_replay\\scenarios\\MVS-COMMIT-1-full-extended\\replay_trajectory.jsonl",
+    "replayed_steps": 140,
+    "replayed_vehicle_ids": [
+      "CFV_CACHE",
+      "CFV_MERGE",
+      "CLV_CACHE",
+      "CLV_MERGE",
+      "CV_ACTIVE_LC",
+      "MV_ACTIVE_MERGE",
+      "MV_CACHE",
+      "TFV_ACTIVE",
+      "TLV_ACTIVE"
+    ],
+    "status": "ok",
+    "sumo_gui_started": true,
+    "sumocfg_file": "D:\\PycharmProjects\\CORMC\\artifacts\\sumo\\p17_1_mvs_replay\\scenarios\\MVS-COMMIT-1-full-extended\\sumo\\p17.sumocfg",
+    "track_vehicle_id": "MV_ACTIVE_MERGE"
+  },
+  "lane_centerline_check": {
+    "expected_centerlines": {
+      "main_post_0": 0.0,
+      "main_post_1": 3.5,
+      "main_pre_0": 0.0,
+      "main_pre_1": 3.5,
+      "merge_zone_0": -3.5,
+      "merge_zone_1": 0.0,
+      "merge_zone_2": 3.5,
+      "ramp_pre_0": -3.5
+    },
+    "failures": [],
+    "observed_centerlines": {
+      "main_post_0": 0.0,
+      "main_post_1": 3.5,
+      "main_pre_0": 0.0,
+      "main_pre_1": 3.5,
+      "merge_zone_0": -3.5,
+      "merge_zone_1": 0.0,
+      "merge_zone_2": 3.5,
+      "ramp_pre_0": -3.5
+    },
+    "status": "passed",
+    "tolerance_m": 0.05
+  },
+  "manual_replay_command": "& \"D:\\PycharmProjects\\CORMC\\artifacts\\sumo\\p17_1_mvs_replay\\scenarios\\MVS-COMMIT-1-full-extended\\play_gui_replay.ps1\"",
+  "numeric_gate_status": "passed",
+  "numeric_summary": {
+    "actual_steps": 140,
+    "event_hits": {
+      "commit_sanity_all_pass": {
+        "detail": null,
+        "passed": true
+      },
+      "cv_active_lc_y_to_lane1": {
+        "detail": {
+          "first_step": 20,
+          "lane_change_states": [
+            "executing",
+            "normal"
+          ],
+          "last_step": 159,
+          "merge_states": [
+            "none"
+          ],
+          "v_max": 32.36032394516494,
+          "v_min": 20.4,
+          "x_max": 7313.850288405334,
+          "x_min": 6902.04,
+          "y_max": 3.5,
+          "y_min": 1.0570099874477326
+        },
+        "passed": true
+      },
+      "mv_active_merge_y_to_mainline": {
+        "detail": {
+          "first_step": 20,
+          "lane_change_states": [
+            "normal"
+          ],
+          "last_step": 159,
+          "merge_states": [
+            "executing",
+            "merged"
+          ],
+          "v_max": 29.862444021950008,
+          "v_min": 18.0,
+          "x_max": 7364.9301343473235,
+          "x_min": 7011.8,
+          "y_max": 0.0,
+          "y_min": -2.195848769945919
+        },
+        "passed": true
+      },
+      "mv_cache_y_to_mainline": {
+        "detail": {
+          "first_step": 20,
+          "lane_change_states": [
+            "normal"
+          ],
+          "last_step": 159,
+          "merge_states": [
+            "executing",
+            "merged",
+            "not_started"
+          ],
+          "v_max": 28.107111770704307,
+          "v_min": 19.874380165289256,
+          "x_max": 7199.0107484808705,
+          "x_min": 6892.0,
+          "y_max": 0.0,
+          "y_min": -3.5
+        },
+        "passed": true
+      },
+      "unique_commit_per_vehicle_step": {
+        "detail": null,
+        "passed": true
+      }
+    },
+    "event_type_counts": {
+      "APS": 107,
+      "CMC": 264,
+      "CUC": 140,
+      "assignment_cache": 30,
+      "boundary_generation": 140,
+      "cleanup": 140,
+      "commit": 1260,
+      "freeze": 140,
+      "geometry": 140,
+      "information_integration": 140,
+      "lateral_trajectory": 101,
+      "longitudinal_model": 1260,
+      "relation_refresh": 140,
+      "speed_cap": 77,
+      "time_advance": 140
+    },
+    "extended": true,
+    "numeric_gate_failures": [],
+    "numeric_gate_status": "passed",
+    "replay_id": "MVS-COMMIT-1-full-extended",
+    "replay_max_steps": 140,
+    "source_scenario_id": "MVS-COMMIT-1-full",
+    "step_range": [
+      20,
+      159
+    ],
+    "t_range": [
+      2.0,
+      15.89999999999996
+    ],
+    "vehicle_ranges": {
+      "CFV_CACHE": {
+        "first_step": 20,
+        "lane_change_states": [
+          "normal"
+        ],
+        "last_step": 159,
+        "merge_states": [
+          "none"
+        ],
+        "v_max": 32.408125011009034,
+        "v_min": 20.4,
+        "x_max": 7239.512845537333,
+        "x_min": 6842.04,
+        "y_max": 0.0,
+        "y_min": 0.0
+      },
+      "CFV_MERGE": {
+        "first_step": 20,
+        "lane_change_states": [
+          "normal"
+        ],
+        "last_step": 159,
+        "merge_states": [
+          "none"
+        ],
+        "v_max": 29.79698614487779,
+        "v_min": 18.4,
+        "x_max": 7322.766042179458,
+        "x_min": 6971.84,
+        "y_max": 0.0,
+        "y_min": 0.0
+      },
+      "CLV_CACHE": {
+        "first_step": 20,
+        "lane_change_states": [
+          "normal"
+        ],
+        "last_step": 159,
+        "merge_states": [
+          "none"
+        ],
+        "v_max": 29.605357998719498,
+        "v_min": 19.789213583334295,
+        "x_max": 7280.758467611067,
+        "x_min": 6941.993939393939,
+        "y_max": 0.0,
+        "y_min": 0.0
+      },
+      "CLV_MERGE": {
+        "first_step": 20,
+        "lane_change_states": [
+          "normal"
+        ],
+        "last_step": 159,
+        "merge_states": [
+          "none"
+        ],
+        "v_max": 29.959578124477936,
+        "v_min": 18.4,
+        "x_max": 7450.697012501253,
+        "x_min": 7061.84,
+        "y_max": 0.0,
+        "y_min": 0.0
+      },
+      "CV_ACTIVE_LC": {
+        "first_step": 20,
+        "lane_change_states": [
+          "executing",
+          "normal"
+        ],
+        "last_step": 159,
+        "merge_states": [
+          "none"
+        ],
+        "v_max": 32.36032394516494,
+        "v_min": 20.4,
+        "x_max": 7313.850288405334,
+        "x_min": 6902.04,
+        "y_max": 3.5,
+        "y_min": 1.0570099874477326
+      },
+      "MV_ACTIVE_MERGE": {
+        "first_step": 20,
+        "lane_change_states": [
+          "normal"
+        ],
+        "last_step": 159,
+        "merge_states": [
+          "executing",
+          "merged"
+        ],
+        "v_max": 29.862444021950008,
+        "v_min": 18.0,
+        "x_max": 7364.9301343473235,
+        "x_min": 7011.8,
+        "y_max": 0.0,
+        "y_min": -2.195848769945919
+      },
+      "MV_CACHE": {
+        "first_step": 20,
+        "lane_change_states": [
+          "normal"
+        ],
+        "last_step": 159,
+        "merge_states": [
+          "executing",
+          "merged",
+          "not_started"
+        ],
+        "v_max": 28.107111770704307,
+        "v_min": 19.874380165289256,
+        "x_max": 7199.0107484808705,
+        "x_min": 6892.0,
+        "y_max": 0.0,
+        "y_min": -3.5
+      },
+      "TFV_ACTIVE": {
+        "first_step": 20,
+        "lane_change_states": [
+          "normal"
+        ],
+        "last_step": 159,
+        "merge_states": [
+          "none"
+        ],
+        "v_max": 29.967041106313523,
+        "v_min": 20.4,
+        "x_max": 7216.079101344847,
+        "x_min": 6822.04,
+        "y_max": 3.5,
+        "y_min": 3.5
+      },
+      "TLV_ACTIVE": {
+        "first_step": 20,
+        "lane_change_states": [
+          "normal"
+        ],
+        "last_step": 159,
+        "merge_states": [
+          "none"
+        ],
+        "v_max": 29.967041106313523,
+        "v_min": 20.4,
+        "x_max": 7356.079101344847,
+        "x_min": 6962.04,
+        "y_max": 3.5,
+        "y_min": 3.5
+      }
+    }
+  },
+  "p17_1_replay_max_steps": 140,
+  "paths": {
+    "artifact_manifest_json": "D:\\PycharmProjects\\CORMC\\artifacts\\sumo\\p17_1_mvs_replay\\scenarios\\MVS-COMMIT-1-full-extended\\artifact_manifest.json",
+    "events_jsonl": "D:\\PycharmProjects\\CORMC\\artifacts\\sumo\\p17_1_mvs_replay\\scenarios\\MVS-COMMIT-1-full-extended\\events.jsonl",
+    "gui_smoke_status_json": "D:\\PycharmProjects\\CORMC\\artifacts\\sumo\\p17_1_mvs_replay\\scenarios\\MVS-COMMIT-1-full-extended\\gui_smoke_status.json",
+    "numeric_summary_json": "D:\\PycharmProjects\\CORMC\\artifacts\\sumo\\p17_1_mvs_replay\\scenarios\\MVS-COMMIT-1-full-extended\\numeric_summary.json",
+    "play_gui_replay_ps1": "D:\\PycharmProjects\\CORMC\\artifacts\\sumo\\p17_1_mvs_replay\\scenarios\\MVS-COMMIT-1-full-extended\\play_gui_replay.ps1",
+    "replay_trajectory_jsonl": "D:\\PycharmProjects\\CORMC\\artifacts\\sumo\\p17_1_mvs_replay\\scenarios\\MVS-COMMIT-1-full-extended\\replay_trajectory.jsonl",
+    "sanity_jsonl": "D:\\PycharmProjects\\CORMC\\artifacts\\sumo\\p17_1_mvs_replay\\scenarios\\MVS-COMMIT-1-full-extended\\sanity.jsonl",
+    "scenario_report_md": "D:\\PycharmProjects\\CORMC\\artifacts\\sumo\\p17_1_mvs_replay\\scenarios\\MVS-COMMIT-1-full-extended\\scenario_report.md",
+    "sumo_config": "D:\\PycharmProjects\\CORMC\\artifacts\\sumo\\p17_1_mvs_replay\\scenarios\\MVS-COMMIT-1-full-extended\\sumo\\p17.sumocfg",
+    "trajectory_csv": "D:\\PycharmProjects\\CORMC\\artifacts\\sumo\\p17_1_mvs_replay\\scenarios\\MVS-COMMIT-1-full-extended\\trajectory.csv"
+  },
+  "primary_vehicle_ids": [
+    "CV_ACTIVE_LC",
+    "MV_ACTIVE_MERGE",
+    "MV_CACHE"
+  ],
+  "replay_fidelity": {
+    "checked_records": 1260,
+    "mismatches": [],
+    "status": "passed"
+  },
+  "replay_id": "MVS-COMMIT-1-full-extended",
+  "required_suite_default_steps": 1,
+  "role_color_legend": {
+    "active_cooperative_cv": [
+      245,
+      140,
+      0
+    ],
+    "background": [
+      160,
+      160,
+      160
+    ],
+    "cfv": [
+      245,
+      140,
+      0
+    ],
+    "clv": [
+      0,
+      160,
+      90
+    ],
+    "mv_on_ramp_active": [
+      0,
+      90,
+      220
+    ],
+    "tfv": [
+      0,
+      170,
+      180
+    ],
+    "tlv": [
+      120,
+      80,
+      220
+    ]
+  },
+  "role_map": {
+    "CFV_CACHE": "cfv",
+    "CFV_MERGE": "cfv",
+    "CLV_CACHE": "clv",
+    "CLV_MERGE": "clv",
+    "CV_ACTIVE_LC": "active_cooperative_cv",
+    "MV_ACTIVE_MERGE": "mv_on_ramp_active",
+    "MV_CACHE": "mv_on_ramp_active",
+    "TFV_ACTIVE": "tfv",
+    "TLV_ACTIVE": "tlv"
+  },
+  "run_id": "p17_1_mvs_replay",
+  "simulation_status": "max_steps_reached",
+  "source_scenario_id": "MVS-COMMIT-1-full",
+  "t_range": [
+    2.0,
+    15.89999999999996
+  ],
+  "track_vehicle_id": "MV_ACTIVE_MERGE",
+  "what_this_does_not_validate": "It does not add a new APS case 1/2/3/4 long end-to-end strong scenario. It is not SUMO-native traffic behavior and does not replace P17 true closed-loop validation.",
+  "what_this_validates": "Active trajectory continuation, non-APS cache behavior, and one commit per vehicle per step."
+}
