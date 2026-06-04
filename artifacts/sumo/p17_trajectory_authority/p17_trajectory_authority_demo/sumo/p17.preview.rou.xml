@@ -1,0 +1,11 @@
+<?xml version='1.0' encoding='utf-8'?>
+<routes>
+  <vType id="cormc_active" length="5.0" width="1.8" minGap="2.5" accel="2.6" decel="4.5" sigma="0.0" color="0,90,220" latAlignment="center" />
+  <vType id="sumo_background" length="5.0" width="1.8" minGap="2.5" accel="2.0" decel="4.5" tau="1.0" sigma="0.5" carFollowModel="IDM" laneChangeModel="SL2015" color="160,160,160" latAlignment="center" />
+  <route id="route_main" edges="main_pre merge_zone main_post" />
+  <route id="route_ramp" edges="ramp_pre merge_zone main_post" />
+  <vehicle id="preview_BG_0" type="sumo_background" route="route_main" depart="0.0" departLane="0" departPos="6890.600" departSpeed="20.000" color="180,180,180" />
+  <vehicle id="preview_BG_1" type="sumo_background" route="route_main" depart="0.0" departLane="1" departPos="6932.600" departSpeed="21.000" color="180,180,180" />
+  <vehicle id="preview_MV_ACTIVE" type="cormc_active" route="route_ramp" depart="0" departLane="0" departPos="39.640" departSpeed="16.400" color="0,150,255" />
+  <vehicle id="preview_p16_16001_on_ramp_0000" type="cormc_active" route="route_ramp" depart="4.1" departLane="0" departPos="1.640" departSpeed="16.400" color="0,150,255" />
+</routes>

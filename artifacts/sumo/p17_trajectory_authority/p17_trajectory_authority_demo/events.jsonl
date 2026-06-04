@@ -1,0 +1,1 @@
+{"active_ids": ["MV_ACTIVE", "p16_16001_on_ramp_0000"], "background_sample": ["BG_0", "BG_1"], "blocked_count": 0, "command_count": 79, "event_type": "p17_closed_loop_summary", "generated_count": 1, "run_id": "p17_trajectory_authority_demo", "status": "ok", "steps": 60}

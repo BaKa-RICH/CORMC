@@ -42,10 +42,12 @@ def test_p04_to_p16_are_implemented_green_after_p16_closure() -> None:
         assert rows[pxx][10] == "是"
 
 
-def test_p17_to_p18_remain_registered_future_route() -> None:
+def test_p17_is_implemented_green_and_p18_remains_registered_future_route() -> None:
     rows = _traceability_rows()
 
-    for index in range(17, 19):
+    assert rows["P17"][9] == "implemented_green"
+    assert rows["P17"][10] == "是"
+    for index in range(18, 19):
         pxx = f"P{index:02d}"
         assert pxx in rows
         assert rows[pxx][9] == "trace_registered"
@@ -109,21 +111,21 @@ def test_engineering_patches_require_source_reason_and_engineering_patch_flag() 
         assert patch_name in text
 
 
-def test_p04_to_p16_current_facts_do_not_backslide_to_registered_only() -> None:
+def test_p04_to_p17_current_facts_do_not_backslide_to_registered_only() -> None:
     text = _p00_text()
     rows = _traceability_rows()
 
     assert "P04-P12 缺完整执行计划不应导致 P00 失败" not in text
-    assert "P04-P16 的追踪条目反映当前已完成事实" in text
-    assert "P17-P18 的完整执行计划在对应阶段另行编写" in text
-    assert "P17-P18 在 P00 中只登记后续路线" in text
+    assert "P04-P17 的追踪条目反映当前已完成事实" in text
+    assert "P18 的完整执行计划在对应阶段另行编写" in text
+    assert "P18 在 P00 中只登记后续路线" in text
     assert "20 required MVS" in text
     assert "pre_p15" in text
     assert "post_p15" in text
     assert "p15_comparison_report.json" in text
     assert "P16 seeded random internal demo" in text
-    assert all(rows[f"P{index:02d}"][9] == "implemented_green" for index in range(4, 17))
-    assert all(rows[f"P{index:02d}"][10] == "是" for index in range(4, 17))
+    assert all(rows[f"P{index:02d}"][9] == "implemented_green" for index in range(4, 18))
+    assert all(rows[f"P{index:02d}"][10] == "是" for index in range(4, 18))
 
 
 def test_p16_static_traceability_records_seeded_random_gate_evidence() -> None:

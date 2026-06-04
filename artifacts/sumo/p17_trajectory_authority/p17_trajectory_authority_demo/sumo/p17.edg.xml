@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<edges>
+  <edge id="main_pre" from="main_start" to="merge_start" numLanes="2" speed="33.33" width="3.50" shape="0.000,0.000 6950.000,0.000" />
+  <edge id="merge_zone" from="merge_start" to="merge_end" numLanes="3" speed="33.33" width="3.50" shape="6950.000,0.000 7250.000,0.000" />
+  <edge id="main_post" from="merge_end" to="main_end" numLanes="2" speed="33.33" width="3.50" shape="7250.000,0.000 10000.000,0.000" />
+  <edge id="ramp_pre" from="ramp_start" to="merge_start" numLanes="1" speed="33.33" width="3.50" shape="6850.000,-3.500 6950.000,-3.500 6950.000,0.000" />
+</edges>

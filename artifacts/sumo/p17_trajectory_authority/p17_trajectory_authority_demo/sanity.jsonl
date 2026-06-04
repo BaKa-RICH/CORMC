@@ -1,0 +1,5 @@
+{"observed": 79, "sanity_id": "p17_realization_records_present", "status": "passed"}
+{"observed": 0, "sanity_id": "p17_no_active_collision", "status": "passed"}
+{"observed": 0, "sanity_id": "p17_no_teleport", "status": "passed"}
+{"observed": 0, "sanity_id": "p17_realization_mismatch_count", "status": "passed"}
+{"observed": 1, "sanity_id": "p17_spawn_generation_observed", "status": "passed"}
