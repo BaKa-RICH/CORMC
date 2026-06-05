@@ -14,7 +14,9 @@ from cormc import (
     refresh_relations_snapshot,
     resolve_aps_candidate_ids,
     resolve_aps_candidate_window,
+    resolve_lane_2_gap_boundary_eligibility,
     resolve_lane_centerline,
+    resolve_on_ramp_control_region,
     resolve_region,
     run_step0_to_step3,
     step0_cleanup_and_prepare,
@@ -44,6 +46,22 @@ def test_step0_clears_buffers_retains_cache_and_maneuver_state() -> None:
     assert "CFV_X" in workspace.active_maneuvers
     assert event["event_type"] == "cleanup"
     assert event["payload"]["retained_aps_cache_vehicle_ids"] == ["MV_CUC"]
+
+
+def test_lane_2_gap_boundary_eligibility_rejects_executing_lane_change() -> None:
+    workspace, _ = build_prefreeze_workspace_from_scenario(_cuc_relation_scenario())
+    state = freeze_simulation_state(workspace)
+
+    stable = resolve_lane_2_gap_boundary_eligibility(state, "CLV_Y")
+    executing = resolve_lane_2_gap_boundary_eligibility(state, "CFV_X")
+    wrong_lane = resolve_lane_2_gap_boundary_eligibility(state, "TLV")
+
+    assert stable.eligible is True
+    assert stable.reason == "stable_lane_2"
+    assert executing.eligible is False
+    assert executing.reason == "lane_change_executing"
+    assert wrong_lane.eligible is False
+    assert wrong_lane.reason == "not_lane_2"
 
 
 def test_step1_disabled_boundary_generation_does_not_insert_vehicle() -> None:
@@ -216,6 +234,56 @@ def test_lane_centerline_and_region_resolvers() -> None:
     assert ramp_end.in_merging_zone is True
     assert past.past_ramp_end is True
     assert all(not result.uses_x_plot for result in [before, merging, ramp_end, past])
+
+
+def test_on_ramp_control_region_resolver_matches_sumo_boundaries() -> None:
+    pre_control = resolve_on_ramp_control_region(6649.9, "on_ramp_mv")
+    control_start = resolve_on_ramp_control_region(6650.0, "on_ramp_mv")
+    merge_start = resolve_on_ramp_control_region(6950.0, "on_ramp_mv")
+    ramp_end = resolve_on_ramp_control_region(7250.0, "on_ramp_mv")
+    post_merge = resolve_on_ramp_control_region(7250.1, "on_ramp_mv")
+
+    assert pre_control.region == "pre_control"
+    assert pre_control.aps_allowed is False
+    assert pre_control.cooperative_request_allowed is False
+    assert pre_control.cuc_allowed is False
+    assert pre_control.cmc_allowed is False
+    assert control_start.region == "control_zone"
+    assert control_start.aps_allowed is True
+    assert control_start.cooperative_request_allowed is True
+    assert control_start.cuc_allowed is True
+    assert control_start.cmc_allowed is False
+    assert merge_start.region == "merge_zone"
+    assert merge_start.aps_allowed is False
+    assert merge_start.cmc_allowed is True
+    assert ramp_end.region == "merge_zone"
+    assert post_merge.region == "post_merge"
+    assert post_merge.cmc_allowed is False
+    assert all(
+        region.uses_x_global and not region.uses_x_plot
+        for region in [pre_control, control_start, merge_start, ramp_end, post_merge]
+    )
+
+
+def test_geometry_event_records_on_ramp_control_region() -> None:
+    result = run_step0_to_step3(
+        _base_scenario(
+            "P02-ON-RAMP-CONTROL-REGION",
+            vehicles=[
+                _vehicle("MV_PRE", "on_ramp", 6640.0, -3.5, road_role="on_ramp_mv"),
+                _vehicle("MV_CONTROL", "on_ramp", 6850.0, -3.5, road_role="on_ramp_mv"),
+                _vehicle("MV_MERGE", "on_ramp", 6950.0, -3.5, road_role="on_ramp_mv"),
+            ],
+        )
+    )
+
+    geometry_event = _event_by_type(result.actual_events, "geometry")
+    regions = geometry_event["payload"]["on_ramp_control_regions"]
+
+    assert geometry_event["payload"]["control_zone_global"] == [6650.0, 6950.0]
+    assert regions["MV_PRE"]["region"] == "pre_control"
+    assert regions["MV_CONTROL"]["region"] == "control_zone"
+    assert regions["MV_MERGE"]["region"] == "merge_zone"
 
 
 def test_active_lane_change_relation_not_switched_by_physical_y() -> None:

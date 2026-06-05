@@ -117,7 +117,11 @@ def run_step5_cooperative_request_conflict_resolution(
 ) -> Step5CooperativeRequestRunResult:
     scenario_id = str((config or {}).get("scenario_id") or state.scenario_config_ref or "unknown")
     before_signature = _state_signature(state)
-    assignments = effective_assignments or _effective_assignments_from_state_cache(state)
+    assignments = (
+        _effective_assignments_from_state_cache(state)
+        if effective_assignments is None
+        else effective_assignments
+    )
     events: list[dict[str, Any]] = []
 
     _, filtered_assignments = filter_valid_request_assignments(

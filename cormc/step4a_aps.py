@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, fields
 from types import MappingProxyType
-from typing import Any, Mapping
+from typing import Any, Iterable, Mapping
 
 from cormc.step0_3 import (
     DEFAULT_ROAD_GEOMETRY,
@@ -18,6 +18,7 @@ from cormc.step0_3 import (
     freeze_simulation_state,
     refresh_relations_snapshot,
     resolve_aps_candidate_window,
+    resolve_lane_2_gap_boundary_eligibility,
     resolve_lane_ordering_by_x_global,
     resolve_region,
 )
@@ -90,6 +91,9 @@ class APSCacheAction:
     cache_modified_in_p04: bool
     update_request: Mapping[str, Any] | None = None
     reason: str = "not_applicable"
+    invalid_boundary_role: str | None = None
+    invalid_boundary_id: str | None = None
+    invalid_reason: str | None = None
 
 
 @dataclass(frozen=True)
@@ -119,6 +123,7 @@ def run_step4a_aps(
     *,
     config: dict[str, Any] | None = None,
     geometry: RoadGeometryConfig = DEFAULT_ROAD_GEOMETRY,
+    eligible_mv_ids: Iterable[str] | None = None,
 ) -> APSRunResult:
     scenario_id = str((config or {}).get("scenario_id") or state.scenario_config_ref or "unknown")
     before_signature = _state_signature(state)
@@ -128,7 +133,7 @@ def run_step4a_aps(
     cache_actions: list[APSCacheAction] = []
     last_aps_times = _last_aps_times(config or {})
 
-    for mv_id in _step4a_mv_ids(state):
+    for mv_id in _step4a_mv_ids(state, eligible_mv_ids=eligible_mv_ids):
         mv_state = state.vehicle_states[mv_id]
         region = resolve_region(mv_state.x_global, mv_state.road_role, geometry=geometry)
         cache = state.aps_assignment_cache.get(mv_id)
@@ -157,6 +162,9 @@ def run_step4a_aps(
             last_aps_time=last_aps_times.get(mv_id),
             existing_cache=cache,
         )
+        invalid_boundary = _cached_assignment_invalid_boundary(state, cache)
+        if cache is not None and invalid_boundary is not None:
+            trigger = "cached_gap_boundary_invalid"
         if trigger == "reuse_cache" and cache is not None:
             effective_assignments[mv_id] = EffectiveAssignmentThisStep(
                 mv_id=mv_id,
@@ -198,6 +206,7 @@ def run_step4a_aps(
             mv_id,
             trigger=trigger,
             existing_cache=cache,
+            invalid_boundary=invalid_boundary,
             geometry=geometry,
             scenario_id=scenario_id,
         )
@@ -260,13 +269,24 @@ def collect_aps_candidates(
         mv_id=mv_id,
         geometry=geometry,
     )
-    candidate_ids = [
-        vehicle_id
-        for vehicle_id in resolve_lane_ordering_by_x_global(state, LANE_2)
-        if window.start_x_global
-        <= state.vehicle_states[vehicle_id].x_global
-        <= window.end_x_global
-    ]
+    candidate_ids: list[str] = []
+    excluded_candidates: list[dict[str, Any]] = []
+    for vehicle_id in resolve_lane_ordering_by_x_global(state, LANE_2):
+        vehicle_state = state.vehicle_states[vehicle_id]
+        if not window.start_x_global <= vehicle_state.x_global <= window.end_x_global:
+            continue
+        eligibility = resolve_lane_2_gap_boundary_eligibility(state, vehicle_id)
+        if eligibility.eligible:
+            candidate_ids.append(vehicle_id)
+            continue
+        excluded_candidates.append(
+            {
+                "vehicle_id": vehicle_id,
+                "physical_lane": eligibility.physical_lane,
+                "lane_change_state": eligibility.lane_change_state,
+                "excluded_reason": eligibility.reason,
+            }
+        )
     return candidate_ids, {
         "mv_id": mv_id,
         "x_mv_global": window.x_mv_global,
@@ -278,6 +298,7 @@ def collect_aps_candidates(
         "uses_dynamic_coop_window": window.uses_dynamic_coop_window,
         "uses_x_global": window.uses_x_global,
         "uses_x_plot": window.uses_x_plot,
+        "excluded_candidates": excluded_candidates,
     }
 
 
@@ -464,10 +485,12 @@ def _run_fresh_aps(
     *,
     trigger: str,
     existing_cache: Mapping[str, Any] | None,
+    invalid_boundary: dict[str, Any] | None,
     geometry: RoadGeometryConfig,
     scenario_id: str,
 ) -> dict[str, Any]:
     candidate_ids, window_payload = collect_aps_candidates(state, mv_id, geometry=geometry)
+    excluded_candidates = list(window_payload.get("excluded_candidates") or [])
     events = [
         _event(
             state,
@@ -483,6 +506,7 @@ def _run_fresh_aps(
                 "candidate_window": window_payload,
                 "candidate_ids": list(candidate_ids),
                 "candidate_count": len(candidate_ids),
+                "excluded_candidates": excluded_candidates,
                 "uses_x_global": True,
                 "uses_x_plot": False,
                 "uses_fixed_cooperative_zone": False,
@@ -497,6 +521,7 @@ def _run_fresh_aps(
             mv_id,
             trigger=trigger,
             existing_cache=existing_cache,
+            invalid_boundary=invalid_boundary,
             failure_reason="insufficient_candidates",
             candidate_ids=candidate_ids,
             scenario_id=scenario_id,
@@ -511,6 +536,7 @@ def _run_fresh_aps(
             mv_id,
             trigger=trigger,
             existing_cache=existing_cache,
+            invalid_boundary=invalid_boundary,
             failure_reason="mv_speed_too_low",
             candidate_ids=candidate_ids,
             scenario_id=scenario_id,
@@ -531,6 +557,7 @@ def _run_fresh_aps(
             mv_id,
             trigger=trigger,
             existing_cache=existing_cache,
+            invalid_boundary=invalid_boundary,
             failure_reason="no_insert_pair",
             candidate_ids=candidate_ids,
             scenario_id=scenario_id,
@@ -554,6 +581,15 @@ def _run_fresh_aps(
         cache_modified_in_p04=False,
         update_request=MappingProxyType(cache_value),
         reason="APS_assignment_updated_this_step",
+        invalid_boundary_role=(
+            _optional_str(invalid_boundary.get("role")) if invalid_boundary is not None else None
+        ),
+        invalid_boundary_id=(
+            _optional_str(invalid_boundary.get("vehicle_id")) if invalid_boundary is not None else None
+        ),
+        invalid_reason=(
+            _optional_str(invalid_boundary.get("reason")) if invalid_boundary is not None else None
+        ),
     )
     events.append(
         _aps_event(
@@ -578,6 +614,9 @@ def _run_fresh_aps(
                 "eq10_vehicle_role": "cfv" if assignment.desired_spacing_override is not None else None,
                 "effective_assignment_source": "aps_updated_this_step",
                 "cache_update_request_created": True,
+                "invalid_boundary_role": cache_action.invalid_boundary_role,
+                "invalid_boundary_id": cache_action.invalid_boundary_id,
+                "invalid_reason": cache_action.invalid_reason,
                 "predictions": [_dataclass_to_plain(prediction) for prediction in predictions],
             },
             is_engineering_patch=trigger == "first_APS",
@@ -619,16 +658,31 @@ def _fresh_aps_failure(
     *,
     trigger: str,
     existing_cache: Mapping[str, Any] | None,
+    invalid_boundary: dict[str, Any] | None,
     failure_reason: str,
     candidate_ids: list[str],
     scenario_id: str,
 ) -> dict[str, Any]:
+    old_cache_invalidated = trigger == "cached_gap_boundary_invalid" and existing_cache is not None
     cache_action = APSCacheAction(
         mv_id=mv_id,
-        action="retain" if existing_cache is not None else "no_cache",
+        action="invalidate" if old_cache_invalidated else ("retain" if existing_cache is not None else "no_cache"),
         previous_cache_exists=existing_cache is not None,
         cache_modified_in_p04=False,
-        reason="retain_on_failed_aps" if existing_cache is not None else "no_cache_to_update",
+        reason=(
+            "cached_gap_boundary_invalid"
+            if old_cache_invalidated
+            else ("retain_on_failed_aps" if existing_cache is not None else "no_cache_to_update")
+        ),
+        invalid_boundary_role=(
+            _optional_str(invalid_boundary.get("role")) if invalid_boundary is not None else None
+        ),
+        invalid_boundary_id=(
+            _optional_str(invalid_boundary.get("vehicle_id")) if invalid_boundary is not None else None
+        ),
+        invalid_reason=(
+            _optional_str(invalid_boundary.get("reason")) if invalid_boundary is not None else None
+        ),
     )
     return {
         "events": [
@@ -646,8 +700,14 @@ def _fresh_aps_failure(
                     "candidate_ids": list(candidate_ids),
                     "candidate_count": len(candidate_ids),
                     "new_assignment_created": False,
+                    "old_cache_invalidated": old_cache_invalidated,
+                    "invalid_boundary_role": cache_action.invalid_boundary_role,
+                    "invalid_boundary_id": cache_action.invalid_boundary_id,
+                    "invalid_reason": cache_action.invalid_reason,
                     "effective_assignment_source": (
-                        "cache_retained_after_failed_APS" if existing_cache is not None else None
+                        None
+                        if old_cache_invalidated
+                        else ("cache_retained_after_failed_APS" if existing_cache is not None else None)
                     ),
                 },
                 is_engineering_patch=trigger == "first_APS",
@@ -668,11 +728,17 @@ def _fresh_aps_failure(
     }
 
 
-def _step4a_mv_ids(state: SimulationState) -> list[str]:
+def _step4a_mv_ids(
+    state: SimulationState,
+    *,
+    eligible_mv_ids: Iterable[str] | None = None,
+) -> list[str]:
+    eligible = None if eligible_mv_ids is None else set(eligible_mv_ids)
     return [
         vehicle_id
         for vehicle_id in state.active_vehicle_ids
         if _is_mv_candidate(state.vehicle_states[vehicle_id])
+        and (eligible is None or vehicle_id in eligible)
     ]
 
 
@@ -796,6 +862,10 @@ def _cache_event(
             "new_assignment_created": action.update_request is not None,
             "cache_modified": action.cache_modified_in_p04,
             "invalid_new_assignment_overwrites_existing_cache": False,
+            "old_cache_invalidated": action.action == "invalidate",
+            "invalid_boundary_role": action.invalid_boundary_role,
+            "invalid_boundary_id": action.invalid_boundary_id,
+            "invalid_reason": action.invalid_reason,
             "update_request": dict(action.update_request or {}),
         },
     )
@@ -877,6 +947,33 @@ def _state_signature(state: SimulationState) -> tuple[Any, ...]:
         ),
         tuple((key, tuple(sorted(value.items()))) for key, value in state.aps_assignment_cache.items()),
     )
+
+
+def _cached_assignment_invalid_boundary(
+    state: SimulationState,
+    cache: Mapping[str, Any] | None,
+) -> dict[str, Any] | None:
+    if cache is None:
+        return None
+    for role, key in (("clv", "clv_id"), ("cfv", "cfv_id")):
+        vehicle_id = _optional_str(cache.get(key))
+        eligibility = resolve_lane_2_gap_boundary_eligibility(state, vehicle_id)
+        if eligibility.eligible:
+            continue
+        return {
+            "role": role,
+            "vehicle_id": vehicle_id,
+            "reason": eligibility.reason,
+            "physical_lane": eligibility.physical_lane,
+            "lane_change_state": eligibility.lane_change_state,
+        }
+    return None
+
+
+def _optional_str(value: Any) -> str | None:
+    if value in (None, ""):
+        return None
+    return str(value)
 
 
 def _dataclass_to_plain(value: Any) -> dict[str, Any]:

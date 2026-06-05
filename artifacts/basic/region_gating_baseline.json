@@ -1,0 +1,677 @@
+{
+  "purpose": "pre-fix baseline evidence for x_global < 6650 region gating",
+  "initial_mv_x_global": 6640.0,
+  "max_steps": 5,
+  "final_mv_x_global": 6650.5689447424,
+  "observed_event_type_counts": {
+    "APS": 6,
+    "CMC": 5,
+    "CUC": 20,
+    "assignment_cache": 5,
+    "assignment_validation": 0,
+    "cooperative_request": 5
+  },
+  "observed_records": [
+    {
+      "step": 0,
+      "t": 0.0,
+      "event_type": "APS",
+      "module": "APS",
+      "vehicle_id": "B00_MV",
+      "vehicle_ids": [
+        "B00_MV"
+      ],
+      "reason": "first_aps",
+      "payload_subset": {
+        "trigger": "first_APS"
+      }
+    },
+    {
+      "step": 0,
+      "t": 0.0,
+      "event_type": "APS",
+      "module": "APS",
+      "vehicle_id": "B00_MV",
+      "vehicle_ids": [
+        "B00_MV",
+        "B00_CLV",
+        "B00_CFV"
+      ],
+      "reason": "first_aps",
+      "payload_subset": {
+        "trigger": "first_APS",
+        "aps_case": "case_2"
+      }
+    },
+    {
+      "step": 0,
+      "t": 0.0,
+      "event_type": "assignment_cache",
+      "module": "assignment_cache",
+      "vehicle_id": "B00_MV",
+      "vehicle_ids": [
+        "B00_MV"
+      ],
+      "reason": "APS_assignment_updated_this_step",
+      "payload_subset": {
+        "new_assignment_created": true,
+        "cache_modified": false
+      }
+    },
+    {
+      "step": 0,
+      "t": 0.0,
+      "event_type": "CMC",
+      "module": "CMC",
+      "vehicle_id": "B00_MV",
+      "vehicle_ids": [
+        "B00_MV"
+      ],
+      "reason": "handed_off_to_p04",
+      "payload_subset": {
+        "branch": "handed_off_to_p04",
+        "zone_state": "before_merging_zone"
+      }
+    },
+    {
+      "step": 0,
+      "t": 0.0,
+      "event_type": "cooperative_request",
+      "module": "Step5CooperativeRequest",
+      "vehicle_id": "B00_CFV",
+      "vehicle_ids": [
+        "B00_MV",
+        "B00_CFV"
+      ],
+      "reason": "col_cfv_request",
+      "payload_subset": {
+        "aps_case": "case_2",
+        "source_mv_id": "B00_MV",
+        "cv_id": "B00_CFV"
+      }
+    },
+    {
+      "step": 0,
+      "t": 0.0,
+      "event_type": "CUC",
+      "module": "Step6TargetLaneSafety",
+      "vehicle_id": "B00_CFV",
+      "vehicle_ids": [
+        "B00_MV",
+        "B00_CFV",
+        "B00_TLV_CFV"
+      ],
+      "reason": "target_lane_unsafe",
+      "payload_subset": {
+        "source_mv_id": "B00_MV"
+      }
+    },
+    {
+      "step": 0,
+      "t": 0.0,
+      "event_type": "CUC",
+      "module": "Step6CUCCompliance",
+      "vehicle_id": "B00_CFV",
+      "vehicle_ids": [
+        "B00_MV",
+        "B00_CFV"
+      ],
+      "reason": "compliant_accepts_cuc",
+      "payload_subset": {
+        "source_mv_id": "B00_MV"
+      }
+    },
+    {
+      "step": 0,
+      "t": 0.0,
+      "event_type": "CUC",
+      "module": "Step6CUC",
+      "vehicle_id": "B00_CFV",
+      "vehicle_ids": [
+        "B00_MV",
+        "B00_CFV",
+        "B00_TLV_CFV"
+      ],
+      "reason": "final_choice_stay_lane_2",
+      "payload_subset": {
+        "aps_case": "case_2",
+        "final_choice": "stay_lane_2",
+        "source_mv_id": "B00_MV",
+        "cv_id": "B00_CFV"
+      }
+    },
+    {
+      "step": 0,
+      "t": 0.0,
+      "event_type": "CUC",
+      "module": "Step6SpacingOverrideCommand",
+      "vehicle_id": "B00_CFV",
+      "vehicle_ids": [
+        "B00_MV",
+        "B00_CFV"
+      ],
+      "reason": "spacing_override_handoff_to_p08",
+      "payload_subset": {
+        "aps_case": "case_2",
+        "source_mv_id": "B00_MV"
+      }
+    },
+    {
+      "step": 1,
+      "t": 0.1,
+      "event_type": "APS",
+      "module": "APS",
+      "vehicle_id": "B00_MV",
+      "vehicle_ids": [
+        "B00_MV"
+      ],
+      "reason": "reuse_cache",
+      "payload_subset": {
+        "trigger": "reuse_cache",
+        "new_assignment_created": false,
+        "cache_modified": false
+      }
+    },
+    {
+      "step": 1,
+      "t": 0.1,
+      "event_type": "assignment_cache",
+      "module": "assignment_cache",
+      "vehicle_id": "B00_MV",
+      "vehicle_ids": [
+        "B00_MV"
+      ],
+      "reason": "reuse_cache_until_next_APS",
+      "payload_subset": {
+        "new_assignment_created": false,
+        "cache_modified": false
+      }
+    },
+    {
+      "step": 1,
+      "t": 0.1,
+      "event_type": "CMC",
+      "module": "CMC",
+      "vehicle_id": "B00_MV",
+      "vehicle_ids": [
+        "B00_MV"
+      ],
+      "reason": "handed_off_to_p04",
+      "payload_subset": {
+        "branch": "handed_off_to_p04",
+        "zone_state": "before_merging_zone"
+      }
+    },
+    {
+      "step": 1,
+      "t": 0.1,
+      "event_type": "cooperative_request",
+      "module": "Step5CooperativeRequest",
+      "vehicle_id": "B00_CFV",
+      "vehicle_ids": [
+        "B00_MV",
+        "B00_CFV"
+      ],
+      "reason": "col_cfv_request",
+      "payload_subset": {
+        "aps_case": "case_2",
+        "source_mv_id": "B00_MV",
+        "cv_id": "B00_CFV"
+      }
+    },
+    {
+      "step": 1,
+      "t": 0.1,
+      "event_type": "CUC",
+      "module": "Step6TargetLaneSafety",
+      "vehicle_id": "B00_CFV",
+      "vehicle_ids": [
+        "B00_MV",
+        "B00_CFV",
+        "B00_TLV_CFV"
+      ],
+      "reason": "target_lane_safe",
+      "payload_subset": {
+        "source_mv_id": "B00_MV"
+      }
+    },
+    {
+      "step": 1,
+      "t": 0.1,
+      "event_type": "CUC",
+      "module": "Step6CUCCompliance",
+      "vehicle_id": "B00_CFV",
+      "vehicle_ids": [
+        "B00_MV",
+        "B00_CFV"
+      ],
+      "reason": "compliant_accepts_cuc",
+      "payload_subset": {
+        "source_mv_id": "B00_MV"
+      }
+    },
+    {
+      "step": 1,
+      "t": 0.1,
+      "event_type": "CUC",
+      "module": "Step6CUC",
+      "vehicle_id": "B00_CFV",
+      "vehicle_ids": [
+        "B00_MV",
+        "B00_CFV",
+        "B00_TLV_CFV"
+      ],
+      "reason": "final_choice_stay_lane_2",
+      "payload_subset": {
+        "aps_case": "case_2",
+        "final_choice": "stay_lane_2",
+        "source_mv_id": "B00_MV",
+        "cv_id": "B00_CFV"
+      }
+    },
+    {
+      "step": 1,
+      "t": 0.1,
+      "event_type": "CUC",
+      "module": "Step6SpacingOverrideCommand",
+      "vehicle_id": "B00_CFV",
+      "vehicle_ids": [
+        "B00_MV",
+        "B00_CFV"
+      ],
+      "reason": "spacing_override_handoff_to_p08",
+      "payload_subset": {
+        "aps_case": "case_2",
+        "source_mv_id": "B00_MV"
+      }
+    },
+    {
+      "step": 2,
+      "t": 0.2,
+      "event_type": "APS",
+      "module": "APS",
+      "vehicle_id": "B00_MV",
+      "vehicle_ids": [
+        "B00_MV"
+      ],
+      "reason": "reuse_cache",
+      "payload_subset": {
+        "trigger": "reuse_cache",
+        "new_assignment_created": false,
+        "cache_modified": false
+      }
+    },
+    {
+      "step": 2,
+      "t": 0.2,
+      "event_type": "assignment_cache",
+      "module": "assignment_cache",
+      "vehicle_id": "B00_MV",
+      "vehicle_ids": [
+        "B00_MV"
+      ],
+      "reason": "reuse_cache_until_next_APS",
+      "payload_subset": {
+        "new_assignment_created": false,
+        "cache_modified": false
+      }
+    },
+    {
+      "step": 2,
+      "t": 0.2,
+      "event_type": "CMC",
+      "module": "CMC",
+      "vehicle_id": "B00_MV",
+      "vehicle_ids": [
+        "B00_MV"
+      ],
+      "reason": "handed_off_to_p04",
+      "payload_subset": {
+        "branch": "handed_off_to_p04",
+        "zone_state": "before_merging_zone"
+      }
+    },
+    {
+      "step": 2,
+      "t": 0.2,
+      "event_type": "cooperative_request",
+      "module": "Step5CooperativeRequest",
+      "vehicle_id": "B00_CFV",
+      "vehicle_ids": [
+        "B00_MV",
+        "B00_CFV"
+      ],
+      "reason": "col_cfv_request",
+      "payload_subset": {
+        "aps_case": "case_2",
+        "source_mv_id": "B00_MV",
+        "cv_id": "B00_CFV"
+      }
+    },
+    {
+      "step": 2,
+      "t": 0.2,
+      "event_type": "CUC",
+      "module": "Step6TargetLaneSafety",
+      "vehicle_id": "B00_CFV",
+      "vehicle_ids": [
+        "B00_MV",
+        "B00_CFV",
+        "B00_TLV_CFV"
+      ],
+      "reason": "target_lane_safe",
+      "payload_subset": {
+        "source_mv_id": "B00_MV"
+      }
+    },
+    {
+      "step": 2,
+      "t": 0.2,
+      "event_type": "CUC",
+      "module": "Step6CUCCompliance",
+      "vehicle_id": "B00_CFV",
+      "vehicle_ids": [
+        "B00_MV",
+        "B00_CFV"
+      ],
+      "reason": "compliant_accepts_cuc",
+      "payload_subset": {
+        "source_mv_id": "B00_MV"
+      }
+    },
+    {
+      "step": 2,
+      "t": 0.2,
+      "event_type": "CUC",
+      "module": "Step6CUC",
+      "vehicle_id": "B00_CFV",
+      "vehicle_ids": [
+        "B00_MV",
+        "B00_CFV",
+        "B00_TLV_CFV"
+      ],
+      "reason": "final_choice_stay_lane_2",
+      "payload_subset": {
+        "aps_case": "case_2",
+        "final_choice": "stay_lane_2",
+        "source_mv_id": "B00_MV",
+        "cv_id": "B00_CFV"
+      }
+    },
+    {
+      "step": 2,
+      "t": 0.2,
+      "event_type": "CUC",
+      "module": "Step6SpacingOverrideCommand",
+      "vehicle_id": "B00_CFV",
+      "vehicle_ids": [
+        "B00_MV",
+        "B00_CFV"
+      ],
+      "reason": "spacing_override_handoff_to_p08",
+      "payload_subset": {
+        "aps_case": "case_2",
+        "source_mv_id": "B00_MV"
+      }
+    },
+    {
+      "step": 3,
+      "t": 0.30000000000000004,
+      "event_type": "APS",
+      "module": "APS",
+      "vehicle_id": "B00_MV",
+      "vehicle_ids": [
+        "B00_MV"
+      ],
+      "reason": "reuse_cache",
+      "payload_subset": {
+        "trigger": "reuse_cache",
+        "new_assignment_created": false,
+        "cache_modified": false
+      }
+    },
+    {
+      "step": 3,
+      "t": 0.30000000000000004,
+      "event_type": "assignment_cache",
+      "module": "assignment_cache",
+      "vehicle_id": "B00_MV",
+      "vehicle_ids": [
+        "B00_MV"
+      ],
+      "reason": "reuse_cache_until_next_APS",
+      "payload_subset": {
+        "new_assignment_created": false,
+        "cache_modified": false
+      }
+    },
+    {
+      "step": 3,
+      "t": 0.30000000000000004,
+      "event_type": "CMC",
+      "module": "CMC",
+      "vehicle_id": "B00_MV",
+      "vehicle_ids": [
+        "B00_MV"
+      ],
+      "reason": "handed_off_to_p04",
+      "payload_subset": {
+        "branch": "handed_off_to_p04",
+        "zone_state": "before_merging_zone"
+      }
+    },
+    {
+      "step": 3,
+      "t": 0.30000000000000004,
+      "event_type": "cooperative_request",
+      "module": "Step5CooperativeRequest",
+      "vehicle_id": "B00_CFV",
+      "vehicle_ids": [
+        "B00_MV",
+        "B00_CFV"
+      ],
+      "reason": "col_cfv_request",
+      "payload_subset": {
+        "aps_case": "case_2",
+        "source_mv_id": "B00_MV",
+        "cv_id": "B00_CFV"
+      }
+    },
+    {
+      "step": 3,
+      "t": 0.30000000000000004,
+      "event_type": "CUC",
+      "module": "Step6TargetLaneSafety",
+      "vehicle_id": "B00_CFV",
+      "vehicle_ids": [
+        "B00_MV",
+        "B00_CFV",
+        "B00_TLV_CFV"
+      ],
+      "reason": "target_lane_safe",
+      "payload_subset": {
+        "source_mv_id": "B00_MV"
+      }
+    },
+    {
+      "step": 3,
+      "t": 0.30000000000000004,
+      "event_type": "CUC",
+      "module": "Step6CUCCompliance",
+      "vehicle_id": "B00_CFV",
+      "vehicle_ids": [
+        "B00_MV",
+        "B00_CFV"
+      ],
+      "reason": "compliant_accepts_cuc",
+      "payload_subset": {
+        "source_mv_id": "B00_MV"
+      }
+    },
+    {
+      "step": 3,
+      "t": 0.30000000000000004,
+      "event_type": "CUC",
+      "module": "Step6CUC",
+      "vehicle_id": "B00_CFV",
+      "vehicle_ids": [
+        "B00_MV",
+        "B00_CFV",
+        "B00_TLV_CFV"
+      ],
+      "reason": "final_choice_stay_lane_2",
+      "payload_subset": {
+        "aps_case": "case_2",
+        "final_choice": "stay_lane_2",
+        "source_mv_id": "B00_MV",
+        "cv_id": "B00_CFV"
+      }
+    },
+    {
+      "step": 3,
+      "t": 0.30000000000000004,
+      "event_type": "CUC",
+      "module": "Step6SpacingOverrideCommand",
+      "vehicle_id": "B00_CFV",
+      "vehicle_ids": [
+        "B00_MV",
+        "B00_CFV"
+      ],
+      "reason": "spacing_override_handoff_to_p08",
+      "payload_subset": {
+        "aps_case": "case_2",
+        "source_mv_id": "B00_MV"
+      }
+    },
+    {
+      "step": 4,
+      "t": 0.4,
+      "event_type": "APS",
+      "module": "APS",
+      "vehicle_id": "B00_MV",
+      "vehicle_ids": [
+        "B00_MV"
+      ],
+      "reason": "reuse_cache",
+      "payload_subset": {
+        "trigger": "reuse_cache",
+        "new_assignment_created": false,
+        "cache_modified": false
+      }
+    },
+    {
+      "step": 4,
+      "t": 0.4,
+      "event_type": "assignment_cache",
+      "module": "assignment_cache",
+      "vehicle_id": "B00_MV",
+      "vehicle_ids": [
+        "B00_MV"
+      ],
+      "reason": "reuse_cache_until_next_APS",
+      "payload_subset": {
+        "new_assignment_created": false,
+        "cache_modified": false
+      }
+    },
+    {
+      "step": 4,
+      "t": 0.4,
+      "event_type": "CMC",
+      "module": "CMC",
+      "vehicle_id": "B00_MV",
+      "vehicle_ids": [
+        "B00_MV"
+      ],
+      "reason": "handed_off_to_p04",
+      "payload_subset": {
+        "branch": "handed_off_to_p04",
+        "zone_state": "before_merging_zone"
+      }
+    },
+    {
+      "step": 4,
+      "t": 0.4,
+      "event_type": "cooperative_request",
+      "module": "Step5CooperativeRequest",
+      "vehicle_id": "B00_CFV",
+      "vehicle_ids": [
+        "B00_MV",
+        "B00_CFV"
+      ],
+      "reason": "col_cfv_request",
+      "payload_subset": {
+        "aps_case": "case_2",
+        "source_mv_id": "B00_MV",
+        "cv_id": "B00_CFV"
+      }
+    },
+    {
+      "step": 4,
+      "t": 0.4,
+      "event_type": "CUC",
+      "module": "Step6TargetLaneSafety",
+      "vehicle_id": "B00_CFV",
+      "vehicle_ids": [
+        "B00_MV",
+        "B00_CFV",
+        "B00_TLV_CFV"
+      ],
+      "reason": "target_lane_safe",
+      "payload_subset": {
+        "source_mv_id": "B00_MV"
+      }
+    },
+    {
+      "step": 4,
+      "t": 0.4,
+      "event_type": "CUC",
+      "module": "Step6CUCCompliance",
+      "vehicle_id": "B00_CFV",
+      "vehicle_ids": [
+        "B00_MV",
+        "B00_CFV"
+      ],
+      "reason": "compliant_accepts_cuc",
+      "payload_subset": {
+        "source_mv_id": "B00_MV"
+      }
+    },
+    {
+      "step": 4,
+      "t": 0.4,
+      "event_type": "CUC",
+      "module": "Step6CUC",
+      "vehicle_id": "B00_CFV",
+      "vehicle_ids": [
+        "B00_MV",
+        "B00_CFV",
+        "B00_TLV_CFV"
+      ],
+      "reason": "final_choice_stay_lane_2",
+      "payload_subset": {
+        "aps_case": "case_2",
+        "final_choice": "stay_lane_2",
+        "source_mv_id": "B00_MV",
+        "cv_id": "B00_CFV"
+      }
+    },
+    {
+      "step": 4,
+      "t": 0.4,
+      "event_type": "CUC",
+      "module": "Step6SpacingOverrideCommand",
+      "vehicle_id": "B00_CFV",
+      "vehicle_ids": [
+        "B00_MV",
+        "B00_CFV"
+      ],
+      "reason": "spacing_override_handoff_to_p08",
+      "payload_subset": {
+        "aps_case": "case_2",
+        "source_mv_id": "B00_MV"
+      }
+    }
+  ],
+  "conclusion": "legacy scheduler runs control modules before x_global reaches 6650"
+}

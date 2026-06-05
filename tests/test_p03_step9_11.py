@@ -231,6 +231,39 @@ def test_commit_applies_lane_state_transition_and_cache_cleanup_only_to_next_sta
     assert event.payload["cache_cleanup_vehicle_ids"] == ["MV_COMMIT_LITE"]
 
 
+def test_commit_invalidate_deletes_aps_assignment_cache_key() -> None:
+    state = _frozen_commit_lite_state()
+    state = _replace_state_cache(state, {"MV_COMMIT_LITE": {"status": "valid", "clv_id": "CLV"}})
+    candidate = _candidate(state, "MV_COMMIT_LITE", "wait", x_delta=0.0)
+    buffer = NextStateBuffer(
+        step=state.step,
+        t=state.t,
+        candidate_kinematics={"MV_COMMIT_LITE": (candidate,)},
+        candidate_cache_updates=(
+            CandidateCacheUpdate(
+                candidate_id="cache-invalidate",
+                cache_name="aps_assignment_cache",
+                owner_vehicle_id="MV_COMMIT_LITE",
+                operation="invalidate",
+                reason="cached_gap_boundary_invalid",
+            ),
+        ),
+    )
+
+    result = commit_step(
+        state,
+        build_command_buffer_for_state(state),
+        buffer,
+        run_id="invalidate-test",
+        scenario_id="P03-INVALIDATE",
+    )
+
+    assert "MV_COMMIT_LITE" in state.aps_assignment_cache
+    assert "MV_COMMIT_LITE" not in result.next_state.aps_assignment_cache
+    event = _event_by_vehicle(result.history.event_records, "MV_COMMIT_LITE")
+    assert event.payload["cache_invalidate_vehicle_ids"] == ["MV_COMMIT_LITE"]
+
+
 def test_candidate_source_rejects_hidden_model_candidate() -> None:
     state = _frozen_commit_lite_state()
     bad_candidate = CandidateKinematics(

@@ -114,6 +114,22 @@ def test_mvs_cuc_1b_real_utility_logs_locked_inputs_u1_u2_and_final_choice() -> 
     assert decision["final_choice"] in {"change_to_lane_1", "stay_lane_2", "not_applicable"}
 
 
+def test_p07_real_utility_choice2_uses_eq10_spacing_for_case2_cfv() -> None:
+    state, relations = _state_and_relations(_cuc_config())
+
+    result = run_step6_cuc_choice_compliance_lane_change_overlay(
+        state,
+        relations,
+        active_requests={"CFV_X": _active_request("CFV_X", desired_spacing_override=58.0)},
+    )
+
+    decision = result.cuc_decisions["CFV_X"]
+    assert decision["choice2_spacing_override_applied"] is True
+    assert decision["choice2_desired_spacing_override"] == 58.0
+    assert decision["hypothetical_accelerations"]["CV_LV"]["desired_spacing_target_source"] == "Eq10"
+    assert decision["hypothetical_accelerations"]["CV_LV"]["desired_spacing_target"] == 58.0
+
+
 def test_p07_consumes_only_p06_active_requests_and_ignores_suppressed_loser() -> None:
     state, relations = _state_and_relations(_cuc_config())
 

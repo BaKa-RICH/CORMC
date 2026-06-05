@@ -15,7 +15,7 @@ from cormc.step0_3 import (
     SimulationState,
     resolve_lane_centerline,
 )
-from cormc.step7_longitudinal import compute_p145_longitudinal_formula
+from cormc.step7_longitudinal import SpacingOverrideConsumption, compute_p145_longitudinal_formula
 from cormc.step9_11 import CommandBuffer
 
 
@@ -47,6 +47,7 @@ def run_step6_cuc_choice_compliance_lane_change_overlay(
     suppressed_requests: tuple[Mapping[str, Any], ...] = (),
     utility_overrides: Mapping[str, Mapping[str, Any]] | None = None,
     geometry: RoadGeometryConfig = DEFAULT_ROAD_GEOMETRY,
+    emit_no_active_event: bool = True,
 ) -> Step6CUCRunResult:
     before_signature = _state_signature(state)
     events: list[dict[str, Any]] = []
@@ -57,7 +58,7 @@ def run_step6_cuc_choice_compliance_lane_change_overlay(
     state_transition_commands: dict[str, tuple[dict[str, Any], ...]] = {}
     same_step_overlays: dict[str, dict[str, Any]] = {}
 
-    if not active_requests:
+    if not active_requests and emit_no_active_event:
         events.append(
             _event(
                 state,
@@ -425,7 +426,14 @@ def _evaluate_utility_or_override(
     c_fv_cv = _cuc_safety_term(state, fv_id, cv_id)
     a_cv_tlv = _hypothetical_longitudinal_acceleration(state, relations, cv_id, tlv_id)
     a_tfv_cv = _hypothetical_longitudinal_acceleration(state, relations, tfv_id, cv_id)
-    a_cv_lv = _hypothetical_longitudinal_acceleration(state, relations, cv_id, lv_id)
+    choice2_spacing = _choice2_spacing_override(request)
+    a_cv_lv = _hypothetical_longitudinal_acceleration(
+        state,
+        relations,
+        cv_id,
+        lv_id,
+        spacing=choice2_spacing,
+    )
     a_fv_cv = _hypothetical_longitudinal_acceleration(state, relations, fv_id, cv_id)
     a_cv_current_lv = float(state.vehicle_states[cv_id].a)
     u1 = (
@@ -461,6 +469,10 @@ def _evaluate_utility_or_override(
         "tilde_a_FV_CV": a_fv_cv["acceleration"],
         "a_CV_LV": a_cv_current_lv,
         "a_CV_LV_source": "current_vehicle_state_acceleration",
+        "choice2_spacing_override_applied": choice2_spacing is not None,
+        "choice2_desired_spacing_override": (
+            choice2_spacing.desired_spacing if choice2_spacing is not None else None
+        ),
         "U1_terms": {
             "alpha_safety": CUC.alpha * (c_cv_tlv["value"] + c_tfv_cv["value"]),
             "beta_tfv_accel": CUC.beta * a_tfv_cv["acceleration"],
@@ -647,6 +659,17 @@ def _cuc_safety_term(
             "eq13_locked": True,
         }
     relative_speed = float(follower.v) - float(leader.v)
+    if relative_speed <= 0.0:
+        return {
+            "value": 0.0,
+            "status": "not_closing_no_deceleration_required",
+            "follower_id": follower_id,
+            "leader_id": leader_id,
+            "denominator": denominator,
+            "relative_speed": relative_speed,
+            "eq13_locked": True,
+            "eq13_relative_speed_clipped_at_zero": True,
+        }
     return {
         "value": relative_speed * relative_speed / denominator,
         "status": "positive_gap",
@@ -663,6 +686,8 @@ def _hypothetical_longitudinal_acceleration(
     relations: RelationsSnapshot,
     follower_id: str | None,
     leader_id: str | None,
+    *,
+    spacing: SpacingOverrideConsumption | None = None,
 ) -> dict[str, Any]:
     if follower_id is None:
         return {
@@ -674,16 +699,45 @@ def _hypothetical_longitudinal_acceleration(
         state,
         relations,
         follower_id,
+        spacing=spacing,
         leader_id=leader_id,
         update_cache=False,
     )
+    payload = dict(formula.payload)
     return {
         "acceleration": formula.acceleration,
         "mode": formula.mode,
         "leader_id": leader_id,
         "candidate_speed": formula.candidate_speed,
-        "formula_status": dict(formula.payload).get("formula_status", LOCKED_FORMULA_STATUS),
+        "formula_status": payload.get("formula_status", LOCKED_FORMULA_STATUS),
+        "desired_spacing_target": payload.get("desired_spacing_target"),
+        "desired_spacing_target_source": payload.get("desired_spacing_target_source"),
     }
+
+
+def _choice2_spacing_override(request: Mapping[str, Any]) -> SpacingOverrideConsumption | None:
+    desired_spacing = request.get("desired_spacing_override")
+    if desired_spacing is None:
+        return None
+    cv_role = str(request.get("cv_role") or "").lower()
+    aps_case = str(request.get("aps_case") or "").lower()
+    if cv_role != "cfv" or aps_case not in {"case_2", "case_4"}:
+        return None
+    return SpacingOverrideConsumption(
+        consumed=True,
+        desired_spacing=float(desired_spacing),
+        desired_spacing_source="Eq10",
+        source_command_id=str(request.get("request_id") or "cuc_choice2_hypothesis"),
+        source_mv_id=_optional_request_str(request.get("source_mv_id")),
+        cv_role=cv_role,
+        aps_case=aps_case,
+    )
+
+
+def _optional_request_str(value: Any) -> str | None:
+    if value is None:
+        return None
+    return str(value)
 
 
 def _gap_to_neighbor(

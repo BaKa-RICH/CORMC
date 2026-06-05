@@ -22,6 +22,7 @@ class RoadGeometryConfig:
     mainline_start_global: float = 0.0
     mainline_end_global: float = 10000.0
     warmup_length: float = 4000.0
+    control_start_global: float = 6650.0
     x0_m_global: float = 6950.0
     l_merging: float = 300.0
     x_ramp_end_global: float = 7250.0
@@ -99,6 +100,17 @@ class LongitudinalControllerMemory:
     last_t: float | None = None
     last_controller_update_step: int | None = None
     controller_mode: str = "cav_cpid"
+
+
+@dataclass(frozen=True)
+class Lane2GapBoundaryEligibility:
+    vehicle_id: str | None
+    eligible: bool
+    reason: str
+    required_lane: str = LANE_2
+    physical_lane: str | None = None
+    lane_change_state: str | None = None
+    is_active: bool | None = None
 
 
 @dataclass
@@ -184,6 +196,19 @@ class RegionResult:
     before_merging_zone: bool
     in_merging_zone: bool
     past_ramp_end: bool
+    uses_x_global: bool = True
+    uses_x_plot: bool = False
+
+
+@dataclass(frozen=True)
+class OnRampControlRegion:
+    x_global: float
+    road_role: str
+    region: str
+    aps_allowed: bool
+    cooperative_request_allowed: bool
+    cuc_allowed: bool
+    cmc_allowed: bool
     uses_x_global: bool = True
     uses_x_plot: bool = False
 
@@ -462,6 +487,61 @@ def resolve_lane_ordering_by_x_global(state: SimulationState, lane_id: str) -> l
     )
 
 
+def resolve_lane_2_gap_boundary_eligibility(
+    state: SimulationState,
+    vehicle_id: str | None,
+    *,
+    required_lane: str = LANE_2,
+) -> Lane2GapBoundaryEligibility:
+    if not vehicle_id or vehicle_id not in state.vehicle_states:
+        return Lane2GapBoundaryEligibility(
+            vehicle_id=vehicle_id,
+            eligible=False,
+            reason="missing",
+            required_lane=required_lane,
+        )
+    vehicle_state = state.vehicle_states[vehicle_id]
+    if not vehicle_state.is_active:
+        return Lane2GapBoundaryEligibility(
+            vehicle_id=vehicle_id,
+            eligible=False,
+            reason="inactive_vehicle",
+            required_lane=required_lane,
+            physical_lane=vehicle_state.physical_lane,
+            lane_change_state=vehicle_state.lane_change_state,
+            is_active=False,
+        )
+    if vehicle_state.physical_lane != required_lane:
+        return Lane2GapBoundaryEligibility(
+            vehicle_id=vehicle_id,
+            eligible=False,
+            reason=f"not_{required_lane}",
+            required_lane=required_lane,
+            physical_lane=vehicle_state.physical_lane,
+            lane_change_state=vehicle_state.lane_change_state,
+            is_active=True,
+        )
+    if vehicle_state.lane_change_state == "executing":
+        return Lane2GapBoundaryEligibility(
+            vehicle_id=vehicle_id,
+            eligible=False,
+            reason="lane_change_executing",
+            required_lane=required_lane,
+            physical_lane=vehicle_state.physical_lane,
+            lane_change_state=vehicle_state.lane_change_state,
+            is_active=True,
+        )
+    return Lane2GapBoundaryEligibility(
+        vehicle_id=vehicle_id,
+        eligible=True,
+        reason="stable_lane_2",
+        required_lane=required_lane,
+        physical_lane=vehicle_state.physical_lane,
+        lane_change_state=vehicle_state.lane_change_state,
+        is_active=True,
+    )
+
+
 def resolve_lane_centerline(
     lane_id: str,
     *,
@@ -497,6 +577,51 @@ def resolve_region(
         before_merging_zone=before,
         in_merging_zone=in_merging,
         past_ramp_end=past,
+    )
+
+
+def resolve_on_ramp_control_region(
+    x_global: float,
+    road_role: str,
+    *,
+    geometry: RoadGeometryConfig = DEFAULT_ROAD_GEOMETRY,
+) -> OnRampControlRegion:
+    x_global = float(x_global)
+    control_start = float(geometry.control_start_global)
+    merge_start = float(geometry.x0_m_global)
+    ramp_end = float(geometry.x_ramp_end_global)
+    if x_global < control_start:
+        region = "pre_control"
+        aps_allowed = False
+        cooperative_request_allowed = False
+        cuc_allowed = False
+        cmc_allowed = False
+    elif x_global < merge_start:
+        region = "control_zone"
+        aps_allowed = True
+        cooperative_request_allowed = True
+        cuc_allowed = True
+        cmc_allowed = False
+    elif x_global <= ramp_end:
+        region = "merge_zone"
+        aps_allowed = False
+        cooperative_request_allowed = False
+        cuc_allowed = False
+        cmc_allowed = True
+    else:
+        region = "post_merge"
+        aps_allowed = False
+        cooperative_request_allowed = False
+        cuc_allowed = False
+        cmc_allowed = False
+    return OnRampControlRegion(
+        x_global=x_global,
+        road_role=road_role,
+        region=region,
+        aps_allowed=aps_allowed,
+        cooperative_request_allowed=cooperative_request_allowed,
+        cuc_allowed=cuc_allowed,
+        cmc_allowed=cmc_allowed,
     )
 
 
@@ -674,12 +799,19 @@ def emit_geometry_event_candidate(
     geometry: RoadGeometryConfig = DEFAULT_ROAD_GEOMETRY,
 ) -> dict[str, Any]:
     aps_windows: dict[str, dict[str, Any]] = {}
+    control_regions: dict[str, dict[str, Any]] = {}
     for vehicle_id in state.active_vehicle_ids:
         vehicle_state = state.vehicle_states[vehicle_id]
         if vehicle_state.physical_lane == ON_RAMP or vehicle_state.road_role in {
             ON_RAMP_ROLE,
             ON_RAMP_MV_ROLE,
         }:
+            control_region = resolve_on_ramp_control_region(
+                vehicle_state.x_global,
+                vehicle_state.road_role,
+                geometry=geometry,
+            )
+            control_regions[vehicle_id] = _dataclass_to_plain(control_region)
             window = resolve_aps_candidate_window(
                 vehicle_state.x_global,
                 mv_id=vehicle_id,
@@ -703,6 +835,10 @@ def emit_geometry_event_candidate(
         reason="geometry_resolvers_available",
         payload={
             "lane_centerlines": dict(geometry.lane_centerlines),
+            "control_zone_global": [
+                geometry.control_start_global,
+                geometry.x0_m_global,
+            ],
             "merging_zone_global": [
                 geometry.x0_m_global,
                 geometry.x_ramp_end_global,
@@ -711,6 +847,7 @@ def emit_geometry_event_candidate(
                 geometry.x0_m_global - geometry.l_coop_fixed,
                 geometry.x0_m_global,
             ],
+            "on_ramp_control_regions": control_regions,
             "aps_candidate_windows": aps_windows,
             "aps_candidate_window_parameter": "L_cr",
             "uses_fixed_cooperative_zone_for_aps_window": False,
@@ -1000,6 +1137,8 @@ def _geometry_status(geometry: RoadGeometryConfig) -> str:
         if float(geometry.lane_centerlines[lane_id]) != float(expected_y):
             return "fail"
     if geometry.x_ramp_end_global != geometry.x0_m_global + geometry.l_merging:
+        return "fail"
+    if not (geometry.control_start_global < geometry.x0_m_global < geometry.x_ramp_end_global):
         return "fail"
     return "pass"
 

@@ -646,9 +646,9 @@ def build_next_simulation_state(
     )
     for cache_update in next_state_buffer.candidate_cache_updates:
         if cache_update.cache_name == "aps_assignment_cache":
-            if cache_update.operation == "cleanup":
+            if cache_update.operation in {"cleanup", "invalidate"}:
                 next_cache.pop(cache_update.owner_vehicle_id, None)
-            elif cache_update.operation in {"update", "invalidate"}:
+            elif cache_update.operation == "update":
                 next_cache[cache_update.owner_vehicle_id] = dict(cache_update.new_value or {})
         elif cache_update.cache_name == "longitudinal_controller_cache":
             if cache_update.operation == "cleanup":
@@ -890,6 +890,11 @@ def emit_commit_event(
         for update in next_state_buffer.candidate_cache_updates
         if update.operation == "cleanup" and update.owner_vehicle_id == candidate.vehicle_id
     ]
+    cache_invalidate = [
+        update.owner_vehicle_id
+        for update in next_state_buffer.candidate_cache_updates
+        if update.operation == "invalidate" and update.owner_vehicle_id == candidate.vehicle_id
+    ]
     controller_cache_updates = [
         _dataclass_to_plain(update)
         for update in next_state_buffer.candidate_cache_updates
@@ -926,6 +931,7 @@ def emit_commit_event(
                 _plain_transition_payload(transition) for transition in command_transitions
             ],
             "cache_cleanup_vehicle_ids": cache_cleanup,
+            "cache_invalidate_vehicle_ids": cache_invalidate,
             "longitudinal_controller_cache_updates": controller_cache_updates,
             "active_maneuver_cleanup_vehicle_ids": active_maneuver_cleanup,
             "active_maneuver_persisted_vehicle_ids": active_maneuver_persisted,
@@ -1150,7 +1156,7 @@ def register_p10_png_features(
     cache_cleanup = [
         update.owner_vehicle_id
         for update in next_state_buffer.candidate_cache_updates
-        if update.operation == "cleanup" and update.owner_vehicle_id in final_candidates
+        if update.operation in {"cleanup", "invalidate"} and update.owner_vehicle_id in final_candidates
     ]
     source_chain = [
         vehicle_id

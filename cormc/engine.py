@@ -10,6 +10,7 @@ from cormc.random_generation import BoundaryQueueItem, compute_spawn_decisions
 from cormc.step0_3 import (
     DEFAULT_ROAD_GEOMETRY,
     ManeuverTrajectoryState,
+    OnRampControlRegion,
     PreFreezeWorkspace,
     RelationsSnapshot,
     RoadGeometryConfig,
@@ -22,6 +23,7 @@ from cormc.step0_3 import (
     freeze_simulation_state,
     refresh_relations_snapshot,
     run_geometry_sanity_baseline,
+    resolve_on_ramp_control_region,
     step0_cleanup_and_prepare,
     step1_prefreeze_boundary_generation_hook,
 )
@@ -77,6 +79,7 @@ class StepLoopTrace:
     canonical_next_state_buffer: NextStateBuffer
     commit_result: CommitResult
     time_advance_result: TimeAdvanceResult
+    on_ramp_control_regions: Mapping[str, OnRampControlRegion] = field(default_factory=dict)
     actual_events: list[dict[str, Any]] = field(default_factory=list)
     actual_sanity_checks: list[dict[str, Any]] = field(default_factory=list)
     expected_png_features: list[dict[str, Any]] = field(default_factory=list)
@@ -101,6 +104,7 @@ class StepWorkspace:
     next_state_buffer: NextStateBuffer | None = None
     commit_result: CommitResult | None = None
     time_advance_result: TimeAdvanceResult | None = None
+    on_ramp_control_regions: Mapping[str, OnRampControlRegion] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -149,21 +153,47 @@ class CormcEngine:
         workspace.step0_3_result = step0_3
         frozen = step0_3.state
         relations = step0_3.relations
+        control_regions = resolve_on_ramp_control_regions(frozen, geometry=self.geometry)
+        workspace.on_ramp_control_regions = MappingProxyType(dict(control_regions))
+        aps_eligible_mv_ids = tuple(
+            mv_id
+            for mv_id, region in control_regions.items()
+            if region.aps_allowed
+            and frozen.vehicle_states[mv_id].merge_state != "executing"
+        )
+        cmc_eligible_mv_ids = tuple(
+            mv_id
+            for mv_id, region in control_regions.items()
+            if region.cmc_allowed or frozen.vehicle_states[mv_id].merge_state == "executing"
+        )
 
-        p04 = run_step4a_aps(frozen, relations, config=config)
+        p04 = run_step4a_aps(
+            frozen,
+            relations,
+            config=config,
+            geometry=self.geometry,
+            eligible_mv_ids=aps_eligible_mv_ids,
+        )
         workspace.aps_result = p04
         p05 = run_step4b_cmc(
             frozen,
             relations,
             config=config,
+            geometry=self.geometry,
             effective_assignments=p04.effective_assignments,
+            eligible_mv_ids=cmc_eligible_mv_ids,
         )
         workspace.cmc_result = p05
+        request_assignments = _filter_effective_assignments_for_mv_ids(
+            p04.effective_assignments,
+            aps_eligible_mv_ids,
+        )
         p06 = run_step5_cooperative_request_conflict_resolution(
             frozen,
             relations,
             config=config,
-            effective_assignments=p04.effective_assignments,
+            geometry=self.geometry,
+            effective_assignments=request_assignments,
         )
         workspace.p06_result = p06
         p07 = run_step6_cuc_choice_compliance_lane_change_overlay(
@@ -172,6 +202,8 @@ class CormcEngine:
             active_requests=p06.active_requests,
             suppressed_requests=p06.suppressed_requests,
             utility_overrides=_utility_overrides(config),
+            geometry=self.geometry,
+            emit_no_active_event=bool(request_assignments),
         )
         workspace.cuc_result = p07
         command_buffer = normalize_maneuver_commands(
@@ -242,6 +274,7 @@ class CormcEngine:
             canonical_next_state_buffer=next_state_buffer,
             commit_result=commit,
             time_advance_result=time_advance,
+            on_ramp_control_regions=MappingProxyType(dict(control_regions)),
             actual_events=events,
             actual_sanity_checks=sanity,
             expected_png_features=features,
@@ -330,11 +363,54 @@ def build_step_next_state_buffer(
     )
 
 
+def resolve_on_ramp_control_regions(
+    state: SimulationState,
+    *,
+    geometry: RoadGeometryConfig = DEFAULT_ROAD_GEOMETRY,
+) -> Mapping[str, OnRampControlRegion]:
+    regions: dict[str, OnRampControlRegion] = {}
+    for vehicle_id in state.active_vehicle_ids:
+        vehicle_state = state.vehicle_states[vehicle_id]
+        if vehicle_state.road_role != "on_ramp_mv":
+            continue
+        regions[vehicle_id] = resolve_on_ramp_control_region(
+            vehicle_state.x_global,
+            vehicle_state.road_role,
+            geometry=geometry,
+        )
+    return MappingProxyType(regions)
+
+
+def _filter_effective_assignments_for_mv_ids(
+    assignments: Mapping[str, Any],
+    mv_ids: Iterable[str],
+) -> Mapping[str, Any]:
+    eligible = set(mv_ids)
+    return MappingProxyType(
+        {
+            mv_id: assignment
+            for mv_id, assignment in assignments.items()
+            if mv_id in eligible
+        }
+    )
+
+
 def aps_cache_actions_to_candidate_updates(
     p04_result: APSRunResult,
 ) -> tuple[CandidateCacheUpdate, ...]:
     updates: list[CandidateCacheUpdate] = []
     for action in p04_result.cache_actions:
+        if action.action == "invalidate":
+            updates.append(
+                CandidateCacheUpdate(
+                    candidate_id=f"p12:{p04_result.state.step}:aps_cache_invalidate:{action.mv_id}",
+                    cache_name="aps_assignment_cache",
+                    owner_vehicle_id=action.mv_id,
+                    operation="invalidate",
+                    reason=action.reason,
+                )
+            )
+            continue
         if action.action != "update_request" or action.update_request is None:
             continue
         updates.append(

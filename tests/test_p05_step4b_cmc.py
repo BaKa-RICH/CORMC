@@ -132,6 +132,34 @@ def test_assignment_invalid_marked_engineering_patch() -> None:
     assert assignment_invalid_expected["match"]["reason"] == "cfv_not_lane_2"
 
 
+def test_p05_rejects_executing_clv_and_cfv_with_structured_reason() -> None:
+    for role, expected_reason in (
+        ("clv", "clv_lane_change_executing"),
+        ("cfv", "cfv_lane_change_executing"),
+    ):
+        config = _executing_boundary_invalid_config(role)
+        workspace, _ = build_prefreeze_workspace_from_scenario(config)
+        frozen = freeze_simulation_state(workspace)
+        relations = refresh_relations_snapshot(frozen)
+
+        result = run_step4b_cmc(frozen, relations, config=config)
+        validation_event = _actual_event(
+            result.actual_events,
+            reason="assignment_validation",
+            vehicle_id="MV_EXEC_BOUNDARY",
+        )
+        invalid_event = _actual_event(
+            result.actual_events,
+            reason=expected_reason,
+            vehicle_id="MV_EXEC_BOUNDARY",
+        )
+
+        assert validation_event["payload"]["assignment_valid"] is False
+        assert validation_event["payload"]["invalid_reason"] == expected_reason
+        assert invalid_event["event_type"] == "assignment_invalid"
+        assert result.command_buffer.cache_update_commands[0]["operation"] == "invalidate"
+
+
 def _assert_required_p05_pass(report: Any) -> None:
     assert report.status == "required"
     assert report.classification == "required_passed"
@@ -292,6 +320,56 @@ def _effective_assignment_precedence_config() -> dict[str, Any]:
     }
 
 
+def _executing_boundary_invalid_config(role: str) -> dict[str, Any]:
+    clv_state = "executing" if role == "clv" else "normal"
+    cfv_state = "executing" if role == "cfv" else "normal"
+    return {
+        "scenario_id": f"P05-{role.upper()}-LANE-CHANGE-EXECUTING",
+        "scenario_name": "P05 rejects executing lane-change gap boundary",
+        "purpose": "CMC must reject cached lane 2 gap boundaries that are actively changing lanes.",
+        "test_level": "unit",
+        "status": "required",
+        "initial_time": {"t": 0.0, "step": 0, "dt": 0.1},
+        "initial_vehicles": [
+            _vehicle("MV_EXEC_BOUNDARY", "on_ramp", 7000.0, -3.5, road_role="on_ramp_mv", merge_state="waiting"),
+            _vehicle("CLV_EXEC_BOUNDARY", "lane_2", 7030.0, 0.0, lane_change_state=clv_state),
+            _vehicle("CFV_EXEC_BOUNDARY", "lane_2", 6970.0, 0.0, lane_change_state=cfv_state),
+        ],
+        "module_overrides": {
+            "boundary_generation_enabled": False,
+            "random_arrival_enabled": False,
+            "random_vehicle_attributes_enabled": False,
+            "ordinary_mainline_lane_change_enabled": False,
+            "platoon_cmc_enabled": False,
+            "mpc_lateral_tracking_enabled": False,
+            "test_harness_overrides": {"source": "test_harness_override"},
+        },
+        "preloaded_assignments": [
+            {
+                "mv_id": "MV_EXEC_BOUNDARY",
+                "clv_id": "CLV_EXEC_BOUNDARY",
+                "cfv_id": "CFV_EXEC_BOUNDARY",
+                "aps_case": "case_1",
+                "col_clv": False,
+                "col_cfv": False,
+                "desired_spacing_override": None,
+                "status": "valid",
+                "created_at_t": -1.0,
+                "created_at_step": -10,
+                "source": "aps_cache",
+                "valid_until_next_aps": True,
+            }
+        ],
+        "preloaded_state_machine_states": [],
+        "preloaded_maneuver_trajectory_states": [],
+        "expected_events": [],
+        "forbidden_events": [],
+        "expected_event_counts": [],
+        "expected_sanity_checks": [],
+        "expected_png_features": [],
+    }
+
+
 def _vehicle(
     vehicle_id: str,
     lane: str,
@@ -300,6 +378,7 @@ def _vehicle(
     *,
     road_role: str = "mainline",
     merge_state: str = "none",
+    lane_change_state: str = "normal",
 ) -> dict[str, Any]:
     return {
         "vehicle_id": vehicle_id,
@@ -311,7 +390,7 @@ def _vehicle(
         "initial_a": 0.0,
         "physical_lane": lane,
         "road_role": road_role,
-        "lane_change_state": "normal",
+        "lane_change_state": lane_change_state,
         "merge_state": merge_state,
         "spec_overrides": {},
     }

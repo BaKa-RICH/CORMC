@@ -1,0 +1,22 @@
+{
+  "entries": [
+    {
+      "exports": {
+        "events": "artifacts\\basic\\basic_long_dt_900\\scenarios\\BASIC-04\\events.jsonl",
+        "sanity": "artifacts\\basic\\basic_long_dt_900\\scenarios\\BASIC-04\\sanity.jsonl",
+        "trajectory": "artifacts\\basic\\basic_long_dt_900\\scenarios\\BASIC-04\\trajectory.csv"
+      },
+      "gaps": [],
+      "human_summary_path": "artifacts\\basic\\basic_long_dt_900\\scenarios\\BASIC-04\\scenario_report.md",
+      "input_config_ref": "basic_scenario:BASIC-04",
+      "png_feature_statuses": [],
+      "png_paths": [],
+      "regression_report_ref": null,
+      "run_id": "basic_long_dt_900",
+      "scenario_id": "BASIC-04",
+      "scenario_report_path": "artifacts\\basic\\basic_long_dt_900\\scenarios\\BASIC-04\\scenario_report.md",
+      "status": "diagnosed_unresolved"
+    }
+  ],
+  "run_id": "basic_long_dt_900"
+}

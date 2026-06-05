@@ -96,6 +96,53 @@ def test_p04_effective_assignment_preserves_t_star_handoff() -> None:
     assert assignment["t_mv_star"] == aps_event["payload"]["t_star_mv"]
 
 
+def test_p04_excludes_executing_lane_change_from_aps_candidates() -> None:
+    result = run_step4a_aps_for_scenario(_aps_executing_candidate_config())
+
+    candidate_event = _actual_event(result.actual_events, "APS_candidate", "MV_EXEC_FILTER")
+
+    assert "CFV_EXECUTING" not in candidate_event["payload"]["candidate_ids"]
+    assert candidate_event["payload"]["candidate_ids"] == ["CFV_STABLE", "CLV_STABLE"]
+    assert candidate_event["payload"]["excluded_candidates"] == [
+        {
+            "vehicle_id": "CFV_EXECUTING",
+            "physical_lane": "lane_2",
+            "lane_change_state": "executing",
+            "excluded_reason": "lane_change_executing",
+        }
+    ]
+
+
+def test_p04_invalid_cached_boundary_triggers_immediate_fresh_assignment() -> None:
+    result = run_step4a_aps_for_scenario(_invalid_cache_with_replacement_config())
+
+    aps_event = _actual_event(result.actual_events, "APS", "MV_INVALID_CACHE", reason="cached_gap_boundary_invalid")
+    assignment = result.effective_assignments["MV_INVALID_CACHE"].assignment
+
+    assert aps_event["payload"]["trigger"] == "cached_gap_boundary_invalid"
+    assert assignment["clv_id"] in {"CLV_OLD", "CLV_REPLACEMENT"}
+    assert assignment["cfv_id"] == "CFV_REPLACEMENT"
+    assert assignment["cfv_id"] != "CFV_EXECUTING_OLD"
+    assert result.cache_actions[0].action == "update_request"
+
+
+def test_p04_invalid_cached_boundary_failed_fresh_aps_does_not_retain_old_assignment() -> None:
+    result = run_step4a_aps_for_scenario(_invalid_cache_without_replacement_config())
+
+    aps_event = _actual_event(result.actual_events, "APS", "MV_INVALID_FAIL", reason="insufficient_candidates")
+    cache_event = _actual_event(result.actual_events, "assignment_cache", "MV_INVALID_FAIL")
+
+    assert "MV_INVALID_FAIL" not in result.effective_assignments
+    assert result.cache_actions[0].action == "invalidate"
+    assert aps_event["payload"]["trigger"] == "cached_gap_boundary_invalid"
+    assert aps_event["payload"]["old_cache_invalidated"] is True
+    assert aps_event["payload"]["invalid_boundary_role"] == "cfv"
+    assert aps_event["payload"]["invalid_boundary_id"] == "CFV_EXECUTING_OLD"
+    assert aps_event["payload"]["invalid_reason"] == "lane_change_executing"
+    assert aps_event["payload"]["effective_assignment_source"] is None
+    assert cache_event["payload"]["action"] == "invalidate"
+
+
 def test_mvs_aps_case_4_eq10_to_cfv_only_contract() -> None:
     report = run_targeted_scenario(
         _aps_case_config(
@@ -216,6 +263,7 @@ def _vehicle(
     vehicle_type: str = "CAV",
     compliance_state: str = "not_applicable",
     merge_state: str = "none",
+    lane_change_state: str = "normal",
 ) -> dict[str, Any]:
     return {
         "vehicle_id": vehicle_id,
@@ -227,7 +275,7 @@ def _vehicle(
         "initial_a": 0.0,
         "physical_lane": lane,
         "road_role": road_role,
-        "lane_change_state": "normal",
+        "lane_change_state": lane_change_state,
         "merge_state": merge_state,
         "spec_overrides": {},
     }
@@ -436,6 +484,107 @@ def _aps_case_config(
             },
         ],
         expected_png_features=expected_png_features,
+    )
+
+
+def _aps_executing_candidate_config() -> dict[str, Any]:
+    return _base_config(
+        "P04-APS-EXECUTING-CANDIDATE-FILTER",
+        vehicles=[
+            _vehicle(
+                "MV_EXEC_FILTER",
+                "on_ramp",
+                6830.0,
+                -3.5,
+                road_role="on_ramp_mv",
+                merge_state="not_started",
+            ),
+            _vehicle("CFV_EXECUTING", "lane_2", 6820.0, 0.0, lane_change_state="executing"),
+            _vehicle("CFV_STABLE", "lane_2", 6824.0, 0.0),
+            _vehicle("CLV_STABLE", "lane_2", 6884.0, 0.0),
+        ],
+        expected_events=[],
+        expected_sanity_checks=[],
+    )
+
+
+def _invalid_cache_with_replacement_config() -> dict[str, Any]:
+    return _base_config(
+        "P04-CACHE-INVALID-REPLACEMENT",
+        vehicles=[
+            _vehicle(
+                "MV_INVALID_CACHE",
+                "on_ramp",
+                6830.0,
+                -3.5,
+                road_role="on_ramp_mv",
+                merge_state="not_started",
+            ),
+            _vehicle("CLV_OLD", "lane_2", 6884.0, 0.0),
+            _vehicle("CFV_EXECUTING_OLD", "lane_2", 6824.0, 0.0, lane_change_state="executing"),
+            _vehicle("CFV_REPLACEMENT", "lane_2", 6826.0, 0.0),
+            _vehicle("CLV_REPLACEMENT", "lane_2", 6890.0, 0.0),
+        ],
+        preloaded_assignments=[
+            {
+                "mv_id": "MV_INVALID_CACHE",
+                "clv_id": "CLV_OLD",
+                "cfv_id": "CFV_EXECUTING_OLD",
+                "aps_case": "case_1",
+                "col_clv": False,
+                "col_cfv": False,
+                "desired_spacing_override": None,
+                "status": "valid",
+                "created_at_t": 0.0,
+                "created_at_step": 0,
+                "source": "aps_cache",
+                "valid_until_next_aps": True,
+            }
+        ],
+        preloaded_state_machine_states=[
+            {"vehicle_id": "MV_INVALID_CACHE", "last_aps_time": 0.0}
+        ],
+        expected_events=[],
+        expected_sanity_checks=[],
+    )
+
+
+def _invalid_cache_without_replacement_config() -> dict[str, Any]:
+    return _base_config(
+        "P04-CACHE-INVALID-FAILED-FRESH",
+        vehicles=[
+            _vehicle(
+                "MV_INVALID_FAIL",
+                "on_ramp",
+                6830.0,
+                -3.5,
+                road_role="on_ramp_mv",
+                merge_state="not_started",
+            ),
+            _vehicle("CLV_OLD_FAIL", "lane_2", 6884.0, 0.0),
+            _vehicle("CFV_EXECUTING_OLD", "lane_2", 6824.0, 0.0, lane_change_state="executing"),
+        ],
+        preloaded_assignments=[
+            {
+                "mv_id": "MV_INVALID_FAIL",
+                "clv_id": "CLV_OLD_FAIL",
+                "cfv_id": "CFV_EXECUTING_OLD",
+                "aps_case": "case_1",
+                "col_clv": False,
+                "col_cfv": True,
+                "desired_spacing_override": None,
+                "status": "valid",
+                "created_at_t": 0.0,
+                "created_at_step": 0,
+                "source": "aps_cache",
+                "valid_until_next_aps": True,
+            }
+        ],
+        preloaded_state_machine_states=[
+            {"vehicle_id": "MV_INVALID_FAIL", "last_aps_time": 0.0}
+        ],
+        expected_events=[],
+        expected_sanity_checks=[],
     )
 
 
@@ -656,6 +805,22 @@ def _matcher_result(report: Any, name: str) -> Any:
         if matcher_result.name == name:
             return matcher_result
     raise AssertionError(f"missing matcher result: {name}")
+
+
+def _actual_event(
+    events: list[dict[str, Any]],
+    event_type: str,
+    vehicle_id: str,
+    *,
+    reason: str | None = None,
+) -> dict[str, Any]:
+    for event in events:
+        if event.get("event_type") != event_type or event.get("vehicle_id") != vehicle_id:
+            continue
+        if reason is not None and event.get("reason") != reason:
+            continue
+        return event
+    raise AssertionError(f"missing event: {event_type} {vehicle_id} {reason}")
 
 
 def _state_signature(state: Any) -> tuple[Any, ...]:

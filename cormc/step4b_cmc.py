@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, fields
 from types import MappingProxyType
-from typing import Any, Mapping
+from typing import Any, Iterable, Mapping
 
 from cormc.step0_3 import (
     DEFAULT_ROAD_GEOMETRY,
@@ -17,6 +17,7 @@ from cormc.step0_3 import (
     build_prefreeze_workspace_from_scenario,
     freeze_simulation_state,
     refresh_relations_snapshot,
+    resolve_lane_2_gap_boundary_eligibility,
     resolve_region,
 )
 from cormc.step4a_aps import EffectiveAssignmentThisStep
@@ -118,6 +119,7 @@ def run_step4b_cmc(
     config: dict[str, Any] | None = None,
     geometry: RoadGeometryConfig = DEFAULT_ROAD_GEOMETRY,
     effective_assignments: Mapping[str, EffectiveAssignmentThisStep] | None = None,
+    eligible_mv_ids: Iterable[str] | None = None,
 ) -> Step4BCMCRunResult:
     scenario_id = str((config or {}).get("scenario_id") or state.scenario_config_ref or "unknown")
     before_signature = _state_signature(state)
@@ -130,7 +132,7 @@ def run_step4b_cmc(
     state_transition_commands: dict[str, tuple[Any, ...]] = {}
     cache_update_commands: list[Any] = []
 
-    for mv_id in _step4b_mv_ids(state):
+    for mv_id in _step4b_mv_ids(state, eligible_mv_ids=eligible_mv_ids):
         mv_state = state.vehicle_states[mv_id]
         region = resolve_region(mv_state.x_global, mv_state.road_role, geometry=geometry)
         if mv_state.merge_state == "executing":
@@ -459,23 +461,25 @@ def validate_cmc_assignment(
             assigned_cfv_id=cfv_id,
             invalid_reason="vehicle_exited",
         )
-    if clv_state.physical_lane != LANE_2:
+    clv_eligibility = resolve_lane_2_gap_boundary_eligibility(state, clv_id)
+    if not clv_eligibility.eligible:
         return CMCAssignmentValidationResult(
             mv_id=mv_id,
             assignment_source=source.source,
             assignment_valid=False,
             assigned_clv_id=clv_id,
             assigned_cfv_id=cfv_id,
-            invalid_reason="clv_not_lane_2",
+            invalid_reason=_cmc_boundary_invalid_reason("clv", clv_eligibility.reason),
         )
-    if cfv_state.physical_lane != LANE_2:
+    cfv_eligibility = resolve_lane_2_gap_boundary_eligibility(state, cfv_id)
+    if not cfv_eligibility.eligible:
         return CMCAssignmentValidationResult(
             mv_id=mv_id,
             assignment_source=source.source,
             assignment_valid=False,
             assigned_clv_id=clv_id,
             assigned_cfv_id=cfv_id,
-            invalid_reason="cfv_not_lane_2",
+            invalid_reason=_cmc_boundary_invalid_reason("cfv", cfv_eligibility.reason),
         )
     if not (clv_state.x_global > mv_state.x_global > cfv_state.x_global):
         return CMCAssignmentValidationResult(
@@ -1039,11 +1043,17 @@ def _standard_sanity_checks(
     return checks
 
 
-def _step4b_mv_ids(state: SimulationState) -> list[str]:
+def _step4b_mv_ids(
+    state: SimulationState,
+    *,
+    eligible_mv_ids: Iterable[str] | None = None,
+) -> list[str]:
+    eligible = None if eligible_mv_ids is None else set(eligible_mv_ids)
     return [
         vehicle_id
         for vehicle_id in state.active_vehicle_ids
         if _is_mv_candidate(state.vehicle_states[vehicle_id])
+        and (eligible is None or vehicle_id in eligible)
     ]
 
 
@@ -1062,6 +1072,18 @@ def _optional_str(value: Any) -> str | None:
     if value in (None, ""):
         return None
     return str(value)
+
+
+def _cmc_boundary_invalid_reason(role: str, reason: str) -> str:
+    if reason == "lane_change_executing":
+        return f"{role}_lane_change_executing"
+    if reason == "inactive_vehicle":
+        return "vehicle_exited"
+    if reason == "missing":
+        return f"{role}_missing"
+    if reason.startswith("not_"):
+        return f"{role}_not_lane_2"
+    return f"{role}_{reason}"
 
 
 def _png_features(
