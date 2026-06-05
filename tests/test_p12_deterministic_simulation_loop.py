@@ -129,7 +129,7 @@ def test_p12_next_state_buffer_preserves_p08_p09_boundaries() -> None:
     assert buffer.candidate_lateral["MV_DEMO"].y > trace.step0_3_result.state.vehicle_states["MV_DEMO"].y
 
 
-def test_p12_aps_cache_action_commits_to_next_state_and_reuses_cache() -> None:
+def test_p12_assignment_record_action_commits_to_next_state_and_reuses_record() -> None:
     result = run_deterministic_simulation(
         SimulationLoopConfig(
             scenario_id="MVS-E2E-1",
@@ -139,8 +139,8 @@ def test_p12_aps_cache_action_commits_to_next_state_and_reuses_cache() -> None:
         )
     )
 
-    assert "MV_DEMO" in result.final_state.aps_assignment_cache
-    assert result.final_state.aps_assignment_cache["MV_DEMO"]["aps_case"] == "case_1"
+    assert "MV_DEMO" in result.final_state.assignment_records_by_mv
+    assert result.final_state.assignment_records_by_mv["MV_DEMO"]["aps_case"] == "case_1"
     assert _has_event(result.history.event_dicts(), "assignment_cache", reason="reuse_cache_until_next_APS")
 
 
@@ -157,7 +157,7 @@ def test_p12_pre_control_mv_rolls_dt_without_control_modules() -> None:
 
     assert result.final_state.step == 5
     assert result.final_state.vehicle_states["BASIC_MV"].x_global > 6640.0
-    assert result.final_state.aps_assignment_cache == {}
+    assert result.final_state.assignment_records_by_mv == {}
     assert {trace.on_ramp_control_regions["BASIC_MV"].region for trace in result.step_traces} == {
         "pre_control",
     }

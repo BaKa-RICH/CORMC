@@ -581,7 +581,10 @@ def _cached_boundary_invalidation_timeline(
         if event.get("event_type") not in {"APS", "assignment_cache"}:
             continue
         payload = event.get("payload") or {}
-        if payload.get("old_cache_invalidated") is not True:
+        if (
+            payload.get("old_cache_invalidated") is not True
+            and payload.get("old_assignment_marked_recovery_required") is not True
+        ):
             continue
         timeline.append(_event_summary(event))
     return timeline
@@ -1147,6 +1150,8 @@ def _event_summary(event: Mapping[str, Any]) -> dict[str, Any]:
         "candidate_count",
         "excluded_candidates",
         "old_cache_invalidated",
+        "old_assignment_marked_recovery_required",
+        "lifecycle_state",
         "invalid_boundary_role",
         "invalid_boundary_id",
     )

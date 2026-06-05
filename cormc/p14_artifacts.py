@@ -685,7 +685,7 @@ def _serialize_simulation_state(state: SimulationState) -> dict[str, Any]:
             _serialize_vehicle_state(state.vehicle_states[vehicle_id])
             for vehicle_id in sorted(state.vehicle_states)
         ],
-        "aps_assignment_cache": _to_plain(state.aps_assignment_cache),
+        "assignment_records_by_mv": _to_plain(state.assignment_records_by_mv),
         "controller_memory_by_vehicle": _to_plain(state.controller_memory_by_vehicle),
         "active_maneuvers": [
             _serialize_active_maneuver(maneuver)

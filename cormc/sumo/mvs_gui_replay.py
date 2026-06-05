@@ -140,7 +140,7 @@ def _ensure_replay_vehicle(traci: Any, record: dict[str, Any]) -> None:
     y = float(record["y"])
     lane_role = _record_lane_role(record)
     road_role = _record_road_role(record, lane_role)
-    edge_id, lane_index, depart_pos = to_sumo_position(x_global, lane_role, road_role)
+    edge_id, lane_index, depart_pos = _sumo_position_for_replay_record(record, x_global, lane_role, road_role)
     route_id = "route_ramp" if _uses_ramp_route(record, lane_role, road_role) else "route_main"
     traci.vehicle.add(
         vehicle_id,
@@ -172,7 +172,7 @@ def _apply_replay_record(traci: Any, record: dict[str, Any]) -> None:
     y = float(record["y"])
     lane_role = _record_lane_role(record)
     road_role = _record_road_role(record, lane_role)
-    edge_id, lane_index, _ = to_sumo_position(x_global, lane_role, road_role)
+    edge_id, lane_index, _ = _sumo_position_for_replay_record(record, x_global, lane_role, road_role)
     speed = float(record["v"])
     traci.vehicle.setPreviousSpeed(vehicle_id, speed)
     traci.vehicle.setSpeed(vehicle_id, speed)
@@ -214,6 +214,23 @@ def _record_road_role(record: dict[str, Any], lane_role: str) -> str:
 
 def _uses_ramp_route(record: dict[str, Any], lane_role: str, road_role: str) -> bool:
     return lane_role == "on_ramp" or road_role in {"on_ramp", "on_ramp_mv"}
+
+
+def _sumo_position_for_replay_record(
+    record: dict[str, Any],
+    x_global: float,
+    lane_role: str,
+    road_role: str,
+) -> tuple[str, int, float]:
+    try:
+        return to_sumo_position(x_global, lane_role, road_role)
+    except ValueError:
+        hint = record.get("visual_replay_hint")
+        if not isinstance(hint, dict) or hint.get("mode") != "allow_pre_control_on_ramp":
+            raise
+        edge_id = str(hint.get("edge_id", "ramp_pre"))
+        lane_index = int(hint.get("lane_index", 0))
+        return edge_id, lane_index, 0.0
 
 
 def _record_color(record: dict[str, Any]) -> tuple[int, int, int]:

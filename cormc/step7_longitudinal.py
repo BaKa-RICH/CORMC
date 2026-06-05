@@ -5,6 +5,7 @@ from math import sqrt
 from types import MappingProxyType
 from typing import Any, Mapping
 
+from cormc.assignment_lifecycle import assignment_lifecycle_manager
 from cormc.p145_parameters import (
     CAV,
     CORMC_PARAMETER_SPEC_SOURCE,
@@ -807,12 +808,21 @@ def resolve_aps_gap_protection_speed_cap(
             speed_cap=None,
             rejection_reason=f"not_control_zone:{region.region}",
         )
-    assignment = state.aps_assignment_cache.get(vehicle_id)
+    assignment = state.assignment_records_by_mv.get(vehicle_id)
     if assignment is None:
         return APSGapProtectionResult(
             applied=False,
             speed_cap=None,
-            rejection_reason="missing_aps_assignment_cache",
+            rejection_reason="missing_assignment_records_by_mv",
+        )
+    if not assignment_lifecycle_manager.is_control_zone_gap_protection_record(assignment):
+        lifecycle_state = str(assignment.get("lifecycle_state") or "missing")
+        status = str(assignment.get("status") or "missing").lower()
+        return APSGapProtectionResult(
+            applied=False,
+            speed_cap=None,
+            source_aps_case=_optional_str(assignment.get("aps_case")),
+            rejection_reason=f"not_control_zone_gap_protection:{lifecycle_state}:{status}",
         )
     status = str(assignment.get("status") or "").lower()
     if status not in {"valid", "available", "ok"}:
@@ -1483,7 +1493,7 @@ def _state_signature(state: SimulationState) -> tuple[Any, ...]:
             )
             for vehicle_id in state.active_vehicle_ids
         ),
-        tuple((key, tuple(sorted(value.items()))) for key, value in state.aps_assignment_cache.items()),
+        tuple((key, tuple(sorted(value.items()))) for key, value in state.assignment_records_by_mv.items()),
         tuple(
             (
                 vehicle_id,

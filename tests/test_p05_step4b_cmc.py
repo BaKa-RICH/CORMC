@@ -3,10 +3,10 @@ from __future__ import annotations
 from types import MappingProxyType
 from typing import Any
 
+from cormc.assignment_lifecycle import AssignmentStepView
 from cormc import build_prefreeze_workspace_from_scenario, freeze_simulation_state, refresh_relations_snapshot
 from cormc.mvs import build_scenario_report, load_builtin_scenario, load_scenario_config, run_targeted_scenario
 from cormc.mvs.runner import ScenarioRunResult, ScenarioRuntimeContext
-from cormc.step4a_aps import EffectiveAssignmentThisStep
 from cormc.step4b_cmc import run_step4b_cmc
 
 
@@ -31,7 +31,7 @@ def test_mvs_assign_1_invalid_assignment_does_not_swap_actual_leader_follower_co
 
     _assert_required_p05_pass(report)
     assert _matcher_result(report, "expected_event_counts").passed is True
-    assert _registered_feature(report, "no_replacement_assignment_arrow")["expected_visibility"] == "not_visible"
+    assert _registered_feature(report, "merge_start_marker")["expected_visibility"] == "visible"
 
 
 def test_waiting_boundary_speed_cap_command_for_safe_1a_prereq_contract() -> None:
@@ -54,36 +54,40 @@ def test_executing_merge_continuation_does_not_rejudge_merge_start_contract() ->
     assert _registered_feature(report, "executing_continuation_marker")["expected_visibility"] == "visible"
 
 
-def test_p05_consumes_p04_effective_assignment_without_rerunning_aps() -> None:
+def test_p05_consumes_lifecycle_view_without_rerunning_aps() -> None:
     config = load_scenario_config(_effective_assignment_precedence_config())
     workspace, _ = build_prefreeze_workspace_from_scenario(config)
     frozen = freeze_simulation_state(workspace)
     relations = refresh_relations_snapshot(frozen)
-    effective_assignment = EffectiveAssignmentThisStep(
+    assignment_view = AssignmentStepView(
         mv_id="MV_EFFECTIVE",
-        assignment=MappingProxyType(
+        record=MappingProxyType(
             {
+                "record_version": 1,
                 "mv_id": "MV_EFFECTIVE",
                 "clv_id": "CLV_EFFECTIVE_NEW",
                 "cfv_id": "CFV_EFFECTIVE_NEW",
+                "gap_type": "bounded",
                 "aps_case": "case_1",
                 "col_clv": False,
                 "col_cfv": False,
                 "desired_spacing_override": None,
                 "status": "valid",
+                "lifecycle_state": "active_control_zone",
                 "source": "aps_updated_this_step",
                 "valid_until_next_aps": True,
             }
         ),
         source="aps_updated_this_step",
-        available_for_cooperative_request=True,
+        consumable_by_step5=True,
+        consumable_by_cmc=True,
     )
 
     result = run_step4b_cmc(
         frozen,
         relations,
         config=config,
-        effective_assignments={"MV_EFFECTIVE": effective_assignment},
+        assignment_views={"MV_EFFECTIVE": assignment_view},
     )
     report = build_scenario_report(
         ScenarioRuntimeContext(config=config),
@@ -101,7 +105,7 @@ def test_p05_consumes_p04_effective_assignment_without_rerunning_aps() -> None:
         reason="assignment_validation",
         vehicle_id="MV_EFFECTIVE",
     )
-    assert validation_event["payload"]["assignment_source"] == "effective_assignment_this_step"
+    assert validation_event["payload"]["assignment_source"] == "aps_updated_this_step"
     assert validation_event["payload"]["assigned_clv_id"] == "CLV_EFFECTIVE_NEW"
     assert validation_event["payload"]["assigned_cfv_id"] == "CFV_EFFECTIVE_NEW"
 
@@ -157,7 +161,11 @@ def test_p05_rejects_executing_clv_and_cfv_with_structured_reason() -> None:
         assert validation_event["payload"]["assignment_valid"] is False
         assert validation_event["payload"]["invalid_reason"] == expected_reason
         assert invalid_event["event_type"] == "assignment_invalid"
-        assert result.command_buffer.cache_update_commands[0]["operation"] == "invalidate"
+        assert result.command_buffer.cache_update_commands[0]["operation"] == "update"
+        assert (
+            result.command_buffer.cache_update_commands[0]["new_value"]["lifecycle_state"]
+            == "recovery_required"
+        )
 
 
 def _assert_required_p05_pass(report: Any) -> None:
@@ -206,7 +214,7 @@ def _effective_assignment_precedence_config() -> dict[str, Any]:
     return {
         "scenario_id": "P05-EFFECTIVE-ASSIGNMENT-PRECEDENCE",
         "scenario_name": "P05 consumes P04 effective assignment before APS cache",
-        "purpose": "P05 must prefer EffectiveAssignmentThisStep and must not rerun APS.",
+        "purpose": "P05 must prefer lifecycle view and must not rerun APS.",
         "test_level": "unit",
         "status": "required",
         "derivation_ref": ["P05-Step4B_CMC_AssignmentValidation_Eq53_BoundaryCap.md#6"],
@@ -252,7 +260,7 @@ def _effective_assignment_precedence_config() -> dict[str, Any]:
                 "required": True,
                 "vehicle_ids": ["MV_EFFECTIVE", "CLV_EFFECTIVE_NEW", "CFV_EFFECTIVE_NEW"],
                 "match": {
-                    "assignment_source": "effective_assignment_this_step",
+                    "assignment_source": "aps_updated_this_step",
                     "assignment_valid": True,
                     "assigned_clv_id": "CLV_EFFECTIVE_NEW",
                     "assigned_cfv_id": "CFV_EFFECTIVE_NEW",

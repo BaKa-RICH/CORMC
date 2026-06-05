@@ -639,13 +639,13 @@ def build_next_simulation_state(
         )
 
     next_cache: dict[str, dict[str, Any]] = {
-        key: dict(value) for key, value in state.aps_assignment_cache.items()
+        key: dict(value) for key, value in state.assignment_records_by_mv.items()
     }
     next_controller_memory: dict[str, LongitudinalControllerMemory] = dict(
         state.controller_memory_by_vehicle
     )
     for cache_update in next_state_buffer.candidate_cache_updates:
-        if cache_update.cache_name == "aps_assignment_cache":
+        if cache_update.cache_name == "assignment_records_by_mv":
             if cache_update.operation in {"cleanup", "invalidate"}:
                 next_cache.pop(cache_update.owner_vehicle_id, None)
             elif cache_update.operation == "update":
@@ -672,7 +672,7 @@ def build_next_simulation_state(
         active_vehicle_ids=tuple(next_vehicle_states),
         vehicle_states=MappingProxyType(next_vehicle_states),
         vehicle_specs=state.vehicle_specs,
-        aps_assignment_cache=MappingProxyType(
+        assignment_records_by_mv=MappingProxyType(
             {key: MappingProxyType(value) for key, value in next_cache.items()}
         ),
         active_maneuvers=MappingProxyType(next_active_maneuvers),
@@ -1497,7 +1497,7 @@ def _state_signature(state: SimulationState) -> tuple[Any, ...]:
             )
             for vehicle_id in sorted(state.active_maneuvers)
         ),
-        tuple((key, tuple(sorted(value.items()))) for key, value in state.aps_assignment_cache.items()),
+        tuple((key, tuple(sorted(value.items()))) for key, value in state.assignment_records_by_mv.items()),
         tuple(
             (
                 vehicle_id,

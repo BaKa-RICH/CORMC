@@ -10,7 +10,7 @@ from cormc.engine import (
     Step0To3LoopResult,
     StepLoopTrace,
     StepWorkspace,
-    aps_cache_actions_to_candidate_updates,
+    assignment_record_actions_to_candidate_updates,
     build_initial_state_from_scenario_config,
     build_step_command_buffer,
     build_step_next_state_buffer,

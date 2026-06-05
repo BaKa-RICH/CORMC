@@ -29,7 +29,12 @@ def test_basic_04_numeric_summary_extracts_main_chain(tmp_path: Path) -> None:
     first_excluded = summary["aps_excluded_candidate_timeline"][0]["payload"]["excluded_candidates"][0]
     assert first_excluded["vehicle_id"] == "B04_CFV"
     assert first_excluded["excluded_reason"] == "lane_change_executing"
-    assert summary["first_cached_boundary_invalidation"]["payload"]["old_cache_invalidated"] is True
+    assert (
+        summary["first_cached_boundary_invalidation"]["payload"][
+            "old_assignment_marked_recovery_required"
+        ]
+        is True
+    )
     assert summary["first_cached_boundary_invalidation"]["payload"]["invalid_boundary_id"] == "B04_CFV"
     assert summary["first_cached_boundary_invalidation"]["payload"]["invalid_reason"] == "lane_change_executing"
     assert Path(result.numeric_summary_path).exists()

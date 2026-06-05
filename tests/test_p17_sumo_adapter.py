@@ -41,7 +41,7 @@ def test_adapter_maps_realized_edge_lane_position_to_cormc_state_and_preserves_c
     assert state.vehicle_states["MV_A"].physical_lane == "on_ramp"
     assert state.vehicle_states["MV_A"].road_role == "on_ramp_mv"
     assert state.vehicle_states["MV_A"].merge_state == "executing"
-    assert state.aps_assignment_cache["MV_A"]["mv_id"] == "MV_A"
+    assert state.assignment_records_by_mv["MV_A"]["mv_id"] == "MV_A"
     assert "MV_A" in state.active_maneuvers
     assert "MV_A" in state.controller_memory_by_vehicle
     assert state.vehicle_specs["MV_A"].vehicle_type == "cav"
@@ -80,7 +80,7 @@ def _state_with_cache():
             )
         },
         vehicle_specs={"MV_A": VehicleSpec("MV_A", "cav", "not_applicable")},
-        aps_assignment_cache={"MV_A": {"mv_id": "MV_A", "assigned_cfv_id": "CFV_A"}},
+        assignment_records_by_mv={"MV_A": {"mv_id": "MV_A", "assigned_cfv_id": "CFV_A"}},
         active_maneuvers={
             "MV_A": ManeuverTrajectoryState(
                 vehicle_id="MV_A",

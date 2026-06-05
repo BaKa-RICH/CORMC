@@ -4,6 +4,7 @@ from dataclasses import dataclass, fields
 from types import MappingProxyType
 from typing import Any, Mapping
 
+from cormc.assignment_lifecycle import AssignmentStepView, assignment_lifecycle_manager
 from cormc.step0_3 import (
     DEFAULT_ROAD_GEOMETRY,
     RelationsSnapshot,
@@ -14,7 +15,6 @@ from cormc.step0_3 import (
     refresh_relations_snapshot,
     resolve_region,
 )
-from cormc.step4a_aps import EffectiveAssignmentThisStep
 from cormc.step9_11 import CommandBuffer
 
 
@@ -88,20 +88,18 @@ def run_step5_cooperative_request_conflict_resolution_for_scenario(
     scenario: str | dict[str, Any],
     *,
     geometry: RoadGeometryConfig = DEFAULT_ROAD_GEOMETRY,
-    effective_assignments: Mapping[str, EffectiveAssignmentThisStep] | None = None,
+    assignment_views: Mapping[str, AssignmentStepView] | None = None,
     p05_validation_results: Mapping[str, Any] | None = None,
 ) -> Step5CooperativeRequestRunResult:
     workspace, config = build_prefreeze_workspace_from_scenario(scenario, geometry=geometry)
     state = freeze_simulation_state(workspace)
     relations = refresh_relations_snapshot(state, geometry=geometry)
-    if effective_assignments is None:
-        effective_assignments = _effective_assignments_from_state_cache(state)
     return run_step5_cooperative_request_conflict_resolution(
         state,
         relations,
         config=config,
         geometry=geometry,
-        effective_assignments=effective_assignments,
+        assignment_views=assignment_views,
         p05_validation_results=p05_validation_results,
     )
 
@@ -112,16 +110,12 @@ def run_step5_cooperative_request_conflict_resolution(
     *,
     config: dict[str, Any] | None = None,
     geometry: RoadGeometryConfig = DEFAULT_ROAD_GEOMETRY,
-    effective_assignments: Mapping[str, EffectiveAssignmentThisStep] | None = None,
+    assignment_views: Mapping[str, AssignmentStepView] | None = None,
     p05_validation_results: Mapping[str, Any] | None = None,
 ) -> Step5CooperativeRequestRunResult:
     scenario_id = str((config or {}).get("scenario_id") or state.scenario_config_ref or "unknown")
     before_signature = _state_signature(state)
-    assignments = (
-        _effective_assignments_from_state_cache(state)
-        if effective_assignments is None
-        else effective_assignments
-    )
+    assignments = derive_step5_assignment_views(state) if assignment_views is None else assignment_views
     events: list[dict[str, Any]] = []
 
     _, filtered_assignments = filter_valid_request_assignments(
@@ -181,11 +175,11 @@ def run_step5_cooperative_request_conflict_resolution(
 
 
 def filter_valid_request_assignments(
-    assignments: Mapping[str, EffectiveAssignmentThisStep],
+    assignments: Mapping[str, AssignmentStepView],
     *,
     p05_validation_results: Mapping[str, Any] | None = None,
-) -> tuple[Mapping[str, EffectiveAssignmentThisStep], tuple[dict[str, Any], ...]]:
-    valid: dict[str, EffectiveAssignmentThisStep] = {}
+) -> tuple[Mapping[str, AssignmentStepView], tuple[dict[str, Any], ...]]:
+    valid: dict[str, AssignmentStepView] = {}
     filtered: list[dict[str, Any]] = []
     for mv_id, effective_assignment in assignments.items():
         reason = _request_filter_reason(
@@ -207,7 +201,7 @@ def filter_valid_request_assignments(
 
 def collect_cooperative_requests(
     state: SimulationState,
-    assignments: Mapping[str, EffectiveAssignmentThisStep],
+    assignments: Mapping[str, AssignmentStepView],
     *,
     geometry: RoadGeometryConfig = DEFAULT_ROAD_GEOMETRY,
     p05_validation_results: Mapping[str, Any] | None = None,
@@ -243,7 +237,7 @@ def collect_cooperative_requests(
 
 def build_cooperative_request_from_assignment(
     state: SimulationState,
-    effective_assignment: EffectiveAssignmentThisStep,
+    effective_assignment: AssignmentStepView,
     *,
     cv_role: str,
     geometry: RoadGeometryConfig = DEFAULT_ROAD_GEOMETRY,
@@ -476,7 +470,7 @@ def run_p06_no_write_before_commit_sanity(
         reason="p06_no_write_before_commit",
         payload={
             "state_unchanged": state_unchanged,
-            "aps_assignment_cache_unchanged": state_unchanged,
+            "assignment_records_by_mv_unchanged": state_unchanged,
             "p06_outputs_are_derived_only": True,
         },
     )
@@ -551,27 +545,24 @@ def register_p06_png_features(
     return features
 
 
-def _effective_assignments_from_state_cache(
+def derive_step5_assignment_views(
     state: SimulationState,
-) -> Mapping[str, EffectiveAssignmentThisStep]:
-    assignments: dict[str, EffectiveAssignmentThisStep] = {}
-    for mv_id, assignment in state.aps_assignment_cache.items():
-        status = str(assignment.get("status", "")).lower()
-        assignments[mv_id] = EffectiveAssignmentThisStep(
-            mv_id=mv_id,
-            assignment=MappingProxyType(dict(assignment)),
-            source=str(assignment.get("source") or "aps_cache"),
-            available_for_cooperative_request=status in {"valid", "available", "ok"},
-        )
+) -> Mapping[str, AssignmentStepView]:
+    assignments: dict[str, AssignmentStepView] = {}
+    for mv_id, assignment in state.assignment_records_by_mv.items():
+        record = assignment_lifecycle_manager.from_state_dict(assignment)
+        view = assignment_lifecycle_manager.derive_step5_view(state, record)
+        if view is not None:
+            assignments[mv_id] = view
     return MappingProxyType(assignments)
 
 
 def _request_filter_reason(
-    effective_assignment: EffectiveAssignmentThisStep,
+    effective_assignment: AssignmentStepView,
     *,
     validation: Any = None,
 ) -> str | None:
-    if not effective_assignment.available_for_cooperative_request:
+    if not effective_assignment.consumable_by_step5:
         return "not_available_for_cooperative_request"
     status = str(effective_assignment.assignment.get("status", "valid")).lower()
     if status in {"failed", "failure"}:
@@ -732,7 +723,7 @@ def _state_signature(state: SimulationState) -> tuple[Any, ...]:
             )
             for vehicle_id in state.active_vehicle_ids
         ),
-        tuple((key, tuple(sorted(value.items()))) for key, value in state.aps_assignment_cache.items()),
+        tuple((key, tuple(sorted(value.items()))) for key, value in state.assignment_records_by_mv.items()),
     )
 
 

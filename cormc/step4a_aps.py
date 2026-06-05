@@ -4,6 +4,7 @@ from dataclasses import dataclass, fields
 from types import MappingProxyType
 from typing import Any, Iterable, Mapping
 
+from cormc.assignment_lifecycle import AssignmentStepView, assignment_lifecycle_manager
 from cormc.step0_3 import (
     DEFAULT_ROAD_GEOMETRY,
     LANE_2,
@@ -79,14 +80,6 @@ class APSAssignment:
 
 
 @dataclass(frozen=True)
-class EffectiveAssignmentThisStep:
-    mv_id: str
-    assignment: Mapping[str, Any]
-    source: str
-    available_for_cooperative_request: bool
-
-
-@dataclass(frozen=True)
 class APSCacheAction:
     mv_id: str
     action: str
@@ -105,7 +98,8 @@ class APSRunResult:
     relations: RelationsSnapshot
     actual_events: list[dict[str, Any]]
     actual_sanity_checks: list[dict[str, Any]]
-    effective_assignments: Mapping[str, EffectiveAssignmentThisStep]
+    assignment_views: Mapping[str, AssignmentStepView]
+    assignment_record_updates: Mapping[str, Mapping[str, Any]]
     cache_actions: tuple[APSCacheAction, ...]
 
 
@@ -132,14 +126,15 @@ def run_step4a_aps(
     before_signature = _state_signature(state)
     events: list[dict[str, Any]] = []
     sanity_checks: list[dict[str, Any]] = []
-    effective_assignments: dict[str, EffectiveAssignmentThisStep] = {}
+    assignment_views: dict[str, AssignmentStepView] = {}
+    assignment_record_updates: dict[str, Mapping[str, Any]] = {}
     cache_actions: list[APSCacheAction] = []
     last_aps_times = _last_aps_times(config or {})
 
     for mv_id in _step4a_mv_ids(state, eligible_mv_ids=eligible_mv_ids):
         mv_state = state.vehicle_states[mv_id]
         region = resolve_region(mv_state.x_global, mv_state.road_role, geometry=geometry)
-        cache = state.aps_assignment_cache.get(mv_id)
+        record_value = state.assignment_records_by_mv.get(mv_id)
         if region.in_merging_zone or region.past_ramp_end or mv_state.merge_state == "executing":
             events.append(_handoff_event(state, mv_id, scenario_id=scenario_id))
             sanity_checks.append(
@@ -163,18 +158,16 @@ def run_step4a_aps(
             state,
             mv_id,
             last_aps_time=last_aps_times.get(mv_id),
-            existing_cache=cache,
+            existing_cache=record_value,
         )
-        invalid_boundary = _cached_assignment_invalid_boundary(state, cache)
-        if cache is not None and invalid_boundary is not None:
+        invalid_boundary = _cached_assignment_invalid_boundary(state, record_value)
+        if record_value is not None and invalid_boundary is not None:
             trigger = "cached_gap_boundary_invalid"
-        if trigger == "reuse_cache" and cache is not None:
-            effective_assignments[mv_id] = EffectiveAssignmentThisStep(
-                mv_id=mv_id,
-                assignment=MappingProxyType(dict(cache)),
-                source="cache_reused",
-                available_for_cooperative_request=True,
-            )
+        if trigger == "reuse_cache" and record_value is not None:
+            record = assignment_lifecycle_manager.from_state_dict(record_value)
+            view = assignment_lifecycle_manager.derive_step5_view(state, record)
+            if view is not None:
+                assignment_views[mv_id] = view
             cache_action = APSCacheAction(
                 mv_id=mv_id,
                 action="retain",
@@ -208,17 +201,18 @@ def run_step4a_aps(
             state,
             mv_id,
             trigger=trigger,
-            existing_cache=cache,
+            existing_cache=record_value,
             invalid_boundary=invalid_boundary,
             geometry=geometry,
             scenario_id=scenario_id,
         )
         events.extend(aps_outcome["events"])
         cache_actions.extend(aps_outcome["cache_actions"])
+        assignment_record_updates.update(aps_outcome.get("assignment_record_updates", {}))
         if aps_outcome.get("failure_sanity") is not None:
             sanity_checks.append(aps_outcome["failure_sanity"])
-        if aps_outcome["effective_assignment"] is not None:
-            effective_assignments[mv_id] = aps_outcome["effective_assignment"]
+        if aps_outcome["assignment_view"] is not None:
+            assignment_views[mv_id] = aps_outcome["assignment_view"]
 
     sanity_checks.extend(
         run_aps_assignment_sanity(
@@ -227,7 +221,7 @@ def run_step4a_aps(
             state_unchanged=before_signature == _state_signature(state),
             has_eq10_wrong_vehicle=False,
             has_assignment_invalid=False,
-            assignment_vehicle_ids=tuple(effective_assignments),
+            assignment_vehicle_ids=tuple(assignment_views),
         )
     )
     return APSRunResult(
@@ -235,7 +229,8 @@ def run_step4a_aps(
         relations=relations,
         actual_events=events,
         actual_sanity_checks=sanity_checks,
-        effective_assignments=MappingProxyType(effective_assignments),
+        assignment_views=MappingProxyType(assignment_views),
+        assignment_record_updates=MappingProxyType(assignment_record_updates),
         cache_actions=tuple(cache_actions),
     )
 
@@ -570,19 +565,15 @@ def _run_fresh_aps(
 
     clv, cfv = pair
     assignment = build_aps_assignment(state, mv_id, clv, cfv, t_star_mv=t_star_mv)
-    cache_value = assignment.to_cache_value(t=state.t, step=state.step)
-    effective_assignment = EffectiveAssignmentThisStep(
-        mv_id=mv_id,
-        assignment=MappingProxyType(cache_value),
-        source="aps_updated_this_step",
-        available_for_cooperative_request=True,
-    )
+    record = assignment_lifecycle_manager.create_from_aps_success(state, assignment)
+    record_value = assignment_lifecycle_manager.to_state_dict(record)
+    assignment_view = assignment_lifecycle_manager.derive_step5_view(state, record)
     cache_action = APSCacheAction(
         mv_id=mv_id,
         action="update_request",
         previous_cache_exists=existing_cache is not None,
         cache_modified_in_p04=False,
-        update_request=MappingProxyType(cache_value),
+        update_request=MappingProxyType(record_value),
         reason="APS_assignment_updated_this_step",
         invalid_boundary_role=(
             _optional_str(invalid_boundary.get("role")) if invalid_boundary is not None else None
@@ -652,7 +643,8 @@ def _run_fresh_aps(
     return {
         "events": events,
         "cache_actions": [cache_action],
-        "effective_assignment": effective_assignment,
+        "assignment_record_updates": {mv_id: MappingProxyType(record_value)},
+        "assignment_view": assignment_view,
     }
 
 
@@ -667,15 +659,40 @@ def _fresh_aps_failure(
     candidate_ids: list[str],
     scenario_id: str,
 ) -> dict[str, Any]:
-    old_cache_invalidated = trigger == "cached_gap_boundary_invalid" and existing_cache is not None
+    old_boundary_invalid = trigger == "cached_gap_boundary_invalid" and existing_cache is not None
+    retained_record_value: Mapping[str, Any] | None = None
+    assignment_view: AssignmentStepView | None = None
+    if existing_cache is not None:
+        existing_record = assignment_lifecycle_manager.from_state_dict(existing_cache)
+        if old_boundary_invalid:
+            retained_record = assignment_lifecycle_manager.mark_recovery_required(
+                state,
+                existing_record,
+                _optional_str((invalid_boundary or {}).get("reason")) or failure_reason,
+            )
+        else:
+            retained_record = assignment_lifecycle_manager.retain_after_aps_failure(
+                state,
+                existing_record,
+                failure_reason,
+            )
+            assignment_view = assignment_lifecycle_manager.derive_step5_view(state, retained_record)
+        retained_record_value = MappingProxyType(
+            assignment_lifecycle_manager.to_state_dict(retained_record)
+        )
     cache_action = APSCacheAction(
         mv_id=mv_id,
-        action="invalidate" if old_cache_invalidated else ("retain" if existing_cache is not None else "no_cache"),
+        action=(
+            "update_request"
+            if old_boundary_invalid
+            else ("retain" if existing_cache is not None else "no_cache")
+        ),
         previous_cache_exists=existing_cache is not None,
         cache_modified_in_p04=False,
+        update_request=retained_record_value,
         reason=(
             "cached_gap_boundary_invalid"
-            if old_cache_invalidated
+            if old_boundary_invalid
             else ("retain_on_failed_aps" if existing_cache is not None else "no_cache_to_update")
         ),
         invalid_boundary_role=(
@@ -704,14 +721,20 @@ def _fresh_aps_failure(
                     "candidate_ids": list(candidate_ids),
                     "candidate_count": len(candidate_ids),
                     "new_assignment_created": False,
-                    "old_cache_invalidated": old_cache_invalidated,
+                    "old_cache_invalidated": False,
+                    "old_assignment_marked_recovery_required": old_boundary_invalid,
                     "invalid_boundary_role": cache_action.invalid_boundary_role,
                     "invalid_boundary_id": cache_action.invalid_boundary_id,
                     "invalid_reason": cache_action.invalid_reason,
                     "effective_assignment_source": (
                         None
-                        if old_cache_invalidated
+                        if old_boundary_invalid
                         else ("cache_retained_after_failed_APS" if existing_cache is not None else None)
+                    ),
+                    "lifecycle_state": (
+                        dict(retained_record_value).get("lifecycle_state")
+                        if retained_record_value is not None
+                        else None
                     ),
                 },
                 is_engineering_patch=trigger == "first_APS",
@@ -719,7 +742,10 @@ def _fresh_aps_failure(
             _cache_event(state, cache_action, scenario_id=scenario_id),
         ],
         "cache_actions": [cache_action],
-        "effective_assignment": None,
+        "assignment_record_updates": (
+            {mv_id: retained_record_value} if retained_record_value is not None else {}
+        ),
+        "assignment_view": assignment_view,
         "failure_sanity": _sanity(
             state,
             "assignment_invalid",
@@ -949,7 +975,7 @@ def _state_signature(state: SimulationState) -> tuple[Any, ...]:
             )
             for vehicle_id in state.active_vehicle_ids
         ),
-        tuple((key, tuple(sorted(value.items()))) for key, value in state.aps_assignment_cache.items()),
+        tuple((key, tuple(sorted(value.items()))) for key, value in state.assignment_records_by_mv.items()),
     )
 
 

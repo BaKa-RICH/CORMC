@@ -797,6 +797,108 @@ BASIC 观察口径：
 - 明确 APS、Step5、CUC、CMC 分别消费哪个状态。
 - 明确每一步用哪些车辆状态更新 assignment：MV、CLV、CFV、CLV/CFV 的 target-lane 邻车、MV 前后边界车辆。
 
+### BUG-011：多场景 CUC 仍把 BASIC 期望留在 lane_2 的 active CV 推去 lane_1
+
+状态：2026-06-05 六场景 900 step 验证中新暴露；`BASIC-02/04/05/06` 均可观察到，`BASIC-01` 本轮未复现。
+
+复现实验：
+
+```text
+run_id = basic_01_06_900_bugcheck_20260605
+artifacts/basic/basic_01_06_900_bugcheck_20260605/
+```
+
+本轮结果摘要：
+
+- `BASIC-01`：`passed`，215 steps，`merged_and_past_ramp = true`。
+- `BASIC-02`：`diagnosed_unresolved`，900 steps，`merged_and_past_ramp = false`。
+- `BASIC-04`：`diagnosed_unresolved`，900 steps，`merged_and_past_ramp = false`。
+- `BASIC-05`：`diagnosed_unresolved`，900 steps，`merged_and_past_ramp = false`。
+- `BASIC-06`：`diagnosed_unresolved`，900 steps，`merged_and_past_ramp = false`。
+
+关键证据：
+
+| scenario | first APS | CUC 首个非 stay_lane_2 | 后续 invalidation | CMC 首个 invalid |
+| --- | --- | --- | --- | --- |
+| `BASIC-02` | step 5 `case_3`, active `B02_CLV` | step 48 `B02_CLV` -> `change_to_lane_1`, `U1=-0.16549775348461127`, `U2=-0.2223831714394658`, `target_lane_safe=true` | step 49 `cached_gap_boundary_invalid`, invalid `clv=B02_CLV`, reason=`lane_change_executing` | step 147 `assignment_source=None`, reason=`clv_missing` |
+| `BASIC-04` | step 0 `case_2`, active `B04_CFV` | step 11 `B04_CFV` -> `change_to_lane_1`, `U1=-2.670033901433506`, `U2=-2.7900215736395038`, `target_lane_safe=true`, `choice2_spacing_override_applied=true` | step 12 `cached_gap_boundary_invalid`, invalid `cfv=B04_CFV`, reason=`lane_change_executing` | step 42 `assignment_source=None`, reason=`clv_missing` |
+| `BASIC-05` | step 0 `case_3`, active `B05_CLV` | step 48 `B05_CLV` -> `change_to_lane_1`, `U1=-0.16549775348461127`, `U2=-0.2223831714394658`, `target_lane_safe=true` | step 49 `cached_gap_boundary_invalid`, invalid `clv=B05_CLV`, reason=`lane_change_executing` | step 73 `assignment_source=None`, reason=`clv_missing` |
+| `BASIC-06` | step 0 `case_4`, active `B06_CLV + B06_CFV` | step 12 `B06_CFV` -> `change_to_lane_1`, `U1=-2.7342242203548976`, `U2=-2.828199469341412`, `target_lane_safe=true`, `choice2_spacing_override_applied=true` | step 13 `cached_gap_boundary_invalid`, invalid `cfv=B06_CFV`, reason=`lane_change_executing` | step 49 `assignment_source=None`, reason=`clv_missing` |
+
+为什么算新暴露：
+
+- `BUG-001` 已修复的是 `BASIC-01 / B01_CFV / step 12` 的特定 U1/U2 代入问题，本轮 `BASIC-01` 没有任何 `CUC nonstay`，并成功合流。
+- `BUG-006` 记录的是 `BASIC-01` 后续 APS 漂移后 `B01_CLV` 被 CUC 推去 lane 1。本轮 `BASIC-02/05` 是首轮 `case_3` 场景自身的 CLV 被推去 lane 1；`BASIC-04/06` 是 ramp_pre 场景中的 CFV 被推去 lane 1。
+- 因此，这不是 `BASIC-01` 旧链路的简单复现，而是 BASIC 六场景矩阵中更广的 CUC choice/gate 不一致问题。
+
+影响：
+
+- active CV 离开 lane 2 后，APS cached boundary validation 能正确识别 `lane_change_executing` 并 invalidate，说明 `BUG-003` 的候选过滤/缓存污染修复仍在生效。
+- 但 invalidate 后没有恢复 assignment，进入 merge zone 时 CMC 只能看到 `assignment_source=None` / `clv_missing`，MV 长时间停在约 `x_global=7246m`，`merge_state=not_started`，最终跑满 900 steps 未合流。
+
+待查方向：
+
+- 对 `case_3 CLV` 和 ramp_pre `case_2/case_4 CFV` 单独核验 CUC utility 的论文代入口径，尤其是 `U1 > U2` 但 BASIC gate 要求 active CV stay lane_2 的冲突。
+- 明确 BASIC gate 中“active CV stay lane_2”是测试场景约束、算法必然期望，还是需要根据 utility 允许换道的开放行为。
+- 若 BASIC gate 仍要求 stay lane_2，需要把 BUG-001 的修复口径扩展到 `BASIC-02/04/05/06` 对应 active CV，而不是只覆盖 `B01_CFV`。
+- 同时与 `BUG-009/010` 合并考虑：即使 active CV 被判 invalid，也需要恢复 assignment 或由 CMC 接管，而不是让 MV 在 merge zone 入口附近长期等待。
+
+### BUG-012：BASIC-03 首个 APS 把应为 case_4 的 A7+C3+C4 判成 case_3
+
+状态：2026-06-05 六场景 900 step 验证中新暴露；`BASIC-03` 直接失败。
+
+复现实验：
+
+```text
+run_id = basic_01_06_900_bugcheck_20260605
+artifact = artifacts/basic/basic_01_06_900_bugcheck_20260605/scenarios/BASIC-03/numeric_summary.json
+```
+
+文档期望：
+
+- `docs/执行计划/6个基础场景.md` 中 `BASIC-03` 是 `pre-control case 4 / CLV + CFV`。
+- 初始相对位置反推：
+  - `D*_CLV = 6654 - 6640 - 4 = +10m < 24m`
+  - `D*_CFV = 6634 - 6640 - 4 = -10m`，`abs = 10m < 24m`
+  - 期望 `APS case_4`，active CV 为 `B03_CLV + B03_CFV`，且只有 `B03_CFV` 消费 Eq.10。
+
+本轮实际：
+
+```text
+BASIC-03 status = failed
+actual_steps = 900
+first_control_zone_step = 5
+first_merge_zone_step = 323
+expected_aps_case = case_4
+observed_aps_case = case_3
+active_cv_ids = [B03_CLV]
+expected_active_cv_ids = [B03_CLV, B03_CFV]
+eq10_consumers = []
+expected_eq10_consumer_ids = [B03_CFV]
+merged_and_past_ramp = false
+```
+
+关键事件证据：
+
+- step 5 `APS_candidate`：`candidate_ids = [B03_CFV, B03_CLV]`，`candidate_count = 2`，没有 excluded candidates。
+- step 5 `APS`：`trigger=first_APS`，`aps_case=case_3`，`clv_id=B03_CLV`，`cfv_id=B03_CFV`。
+- step 5 `APS` 细节：`col_clv=true`，`col_cfv=false`，`d_star_clv=10.0`，`d_star_cfv=-53.87439538706167`，`desired_spacing_override=None`。
+- step 5 起 `cooperative_request` 只对 `B03_CLV` 生成 `col_clv_request`，没有 `B03_CFV` 的 Eq.10 request。
+- step 323 CMC 首个 validation：`assignment_source=aps_updated_this_step`，`assigned_clv_id=B03_CLV`，`assigned_cfv_id=B03_CFV`，`assignment_valid=false`，`invalid_reason=wrong_order`。
+
+初步判断：
+
+- `BASIC-03` 候选收集没有漏掉 `B03_CFV`，问题更像 APS case 判定使用的 `d_star_cfv` 口径与 `6个基础场景.md` 的反推口径不一致。
+- 文档反推希望 `B03_CFV` 相对 MV 的后向 gap 约为 `10m`；实际 APS 记录 `d_star_cfv=-53.87439538706167`，导致 `col_cfv=false`，所以首轮从期望 `case_4` 退化成 `case_3`。
+- `BASIC-06` 在同类 `case_4` 设计下首轮能得到 `case_4`，因此该问题可能与 `pre-control` 起步后 step 0 到 step 5 的普通纵向推进、CFV 相对位置漂移、或 APS 使用 `t_star_mv` 预测位置的口径有关。
+
+待查方向：
+
+- 对比 `BASIC-03` 与 `BASIC-06` 的 APS d-star 计算路径，明确 `d_star_cfv` 是当前距离、到达冲突点预测距离，还是带 `t_star_mv` 的推演值。
+- 核验 `pre-control` 场景在 step 0 到 first control-zone step 5 之间的普通车辆模型是否改变了文档反推所依赖的相对位置。
+- 明确 BASIC 文档反推口径是否应该按初始状态算，还是按 first APS 时刻状态算；如果按 first APS 时刻算，需要更新场景初始条件或 gate。
+- 在修复前，`BASIC-03` 的失败不应归因于 CUC/CMC 生命周期问题，因为它在首个 APS gate 已经失败。
+
 ## 7. 与“第一版主循环”的对齐情况
 
 当前代码能部分对上 `docs/复现讨论/CORMC时间步执行顺序梳理.md` 的第一版主循环，但 BASIC-01 暴露出几个没有封住的缺口。

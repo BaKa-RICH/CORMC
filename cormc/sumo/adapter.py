@@ -111,10 +111,10 @@ class SumoRealizedStateAdapter:
             active_ids.append(vehicle_id)
 
         active_set = set(active_ids)
-        aps_cache = _freeze_nested_mapping(
+        assignment_records = _freeze_nested_mapping(
             {
                 vehicle_id: value
-                for vehicle_id, value in (previous_state.aps_assignment_cache.items() if previous_state is not None else ())
+                for vehicle_id, value in (previous_state.assignment_records_by_mv.items() if previous_state is not None else ())
                 if vehicle_id in active_set
             }
         )
@@ -140,7 +140,7 @@ class SumoRealizedStateAdapter:
             active_vehicle_ids=tuple(active_ids),
             vehicle_states=MappingProxyType(vehicle_states),
             vehicle_specs=MappingProxyType(vehicle_specs),
-            aps_assignment_cache=aps_cache,
+            assignment_records_by_mv=assignment_records,
             active_maneuvers=active_maneuvers,
             road_config_ref=previous_state.road_config_ref if previous_state is not None else "paper_fig10_first_version",
             parameter_config_ref=previous_state.parameter_config_ref if previous_state is not None else "paper_table_i_first_version",

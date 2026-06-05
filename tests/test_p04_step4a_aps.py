@@ -74,7 +74,7 @@ def test_mvs_aps_case_3_no_eq10_to_clv_contract() -> None:
     assert _matcher_result(report, "forbidden_events").passed is True
 
 
-def test_p04_effective_assignment_preserves_t_star_handoff() -> None:
+def test_p04_assignment_view_preserves_t_star_handoff() -> None:
     config = _aps_case_config(
         scenario_id="P04-T-STAR-HANDOFF",
         clv_id="CLV_T_STAR",
@@ -88,7 +88,7 @@ def test_p04_effective_assignment_preserves_t_star_handoff() -> None:
 
     result = run_step4a_aps_for_scenario(config)
 
-    assignment = result.effective_assignments["MV_A"].assignment
+    assignment = result.assignment_views["MV_A"].record
     aps_event = next(
         event for event in result.actual_events if "t_star_mv" in event.get("payload", {})
     )
@@ -96,7 +96,7 @@ def test_p04_effective_assignment_preserves_t_star_handoff() -> None:
     assert assignment["t_mv_star"] == aps_event["payload"]["t_star_mv"]
 
 
-def test_p04_effective_assignment_cache_includes_gap_reservation_fields() -> None:
+def test_p04_assignment_record_includes_gap_reservation_fields() -> None:
     result = run_step4a_aps_for_scenario(
         _aps_case_config(
             scenario_id="P04-APS-RESERVATION-CACHE",
@@ -111,7 +111,7 @@ def test_p04_effective_assignment_cache_includes_gap_reservation_fields() -> Non
         )
     )
 
-    assignment = result.effective_assignments["MV_A"].assignment
+    assignment = result.assignment_views["MV_A"].record
     cache_action = result.cache_actions[0]
     update_request = dict(cache_action.update_request or {})
 
@@ -142,7 +142,7 @@ def test_p04_invalid_cached_boundary_triggers_immediate_fresh_assignment() -> No
     result = run_step4a_aps_for_scenario(_invalid_cache_with_replacement_config())
 
     aps_event = _actual_event(result.actual_events, "APS", "MV_INVALID_CACHE", reason="cached_gap_boundary_invalid")
-    assignment = result.effective_assignments["MV_INVALID_CACHE"].assignment
+    assignment = result.assignment_views["MV_INVALID_CACHE"].record
 
     assert aps_event["payload"]["trigger"] == "cached_gap_boundary_invalid"
     assert assignment["clv_id"] in {"CLV_OLD", "CLV_REPLACEMENT"}
@@ -157,15 +157,18 @@ def test_p04_invalid_cached_boundary_failed_fresh_aps_does_not_retain_old_assign
     aps_event = _actual_event(result.actual_events, "APS", "MV_INVALID_FAIL", reason="insufficient_candidates")
     cache_event = _actual_event(result.actual_events, "assignment_cache", "MV_INVALID_FAIL")
 
-    assert "MV_INVALID_FAIL" not in result.effective_assignments
-    assert result.cache_actions[0].action == "invalidate"
+    assert "MV_INVALID_FAIL" not in result.assignment_views
+    assert result.cache_actions[0].action == "update_request"
+    update_request = dict(result.cache_actions[0].update_request or {})
+    assert update_request["lifecycle_state"] == "recovery_required"
     assert aps_event["payload"]["trigger"] == "cached_gap_boundary_invalid"
-    assert aps_event["payload"]["old_cache_invalidated"] is True
+    assert aps_event["payload"]["old_cache_invalidated"] is False
+    assert aps_event["payload"]["old_assignment_marked_recovery_required"] is True
     assert aps_event["payload"]["invalid_boundary_role"] == "cfv"
     assert aps_event["payload"]["invalid_boundary_id"] == "CFV_EXECUTING_OLD"
     assert aps_event["payload"]["invalid_reason"] == "lane_change_executing"
     assert aps_event["payload"]["effective_assignment_source"] is None
-    assert cache_event["payload"]["action"] == "invalidate"
+    assert cache_event["payload"]["action"] == "update_request"
 
 
 def test_mvs_aps_case_4_eq10_to_cfv_only_contract() -> None:

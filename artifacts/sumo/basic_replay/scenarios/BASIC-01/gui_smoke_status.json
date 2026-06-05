@@ -1,0 +1,16 @@
+{
+  "closed_on_finish": false,
+  "error": null,
+  "replay_jsonl": "D:\\PycharmProjects\\CORMC\\artifacts\\sumo\\basic_replay\\scenarios\\BASIC-01\\replay_trajectory.jsonl",
+  "replayed_steps": 215,
+  "replayed_vehicle_ids": [
+    "B01_CFV",
+    "B01_CLV",
+    "B01_MV",
+    "B01_TLV_CFV"
+  ],
+  "status": "ok",
+  "sumo_gui_started": true,
+  "sumocfg_file": "D:\\PycharmProjects\\CORMC\\artifacts\\sumo\\basic_replay\\scenarios\\BASIC-01\\sumo\\p17.sumocfg",
+  "track_vehicle_id": "B01_MV"
+}

@@ -24,6 +24,7 @@ from cormc.step0_3 import (
     refresh_relations_snapshot,
     run_geometry_sanity_baseline,
     resolve_on_ramp_control_region,
+    _assignment_records_from_config,
     step0_cleanup_and_prepare,
     step1_prefreeze_boundary_generation_hook,
 )
@@ -31,6 +32,7 @@ from cormc.step4a_aps import APSRunResult, run_step4a_aps
 from cormc.step4b_cmc import Step4BCMCRunResult, run_step4b_cmc
 from cormc.step5_cooperative_request import (
     Step5CooperativeRequestRunResult,
+    derive_step5_assignment_views,
     run_step5_cooperative_request_conflict_resolution,
 )
 from cormc.step6_cuc import Step6CUCRunResult, run_step6_cuc_choice_compliance_lane_change_overlay
@@ -180,20 +182,22 @@ class CormcEngine:
             relations,
             config=config,
             geometry=self.geometry,
-            effective_assignments=p04.effective_assignments,
+            assignment_views=p04.assignment_views,
             eligible_mv_ids=cmc_eligible_mv_ids,
         )
         workspace.cmc_result = p05
-        request_assignments = _filter_effective_assignments_for_mv_ids(
-            p04.effective_assignments,
-            aps_eligible_mv_ids,
+        step5_assignment_views = MappingProxyType(
+            {
+                **dict(derive_step5_assignment_views(frozen)),
+                **dict(p04.assignment_views),
+            }
         )
         p06 = run_step5_cooperative_request_conflict_resolution(
             frozen,
             relations,
             config=config,
             geometry=self.geometry,
-            effective_assignments=request_assignments,
+            assignment_views=step5_assignment_views,
         )
         workspace.p06_result = p06
         p07 = run_step6_cuc_choice_compliance_lane_change_overlay(
@@ -203,7 +207,7 @@ class CormcEngine:
             suppressed_requests=p06.suppressed_requests,
             utility_overrides=_utility_overrides(config),
             geometry=self.geometry,
-            emit_no_active_event=bool(request_assignments),
+            emit_no_active_event=bool(p06.cooperative_requests),
         )
         workspace.cuc_result = p07
         command_buffer = normalize_maneuver_commands(
@@ -338,7 +342,7 @@ def build_step_next_state_buffer(
 ) -> NextStateBuffer:
     state = p04_result.state
     cache_updates = (
-        *aps_cache_actions_to_candidate_updates(p04_result),
+        *assignment_record_actions_to_candidate_updates(p04_result),
         *command_cache_updates_to_candidate_updates(command_buffer),
         *p08_result.next_state_buffer.candidate_cache_updates,
     )
@@ -382,21 +386,7 @@ def resolve_on_ramp_control_regions(
     return MappingProxyType(regions)
 
 
-def _filter_effective_assignments_for_mv_ids(
-    assignments: Mapping[str, Any],
-    mv_ids: Iterable[str],
-) -> Mapping[str, Any]:
-    eligible = set(mv_ids)
-    return MappingProxyType(
-        {
-            mv_id: assignment
-            for mv_id, assignment in assignments.items()
-            if mv_id in eligible
-        }
-    )
-
-
-def aps_cache_actions_to_candidate_updates(
+def assignment_record_actions_to_candidate_updates(
     p04_result: APSRunResult,
 ) -> tuple[CandidateCacheUpdate, ...]:
     updates: list[CandidateCacheUpdate] = []
@@ -404,20 +394,20 @@ def aps_cache_actions_to_candidate_updates(
         if action.action == "invalidate":
             updates.append(
                 CandidateCacheUpdate(
-                    candidate_id=f"p12:{p04_result.state.step}:aps_cache_invalidate:{action.mv_id}",
-                    cache_name="aps_assignment_cache",
+                    candidate_id=f"p12:{p04_result.state.step}:assignment_record_invalidate:{action.mv_id}",
+                    cache_name="assignment_records_by_mv",
                     owner_vehicle_id=action.mv_id,
                     operation="invalidate",
                     reason=action.reason,
                 )
             )
             continue
-        if action.action != "update_request" or action.update_request is None:
+        if action.action not in {"update_request", "retain"} or action.update_request is None:
             continue
         updates.append(
             CandidateCacheUpdate(
-                candidate_id=f"p12:{p04_result.state.step}:aps_cache:{action.mv_id}",
-                cache_name="aps_assignment_cache",
+                candidate_id=f"p12:{p04_result.state.step}:assignment_record:{action.mv_id}",
+                cache_name="assignment_records_by_mv",
                 owner_vehicle_id=action.mv_id,
                 operation="update",
                 new_value=MappingProxyType(dict(action.update_request)),
@@ -555,9 +545,9 @@ def _workspace_from_state(state: SimulationState) -> PreFreezeWorkspace:
             for vehicle_id in state.active_vehicle_ids
             if vehicle_id in state.vehicle_specs
         },
-        aps_assignment_cache={
+        assignment_records_by_mv={
             vehicle_id: dict(value)
-            for vehicle_id, value in state.aps_assignment_cache.items()
+            for vehicle_id, value in state.assignment_records_by_mv.items()
         },
         active_maneuvers=dict(state.active_maneuvers),
         command_buffer={},
@@ -618,9 +608,8 @@ def _workspace_from_scenario_config(config: Mapping[str, Any]) -> PreFreezeWorks
         active_vehicle_ids=active_vehicle_ids,
         vehicle_states=vehicle_states,
         vehicle_specs=vehicle_specs,
-        aps_assignment_cache={
-            str(item["mv_id"]): dict(item)
-            for item in loaded.get("preloaded_assignments", [])
+        assignment_records_by_mv={
+            **_assignment_records_from_config(loaded),
         },
         active_maneuvers=_active_maneuvers_from_config(loaded, step=step, t=t),
         command_buffer={},

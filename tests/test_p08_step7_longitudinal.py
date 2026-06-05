@@ -348,7 +348,7 @@ def test_p08_mv_control_zone_ignores_invalid_assignment_status() -> None:
     assert event["payload"]["aps_gap_protection_applied"] is False
     assert (
         event["payload"]["aps_gap_protection_rejection_reason"]
-        == "invalid_assignment_status:invalid"
+        == "not_control_zone_gap_protection:invalid:invalid"
     )
     assert event["payload"]["effective_desired_speed"] == 30.0
 
@@ -792,5 +792,5 @@ def _state_signature(state: Any) -> tuple[Any, ...]:
             )
             for vehicle_id in state.active_vehicle_ids
         ),
-        tuple((key, tuple(sorted(value.items()))) for key, value in state.aps_assignment_cache.items()),
+        tuple((key, tuple(sorted(value.items()))) for key, value in state.assignment_records_by_mv.items()),
     )

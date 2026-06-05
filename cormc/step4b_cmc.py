@@ -4,6 +4,11 @@ from dataclasses import dataclass, fields
 from types import MappingProxyType
 from typing import Any, Iterable, Mapping
 
+from cormc.assignment_lifecycle import (
+    AssignmentRecord,
+    AssignmentStepView,
+    assignment_lifecycle_manager,
+)
 from cormc.step0_3 import (
     DEFAULT_ROAD_GEOMETRY,
     LANE_2,
@@ -20,7 +25,6 @@ from cormc.step0_3 import (
     resolve_lane_2_gap_boundary_eligibility,
     resolve_region,
 )
-from cormc.step4a_aps import EffectiveAssignmentThisStep
 from cormc.step9_11 import CommandBuffer
 
 
@@ -36,6 +40,7 @@ class CMCAssignmentSource:
     mv_id: str
     assignment: Mapping[str, Any] | None
     source: str | None
+    record: AssignmentRecord | None = None
 
 
 @dataclass(frozen=True)
@@ -63,14 +68,27 @@ class CMCDynamicGapResult:
 @dataclass(frozen=True)
 class Eq53GapResult:
     mv_id: str
-    clv_id: str
-    cfv_id: str
+    clv_id: str | None
+    cfv_id: str | None
     h_tilde: float
     d_MV_to_CLV: float
     d_CFV_to_MV: float
     threshold: float
     eq53_pass: bool
     fail_side: str | None
+
+
+@dataclass(frozen=True)
+class CMCRecoveryResult:
+    mv_id: str
+    attempted: bool
+    recovery_record: Mapping[str, Any] | None
+    safety_pass: bool
+    reason: str
+    leader_id: str | None = None
+    follower_id: str | None = None
+    gap_type: str | None = None
+    eq53: Eq53GapResult | None = None
 
 
 @dataclass(frozen=True)
@@ -98,7 +116,7 @@ def run_step4b_cmc_for_scenario(
     scenario: str | dict[str, Any],
     *,
     geometry: RoadGeometryConfig = DEFAULT_ROAD_GEOMETRY,
-    effective_assignments: Mapping[str, EffectiveAssignmentThisStep] | None = None,
+    assignment_views: Mapping[str, AssignmentStepView] | None = None,
 ) -> Step4BCMCRunResult:
     workspace, config = build_prefreeze_workspace_from_scenario(scenario, geometry=geometry)
     state = freeze_simulation_state(workspace)
@@ -108,7 +126,7 @@ def run_step4b_cmc_for_scenario(
         relations,
         config=config,
         geometry=geometry,
-        effective_assignments=effective_assignments,
+        assignment_views=assignment_views,
     )
 
 
@@ -118,7 +136,7 @@ def run_step4b_cmc(
     *,
     config: dict[str, Any] | None = None,
     geometry: RoadGeometryConfig = DEFAULT_ROAD_GEOMETRY,
-    effective_assignments: Mapping[str, EffectiveAssignmentThisStep] | None = None,
+    assignment_views: Mapping[str, AssignmentStepView] | None = None,
     eligible_mv_ids: Iterable[str] | None = None,
 ) -> Step4BCMCRunResult:
     scenario_id = str((config or {}).get("scenario_id") or state.scenario_config_ref or "unknown")
@@ -237,7 +255,7 @@ def run_step4b_cmc(
         source = resolve_cmc_assignment_source(
             state,
             mv_id,
-            effective_assignments=effective_assignments,
+            assignment_views=assignment_views,
         )
         validation = validate_cmc_assignment(state, mv_id, source)
         events.append(emit_assignment_validation_event(state, validation, scenario_id=scenario_id))
@@ -249,18 +267,70 @@ def run_step4b_cmc(
 
         if not validation.assignment_valid:
             events.append(emit_assignment_invalid_event(state, validation, scenario_id=scenario_id))
-            waiting_command = build_waiting_command(
+            recovery_required = build_assignment_recovery_required_update(
+                state,
+                source,
+                validation,
+            )
+            if recovery_required is not None:
+                cache_update_commands.append(recovery_required)
+            recovery = attempt_cmc_recovery_current_gap(
                 state,
                 mv_id,
-                reason="assignment_invalid",
-                cap_command_id=speed_cap_command["command_id"],
+                source.record,
+                validation,
+                geometry=geometry,
             )
-            longitudinal_commands[mv_id] = waiting_command
-            events.append(
-                emit_waiting_command_event(state, mv_id, waiting_command, scenario_id=scenario_id)
-            )
-            cache_update = build_assignment_cache_invalidate_request(state, validation)
-            cache_update_commands.append(cache_update)
+            events.append(emit_cmc_recovery_event(state, recovery, scenario_id=scenario_id))
+            if recovery.recovery_record is not None:
+                cache_update_commands.append(
+                    build_assignment_record_update_request(
+                        state,
+                        mv_id,
+                        recovery.recovery_record,
+                        reason="cmc_recovery_current_gap",
+                    )
+                )
+            if recovery.safety_pass and recovery.eq53 is not None:
+                recovery_validation = CMCAssignmentValidationResult(
+                    mv_id=mv_id,
+                    assignment_source="cmc_recovery_current_gap",
+                    assignment_valid=True,
+                    assigned_clv_id=recovery.leader_id,
+                    assigned_cfv_id=recovery.follower_id,
+                    replacement_assignment_created=True,
+                )
+                events.append(emit_eq53_gap_event(state, recovery.eq53, scenario_id=scenario_id))
+                merge_command = build_merge_start_command(
+                    state,
+                    recovery_validation,
+                    cap_command_id=speed_cap_command["command_id"],
+                    geometry=geometry,
+                )
+                merge_commands[mv_id] = merge_command
+                transition = build_cmc_state_transition_request(state, mv_id)
+                state_transition_commands[mv_id] = (transition,)
+                events.append(
+                    emit_merge_start_command_event(
+                        state,
+                        mv_id,
+                        merge_command,
+                        transition,
+                        scenario_id=scenario_id,
+                    )
+                )
+                png_features.extend(_png_features(mv_id, "merge_start_marker"))
+            else:
+                waiting_command = build_waiting_command(
+                    state,
+                    mv_id,
+                    reason="assignment_invalid",
+                    cap_command_id=speed_cap_command["command_id"],
+                )
+                longitudinal_commands[mv_id] = waiting_command
+                events.append(
+                    emit_waiting_command_event(state, mv_id, waiting_command, scenario_id=scenario_id)
+                )
             sanity_checks.extend(
                 _standard_sanity_checks(
                     state,
@@ -277,7 +347,6 @@ def run_step4b_cmc(
                     "assigned_clv_cfv_marker",
                     "assignment_invalid_marker",
                     "waiting_marker",
-                    "no_replacement_assignment_arrow",
                     related_vehicle_ids=tuple(
                         item
                         for item in (
@@ -289,6 +358,20 @@ def run_step4b_cmc(
                 )
             )
             continue
+
+        if source.record is not None and source.record.lifecycle_state in {
+            "active_control_zone",
+            "refresh_failed_retained",
+        }:
+            promoted = assignment_lifecycle_manager.promote_to_merge_zone(state, source.record)
+            cache_update_commands.append(
+                build_assignment_record_update_request(
+                    state,
+                    mv_id,
+                    assignment_lifecycle_manager.to_state_dict(promoted),
+                    reason="cmc_promote_to_merge_zone",
+                )
+            )
 
         dynamic_gap = compute_cmc_dynamic_acceptable_gap(state, mv_id, geometry=geometry)
         events.append(emit_eq52_dynamic_gap_event(state, dynamic_gap, scenario_id=scenario_id))
@@ -385,22 +468,34 @@ def resolve_cmc_assignment_source(
     state: SimulationState,
     mv_id: str,
     *,
-    effective_assignments: Mapping[str, EffectiveAssignmentThisStep] | None = None,
+    assignment_views: Mapping[str, AssignmentStepView] | None = None,
 ) -> CMCAssignmentSource:
-    effective_assignment = (effective_assignments or {}).get(mv_id)
-    if effective_assignment is not None:
+    view = (assignment_views or {}).get(mv_id)
+    if view is not None and view.consumable_by_cmc:
+        record = assignment_lifecycle_manager.from_state_dict(view.record)
         return CMCAssignmentSource(
             mv_id=mv_id,
-            assignment=effective_assignment.assignment,
-            source="effective_assignment_this_step",
+            assignment=view.record,
+            source=view.source,
+            record=record,
         )
-    cache_assignment = state.aps_assignment_cache.get(mv_id)
-    if cache_assignment is None:
+    record_value = state.assignment_records_by_mv.get(mv_id)
+    if record_value is None:
         return CMCAssignmentSource(mv_id=mv_id, assignment=None, source=None)
+    record = assignment_lifecycle_manager.from_state_dict(record_value)
+    view = assignment_lifecycle_manager.derive_cmc_view(state, record)
+    if view is None:
+        return CMCAssignmentSource(
+            mv_id=mv_id,
+            assignment=record_value,
+            source=record.source,
+            record=record,
+        )
     return CMCAssignmentSource(
         mv_id=mv_id,
-        assignment=cache_assignment,
-        source=str(cache_assignment.get("source") or "aps_cache"),
+        assignment=view.record,
+        source=view.source,
+        record=record,
     )
 
 
@@ -422,6 +517,20 @@ def validate_cmc_assignment(
     clv_id = _optional_str(assignment.get("clv_id"))
     cfv_id = _optional_str(assignment.get("cfv_id"))
     status = str(assignment.get("status", "valid")).lower()
+    lifecycle_state = str(assignment.get("lifecycle_state") or "").lower()
+    if lifecycle_state == "recovery_required":
+        return CMCAssignmentValidationResult(
+            mv_id=mv_id,
+            assignment_source=source.source,
+            assignment_valid=False,
+            assigned_clv_id=clv_id,
+            assigned_cfv_id=cfv_id,
+            invalid_reason=(
+                _optional_str(assignment.get("invalid_reason"))
+                or _optional_str(assignment.get("recovery_reason"))
+                or "wrong_order"
+            ),
+        )
     if status not in {"valid", "available", "ok"}:
         return CMCAssignmentValidationResult(
             mv_id=mv_id,
@@ -567,6 +676,106 @@ def check_eq53_gap(
     return compute_eq53_gap_inputs(state, validation, dynamic_gap)
 
 
+def attempt_cmc_recovery_current_gap(
+    state: SimulationState,
+    mv_id: str,
+    invalid_record: AssignmentRecord | None,
+    validation: CMCAssignmentValidationResult,
+    *,
+    geometry: RoadGeometryConfig = DEFAULT_ROAD_GEOMETRY,
+) -> CMCRecoveryResult:
+    if validation.invalid_reason not in {
+        "wrong_order",
+        "clv_missing",
+        "cfv_missing",
+        "clv_not_lane_2",
+        "cfv_not_lane_2",
+        "vehicle_exited",
+    }:
+        return CMCRecoveryResult(
+            mv_id=mv_id,
+            attempted=False,
+            recovery_record=None,
+            safety_pass=False,
+            reason=f"unsupported_recovery_reason:{validation.invalid_reason}",
+        )
+    leader_id, follower_id = _nearest_lane_2_gap_boundaries(state, mv_id)
+    if leader_id is not None and follower_id is not None:
+        gap_type = "bounded"
+    elif leader_id is not None:
+        gap_type = "front_only"
+    elif follower_id is not None:
+        gap_type = "rear_only"
+    else:
+        gap_type = "unbounded_clear"
+    record = _build_cmc_recovery_record(
+        state,
+        mv_id,
+        invalid_record,
+        leader_id=leader_id,
+        follower_id=follower_id,
+        gap_type=gap_type,
+        reason=validation.invalid_reason or "assignment_invalid",
+    )
+    dynamic_gap = compute_cmc_dynamic_acceptable_gap(state, mv_id, geometry=geometry)
+    eq53 = validate_recovery_gap(state, record, dynamic_gap)
+    return CMCRecoveryResult(
+        mv_id=mv_id,
+        attempted=True,
+        recovery_record=MappingProxyType(assignment_lifecycle_manager.to_state_dict(record)),
+        safety_pass=eq53.eq53_pass,
+        reason="recovery_safety_pass" if eq53.eq53_pass else "recovery_safety_failed",
+        leader_id=leader_id,
+        follower_id=follower_id,
+        gap_type=gap_type,
+        eq53=eq53,
+    )
+
+
+def validate_recovery_gap(
+    state: SimulationState,
+    recovery_record: AssignmentRecord,
+    dynamic_gap: CMCDynamicGapResult,
+) -> Eq53GapResult:
+    mv_state = state.vehicle_states[recovery_record.mv_id]
+    mv_length = _vehicle_length(state, recovery_record.mv_id)
+    threshold = mv_state.v * dynamic_gap.h_tilde
+    if recovery_record.clv_id is None:
+        d_mv_to_clv = float("inf")
+        clv_ok = True
+    else:
+        clv_state = state.vehicle_states[recovery_record.clv_id]
+        clv_length = _vehicle_length(state, recovery_record.clv_id)
+        d_mv_to_clv = clv_state.x_global - mv_state.x_global - clv_length
+        clv_ok = d_mv_to_clv >= threshold
+    if recovery_record.cfv_id is None:
+        d_cfv_to_mv = float("inf")
+        cfv_ok = True
+    else:
+        cfv_state = state.vehicle_states[recovery_record.cfv_id]
+        d_cfv_to_mv = mv_state.x_global - cfv_state.x_global - mv_length
+        cfv_ok = d_cfv_to_mv >= threshold
+    if clv_ok and cfv_ok:
+        fail_side = None
+    elif not clv_ok and not cfv_ok:
+        fail_side = "both"
+    elif not clv_ok:
+        fail_side = "CLV_gap"
+    else:
+        fail_side = "CFV_gap"
+    return Eq53GapResult(
+        mv_id=recovery_record.mv_id,
+        clv_id=recovery_record.clv_id,
+        cfv_id=recovery_record.cfv_id,
+        h_tilde=dynamic_gap.h_tilde,
+        d_MV_to_CLV=d_mv_to_clv,
+        d_CFV_to_MV=d_cfv_to_mv,
+        threshold=threshold,
+        eq53_pass=clv_ok and cfv_ok,
+        fail_side=fail_side,
+    )
+
+
 def compute_boundary_speed_cap(
     state: SimulationState,
     mv_id: str,
@@ -708,16 +917,40 @@ def build_cmc_state_transition_request(
     }
 
 
-def build_assignment_cache_invalidate_request(
+def build_assignment_recovery_required_update(
     state: SimulationState,
+    source: CMCAssignmentSource,
     validation: CMCAssignmentValidationResult,
+) -> dict[str, Any] | None:
+    if source.record is None:
+        return None
+    record = assignment_lifecycle_manager.mark_recovery_required(
+        state,
+        source.record,
+        validation.invalid_reason or "assignment_invalid",
+    )
+    return build_assignment_record_update_request(
+        state,
+        validation.mv_id,
+        assignment_lifecycle_manager.to_state_dict(record),
+        reason=validation.invalid_reason or "assignment_invalid",
+    )
+
+
+def build_assignment_record_update_request(
+    state: SimulationState,
+    mv_id: str,
+    record: Mapping[str, Any],
+    *,
+    reason: str,
 ) -> dict[str, Any]:
     return {
-        "command_id": f"p05:{state.step}:cache_invalidate:{validation.mv_id}",
-        "cache_name": "aps_assignment_cache",
-        "owner_vehicle_id": validation.mv_id,
-        "operation": "invalidate",
-        "reason": validation.invalid_reason or "assignment_invalid",
+        "command_id": f"p05:{state.step}:assignment_record:{mv_id}:{reason}",
+        "cache_name": "assignment_records_by_mv",
+        "owner_vehicle_id": mv_id,
+        "operation": "update",
+        "new_value": MappingProxyType(dict(record)),
+        "reason": reason,
         "source": "first_version_engineering_patch",
         "is_engineering_patch": True,
     }
@@ -788,6 +1021,40 @@ def emit_assignment_invalid_event(
             "replacement_assignment_created": False,
             "source": "first_version_engineering_patch",
             "is_engineering_patch": True,
+        },
+    )
+
+
+def emit_cmc_recovery_event(
+    state: SimulationState,
+    recovery: CMCRecoveryResult,
+    *,
+    scenario_id: str,
+) -> dict[str, Any]:
+    related = tuple(
+        item
+        for item in (recovery.mv_id, recovery.leader_id, recovery.follower_id)
+        if item is not None
+    )
+    return _cmc_event(
+        state,
+        mv_id=recovery.mv_id,
+        related_vehicle_ids=related,
+        scenario_id=scenario_id,
+        reason="cmc_recovery_current_gap",
+        source="first_version_engineering_patch",
+        is_engineering_patch=True,
+        payload={
+            "mv_id": recovery.mv_id,
+            "attempted": recovery.attempted,
+            "reason": recovery.reason,
+            "leader_id": recovery.leader_id,
+            "follower_id": recovery.follower_id,
+            "gap_type": recovery.gap_type,
+            "safety_pass": recovery.safety_pass,
+            "replacement_assignment_created": recovery.recovery_record is not None,
+            "recovery_record": dict(recovery.recovery_record or {}),
+            "eq53": _dataclass_to_plain(recovery.eq53) if recovery.eq53 is not None else None,
         },
     )
 
@@ -978,9 +1245,7 @@ def register_p05_png_features(
             "feature_type": feature_type,
             "required": True,
             "vehicle_ids": vehicle_ids,
-            "expected_visibility": (
-                "not_visible" if feature_type == "no_replacement_assignment_arrow" else "visible"
-            ),
+            "expected_visibility": "visible",
             "notes": "registered only; renderer deferred",
         }
         for feature_type in feature_types
@@ -1059,6 +1324,81 @@ def _step4b_mv_ids(
 
 def _is_mv_candidate(vehicle: VehicleState) -> bool:
     return vehicle.physical_lane == ON_RAMP or vehicle.road_role == ON_RAMP_MV_ROLE
+
+
+def _nearest_lane_2_gap_boundaries(
+    state: SimulationState,
+    mv_id: str,
+) -> tuple[str | None, str | None]:
+    mv_x = state.vehicle_states[mv_id].x_global
+    leader_id: str | None = None
+    follower_id: str | None = None
+    leader_dx: float | None = None
+    follower_dx: float | None = None
+    for vehicle_id, vehicle_state in state.vehicle_states.items():
+        if vehicle_id == mv_id:
+            continue
+        if vehicle_state.physical_lane != LANE_2 or not vehicle_state.is_active:
+            continue
+        if vehicle_state.lane_change_state == "executing":
+            continue
+        dx = vehicle_state.x_global - mv_x
+        if dx >= 0.0:
+            if leader_dx is None or dx < leader_dx:
+                leader_id = vehicle_id
+                leader_dx = dx
+        else:
+            behind_dx = -dx
+            if follower_dx is None or behind_dx < follower_dx:
+                follower_id = vehicle_id
+                follower_dx = behind_dx
+    return leader_id, follower_id
+
+
+def _build_cmc_recovery_record(
+    state: SimulationState,
+    mv_id: str,
+    invalid_record: AssignmentRecord | None,
+    *,
+    leader_id: str | None,
+    follower_id: str | None,
+    gap_type: str,
+    reason: str,
+) -> AssignmentRecord:
+    base = (
+        assignment_lifecycle_manager.to_state_dict(invalid_record)
+        if invalid_record is not None
+        else {
+            "record_version": 1,
+            "mv_id": mv_id,
+            "aps_case": None,
+            "col_clv": False,
+            "col_cfv": False,
+            "desired_spacing_override": None,
+            "created_at_step": state.step,
+            "created_at_t": state.t,
+        }
+    )
+    base.update(
+        {
+            "mv_id": mv_id,
+            "clv_id": leader_id,
+            "cfv_id": follower_id,
+            "gap_type": gap_type,
+            "status": "valid",
+            "lifecycle_state": "active_merge_zone",
+            "last_updated_step": state.step,
+            "last_updated_t": state.t,
+            "last_validated_step": state.step,
+            "last_validated_t": state.t,
+            "invalid_reason": None,
+            "recovery_reason": reason,
+            "source": "cmc_recovery_current_gap",
+            "col_clv": False,
+            "col_cfv": False,
+        }
+    )
+    return assignment_lifecycle_manager.from_state_dict(base)
 
 
 def _vehicle_length(state: SimulationState, vehicle_id: str) -> float:
@@ -1208,7 +1548,7 @@ def _state_signature(state: SimulationState) -> tuple[Any, ...]:
             )
             for vehicle_id in state.active_vehicle_ids
         ),
-        tuple((key, tuple(sorted(value.items()))) for key, value in state.aps_assignment_cache.items()),
+        tuple((key, tuple(sorted(value.items()))) for key, value in state.assignment_records_by_mv.items()),
     )
 
 

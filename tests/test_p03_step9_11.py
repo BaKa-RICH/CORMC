@@ -203,7 +203,7 @@ def test_commit_applies_lane_state_transition_and_cache_cleanup_only_to_next_sta
         candidate_cache_updates=(
             CandidateCacheUpdate(
                 candidate_id="cache-cleanup",
-                cache_name="aps_assignment_cache",
+                cache_name="assignment_records_by_mv",
                 owner_vehicle_id="MV_COMMIT_LITE",
                 operation="cleanup",
                 reason="merge_completed",
@@ -224,14 +224,14 @@ def test_commit_applies_lane_state_transition_and_cache_cleanup_only_to_next_sta
     assert committed_mv.physical_lane == "lane_2"
     assert committed_mv.road_role == "mainline"
     assert committed_mv.merge_state == "merged"
-    assert "MV_COMMIT_LITE" in state.aps_assignment_cache
-    assert "MV_COMMIT_LITE" not in result.next_state.aps_assignment_cache
+    assert "MV_COMMIT_LITE" in state.assignment_records_by_mv
+    assert "MV_COMMIT_LITE" not in result.next_state.assignment_records_by_mv
     event = _event_by_vehicle(result.history.event_records, "MV_COMMIT_LITE")
     assert event.payload["state_transitions"][0]["new_state"] == "merged"
     assert event.payload["cache_cleanup_vehicle_ids"] == ["MV_COMMIT_LITE"]
 
 
-def test_commit_invalidate_deletes_aps_assignment_cache_key() -> None:
+def test_commit_invalidate_deletes_assignment_records_by_mv_key() -> None:
     state = _frozen_commit_lite_state()
     state = _replace_state_cache(state, {"MV_COMMIT_LITE": {"status": "valid", "clv_id": "CLV"}})
     candidate = _candidate(state, "MV_COMMIT_LITE", "wait", x_delta=0.0)
@@ -242,7 +242,7 @@ def test_commit_invalidate_deletes_aps_assignment_cache_key() -> None:
         candidate_cache_updates=(
             CandidateCacheUpdate(
                 candidate_id="cache-invalidate",
-                cache_name="aps_assignment_cache",
+                cache_name="assignment_records_by_mv",
                 owner_vehicle_id="MV_COMMIT_LITE",
                 operation="invalidate",
                 reason="cached_gap_boundary_invalid",
@@ -258,8 +258,8 @@ def test_commit_invalidate_deletes_aps_assignment_cache_key() -> None:
         scenario_id="P03-INVALIDATE",
     )
 
-    assert "MV_COMMIT_LITE" in state.aps_assignment_cache
-    assert "MV_COMMIT_LITE" not in result.next_state.aps_assignment_cache
+    assert "MV_COMMIT_LITE" in state.assignment_records_by_mv
+    assert "MV_COMMIT_LITE" not in result.next_state.assignment_records_by_mv
     event = _event_by_vehicle(result.history.event_records, "MV_COMMIT_LITE")
     assert event.payload["cache_invalidate_vehicle_ids"] == ["MV_COMMIT_LITE"]
 
@@ -484,7 +484,7 @@ def _replace_state_cache(state, cache):
 
     return replace(
         state,
-        aps_assignment_cache=MappingProxyType(
+        assignment_records_by_mv=MappingProxyType(
             {
                 vehicle_id: MappingProxyType(dict(value))
                 for vehicle_id, value in cache.items()

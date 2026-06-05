@@ -9,6 +9,7 @@ from cormc import (
     refresh_relations_snapshot,
 )
 from cormc.mvs import load_builtin_scenario
+from cormc.engine import command_cache_updates_to_candidate_updates
 from cormc.step4b_cmc import run_step4b_cmc
 from cormc.step7_longitudinal import run_step7_longitudinal_model_spacing_speedcap
 from cormc.step8_lateral import run_step8_lateral_trajectory_planning_speed_progress
@@ -360,7 +361,7 @@ def test_p10_merge_completion_commit_applies_mainline_state_and_cache_cleanup() 
         cache_updates=(
             CandidateCacheUpdate(
                 candidate_id="p10:0:MV_E2E:cache_cleanup",
-                cache_name="aps_assignment_cache",
+                cache_name="assignment_records_by_mv",
                 owner_vehicle_id="MV_E2E",
                 operation="cleanup",
                 reason="merge_completed",
@@ -382,7 +383,7 @@ def test_p10_merge_completion_commit_applies_mainline_state_and_cache_cleanup() 
     assert committed.road_role == "mainline"
     assert committed.merge_state == "merged"
     assert "MV_E2E" not in result.next_state.active_maneuvers
-    assert "MV_E2E" not in result.next_state.aps_assignment_cache
+    assert "MV_E2E" not in result.next_state.assignment_records_by_mv
     assert event.payload["cache_cleanup_vehicle_ids"] == ["MV_E2E"]
     assert event.payload["active_maneuver_cleanup_vehicle_ids"] == ["MV_E2E"]
 
@@ -483,7 +484,7 @@ def test_p10_mvs_e2e_1_helper_chain_commits_merge_start_handoff() -> None:
         candidate_maneuver_progress=p09.next_state_buffer.candidate_maneuver_progress,
         candidate_lane_state=p09.next_state_buffer.candidate_lane_state,
         candidate_state_transitions=p09.next_state_buffer.candidate_state_transitions,
-        candidate_cache_updates=p05.command_buffer.cache_update_commands,
+        candidate_cache_updates=command_cache_updates_to_candidate_updates(p05.command_buffer),
     )
 
     result = commit_step(

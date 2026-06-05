@@ -5,6 +5,7 @@ from dataclasses import dataclass, field, fields, is_dataclass
 from types import MappingProxyType
 from typing import Any, Mapping
 
+from cormc.assignment_lifecycle import assignment_lifecycle_manager
 from cormc.mvs.loader import load_builtin_scenario, load_scenario_config
 
 
@@ -121,7 +122,7 @@ class PreFreezeWorkspace:
     active_vehicle_ids: list[str]
     vehicle_states: dict[str, VehicleState]
     vehicle_specs: dict[str, VehicleSpec]
-    aps_assignment_cache: dict[str, dict[str, Any]]
+    assignment_records_by_mv: dict[str, dict[str, Any]]
     active_maneuvers: dict[str, ManeuverTrajectoryState]
     command_buffer: dict[str, Any]
     next_state_buffer: dict[str, Any]
@@ -140,7 +141,7 @@ class SimulationState:
     active_vehicle_ids: tuple[str, ...]
     vehicle_states: Mapping[str, VehicleState]
     vehicle_specs: Mapping[str, VehicleSpec]
-    aps_assignment_cache: Mapping[str, Mapping[str, Any]]
+    assignment_records_by_mv: Mapping[str, Mapping[str, Any]]
     active_maneuvers: Mapping[str, ManeuverTrajectoryState]
     road_config_ref: str
     parameter_config_ref: str
@@ -271,7 +272,7 @@ def build_prefreeze_workspace_from_scenario(
         active_vehicle_ids=active_vehicle_ids,
         vehicle_states=vehicle_states,
         vehicle_specs=vehicle_specs,
-        aps_assignment_cache=_aps_cache_from_config(config),
+        assignment_records_by_mv=_assignment_records_from_config(config),
         active_maneuvers=active_maneuvers,
         command_buffer=dict(command_buffer or {}),
         next_state_buffer=dict(next_state_buffer or {}),
@@ -391,7 +392,7 @@ def freeze_simulation_state(workspace: PreFreezeWorkspace) -> SimulationState:
                 if vehicle_id in workspace.vehicle_specs
             }
         ),
-        aps_assignment_cache=_freeze_nested_mapping(workspace.aps_assignment_cache),
+        assignment_records_by_mv=_freeze_nested_mapping(workspace.assignment_records_by_mv),
         active_maneuvers=MappingProxyType(dict(workspace.active_maneuvers)),
         road_config_ref=workspace.road_config_ref,
         parameter_config_ref=workspace.parameter_config_ref,
@@ -679,7 +680,7 @@ def emit_cleanup_event_candidate(
             "removed_vehicle_ids": list(removed_vehicle_ids),
             "cleared_command_buffer": True,
             "cleared_next_state_buffer": True,
-            "retained_aps_cache_vehicle_ids": sorted(workspace.aps_assignment_cache),
+            "retained_assignment_record_vehicle_ids": sorted(workspace.assignment_records_by_mv),
             "retained_active_maneuver_vehicle_ids": sorted(workspace.active_maneuvers),
         },
     )
@@ -1052,10 +1053,14 @@ def _active_maneuvers_from_config(
     return active_maneuvers
 
 
-def _aps_cache_from_config(config: dict[str, Any]) -> dict[str, dict[str, Any]]:
+def _assignment_records_from_config(config: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    initial_time = config.get("initial_time") or {}
+    step = int(initial_time.get("step", 0))
+    t = float(initial_time.get("t", 0.0))
     cache: dict[str, dict[str, Any]] = {}
     for item in config.get("preloaded_assignments", []):
-        cache[str(item["mv_id"])] = deepcopy(item)
+        record = assignment_lifecycle_manager.from_legacy_assignment(item, step=step, t=t)
+        cache[str(item["mv_id"])] = assignment_lifecycle_manager.to_state_dict(record)
     return cache
 
 

@@ -35,17 +35,17 @@ def test_step0_clears_buffers_retains_cache_and_maneuver_state() -> None:
         command_buffer={"stale": object()},
         next_state_buffer={"stale": object()},
     )
-    workspace.aps_assignment_cache["MV_CUC"] = {"status": "valid"}
+    workspace.assignment_records_by_mv["MV_CUC"] = {"status": "valid"}
     workspace.active_maneuvers["CFV_X"] = workspace.active_maneuvers["CFV_X"]
 
     event = step0_cleanup_and_prepare(workspace)
 
     assert workspace.command_buffer == {}
     assert workspace.next_state_buffer == {}
-    assert workspace.aps_assignment_cache == {"MV_CUC": {"status": "valid"}}
+    assert workspace.assignment_records_by_mv == {"MV_CUC": {"status": "valid"}}
     assert "CFV_X" in workspace.active_maneuvers
     assert event["event_type"] == "cleanup"
-    assert event["payload"]["retained_aps_cache_vehicle_ids"] == ["MV_CUC"]
+    assert event["payload"]["retained_assignment_record_vehicle_ids"] == ["MV_CUC"]
 
 
 def test_lane_2_gap_boundary_eligibility_rejects_executing_lane_change() -> None:

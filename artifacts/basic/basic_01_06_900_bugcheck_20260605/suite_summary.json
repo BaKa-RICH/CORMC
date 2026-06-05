@@ -1,0 +1,105 @@
+{
+  "all_scenarios_have_artifacts": true,
+  "max_steps": 900,
+  "output_dir": "artifacts\\basic\\basic_01_06_900_bugcheck_20260605",
+  "run_id": "basic_01_06_900_bugcheck_20260605",
+  "scenario_count": 6,
+  "scenario_summaries": [
+    {
+      "active_cv_ids": [
+        "B01_CFV"
+      ],
+      "actual_steps": 215,
+      "eq10_consumers": [
+        "B01_CFV"
+      ],
+      "expected_aps_case": "case_2",
+      "merged_and_past_ramp": true,
+      "observed_aps_case": "case_2",
+      "primary_unresolved_issue": null,
+      "scenario_id": "BASIC-01",
+      "status": "passed",
+      "unresolved_issue_count": 0
+    },
+    {
+      "active_cv_ids": [
+        "B02_CLV"
+      ],
+      "actual_steps": 900,
+      "eq10_consumers": [],
+      "expected_aps_case": "case_3",
+      "merged_and_past_ramp": false,
+      "observed_aps_case": "case_3",
+      "primary_unresolved_issue": "BASIC expected active CVs to stay in lane_2, but CUC selected another final choice.",
+      "scenario_id": "BASIC-02",
+      "status": "diagnosed_unresolved",
+      "unresolved_issue_count": 3
+    },
+    {
+      "active_cv_ids": [
+        "B03_CLV"
+      ],
+      "actual_steps": 900,
+      "eq10_consumers": [],
+      "expected_aps_case": "case_4",
+      "merged_and_past_ramp": false,
+      "observed_aps_case": "case_3",
+      "primary_unresolved_issue": "Expected case_4, observed case_3.",
+      "scenario_id": "BASIC-03",
+      "status": "failed",
+      "unresolved_issue_count": 6
+    },
+    {
+      "active_cv_ids": [
+        "B04_CFV"
+      ],
+      "actual_steps": 900,
+      "eq10_consumers": [
+        "B04_CFV"
+      ],
+      "expected_aps_case": "case_2",
+      "merged_and_past_ramp": false,
+      "observed_aps_case": "case_2",
+      "primary_unresolved_issue": "BASIC expected active CVs to stay in lane_2, but CUC selected another final choice.",
+      "scenario_id": "BASIC-04",
+      "status": "diagnosed_unresolved",
+      "unresolved_issue_count": 3
+    },
+    {
+      "active_cv_ids": [
+        "B05_CLV"
+      ],
+      "actual_steps": 900,
+      "eq10_consumers": [],
+      "expected_aps_case": "case_3",
+      "merged_and_past_ramp": false,
+      "observed_aps_case": "case_3",
+      "primary_unresolved_issue": "BASIC expected active CVs to stay in lane_2, but CUC selected another final choice.",
+      "scenario_id": "BASIC-05",
+      "status": "diagnosed_unresolved",
+      "unresolved_issue_count": 3
+    },
+    {
+      "active_cv_ids": [
+        "B06_CLV",
+        "B06_CFV"
+      ],
+      "actual_steps": 900,
+      "eq10_consumers": [
+        "B06_CFV"
+      ],
+      "expected_aps_case": "case_4",
+      "merged_and_past_ramp": false,
+      "observed_aps_case": "case_4",
+      "primary_unresolved_issue": "BASIC expected active CVs to stay in lane_2, but CUC selected another final choice.",
+      "scenario_id": "BASIC-06",
+      "status": "diagnosed_unresolved",
+      "unresolved_issue_count": 3
+    }
+  ],
+  "status_counts": {
+    "diagnosed_unresolved": 4,
+    "failed": 1,
+    "passed": 1
+  }
+}

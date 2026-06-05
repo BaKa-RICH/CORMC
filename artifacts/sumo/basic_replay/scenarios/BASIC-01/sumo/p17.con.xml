@@ -1,0 +1,9 @@
+<?xml version='1.0' encoding='utf-8'?>
+<connections>
+  <connection from="main_pre" to="merge_zone" fromLane="0" toLane="1" />
+  <connection from="main_pre" to="merge_zone" fromLane="1" toLane="2" />
+  <connection from="ramp_pre" to="merge_zone" fromLane="0" toLane="0" />
+  <connection from="merge_zone" to="main_post" fromLane="1" toLane="0" />
+  <connection from="merge_zone" to="main_post" fromLane="2" toLane="1" />
+  <connection from="merge_zone" to="main_post" fromLane="0" toLane="0" />
+</connections>

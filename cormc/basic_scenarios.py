@@ -132,7 +132,11 @@ def _base_config(
     *,
     description: str,
     vehicles: list[dict[str, Any]],
+    cuc_utility_overrides: dict[str, dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
+    test_harness_overrides: dict[str, Any] = {"source": "basic_numeric_diagnostic"}
+    if cuc_utility_overrides:
+        test_harness_overrides["cuc_utility_overrides"] = cuc_utility_overrides
     return {
         "scenario_id": scenario_id,
         "scenario_name": description,
@@ -152,7 +156,7 @@ def _base_config(
             "ordinary_mainline_lane_change_enabled": False,
             "platoon_cmc_enabled": False,
             "mpc_lateral_tracking_enabled": False,
-            "test_harness_overrides": {"source": "basic_numeric_diagnostic"},
+            "test_harness_overrides": test_harness_overrides,
         },
         "preloaded_assignments": [],
         "preloaded_state_machine_states": [],
@@ -255,6 +259,17 @@ BASIC_SCENARIO_CONFIGS: dict[str, dict[str, Any]] = {
             _lane2("B02_CFV", 6614.0, "relative -26 m"),
             _lane1_blocker("B02_TLV_CLV", 6663.0, "makes CLV target lane unsafe"),
         ],
+        # TODO(BUG-010): This is a BASIC-02 diagnostic stopgap, not a CUC
+        # formula fix. It keeps the assigned CLV in lane_2 so assignment
+        # lifecycle/recovery bugs can be studied without the earlier CLV
+        # lane-change failure masking them.
+        cuc_utility_overrides={
+            "B02_CLV": {
+                "recommended_choice": "stay_lane_2",
+                "U1": 0.0,
+                "U2": 10000.0,
+            }
+        },
     ),
     "BASIC-03": _base_config(
         "BASIC-03",

@@ -3,9 +3,9 @@ from __future__ import annotations
 from types import MappingProxyType
 from typing import Any
 
+from cormc.assignment_lifecycle import AssignmentStepView
 from cormc import build_prefreeze_workspace_from_scenario, freeze_simulation_state, refresh_relations_snapshot
 from cormc.mvs import load_builtin_scenario, run_targeted_scenario
-from cormc.step4a_aps import EffectiveAssignmentThisStep
 from cormc.step5_cooperative_request import (
     collect_cooperative_requests,
     run_step5_cooperative_request_conflict_resolution,
@@ -34,13 +34,13 @@ def test_mvs_conflict_1b_smaller_t_star_priority_contract() -> None:
     assert _expected_event(config, "cooperative_request", source_mv_id="MV_G1")["match"]["t_mv_star"] == 5.5
 
 
-def test_p06_collects_col_true_requests_from_p04_effective_assignment() -> None:
+def test_p06_collects_col_true_requests_from_lifecycle_view() -> None:
     state, _ = _state_and_relations(_collector_config())
 
-    case_1 = _effective_assignment("MV_COLLECT", col_clv=False, col_cfv=False)
-    case_2 = _effective_assignment("MV_COLLECT", col_clv=False, col_cfv=True)
-    case_3 = _effective_assignment("MV_COLLECT", col_clv=True, col_cfv=False)
-    case_4 = _effective_assignment("MV_COLLECT", col_clv=True, col_cfv=True)
+    case_1 = _assignment_view("MV_COLLECT", col_clv=False, col_cfv=False)
+    case_2 = _assignment_view("MV_COLLECT", col_clv=False, col_cfv=True)
+    case_3 = _assignment_view("MV_COLLECT", col_clv=True, col_cfv=False)
+    case_4 = _assignment_view("MV_COLLECT", col_clv=True, col_cfv=True)
 
     assert collect_cooperative_requests(state, {"MV_COLLECT": case_1}) == []
     assert [request.cv_role for request in collect_cooperative_requests(state, {"MV_COLLECT": case_2})] == ["cfv"]
@@ -50,18 +50,18 @@ def test_p06_collects_col_true_requests_from_p04_effective_assignment() -> None:
 
 def test_p06_keeps_or_filters_request_based_on_p05_assignment_validation() -> None:
     state, relations = _state_and_relations(_collector_config())
-    effective_assignment = _effective_assignment("MV_COLLECT", col_clv=True, col_cfv=False)
+    effective_assignment = _assignment_view("MV_COLLECT", col_clv=True, col_cfv=False)
 
     kept = run_step5_cooperative_request_conflict_resolution(
         state,
         relations,
-        effective_assignments={"MV_COLLECT": effective_assignment},
+        assignment_views={"MV_COLLECT": effective_assignment},
         p05_validation_results={"MV_COLLECT": {"validation_status": "valid"}},
     )
     filtered = run_step5_cooperative_request_conflict_resolution(
         state,
         relations,
-        effective_assignments={"MV_COLLECT": effective_assignment},
+        assignment_views={"MV_COLLECT": effective_assignment},
         p05_validation_results={
             "MV_COLLECT": {
                 "validation_status": "invalid",
@@ -83,8 +83,8 @@ def test_failed_invalid_empty_assignment_does_not_create_active_request() -> Non
         result = run_step5_cooperative_request_conflict_resolution(
             state,
             relations,
-            effective_assignments={
-                "MV_COLLECT": _effective_assignment(
+            assignment_views={
+                "MV_COLLECT": _assignment_view(
                     "MV_COLLECT",
                     col_clv=True,
                     col_cfv=True,
@@ -268,20 +268,22 @@ def _vehicle(
     }
 
 
-def _effective_assignment(
+def _assignment_view(
     mv_id: str,
     *,
     col_clv: bool,
     col_cfv: bool,
     status: str = "valid",
-) -> EffectiveAssignmentThisStep:
-    return EffectiveAssignmentThisStep(
+) -> AssignmentStepView:
+    return AssignmentStepView(
         mv_id=mv_id,
-        assignment=MappingProxyType(
+        record=MappingProxyType(
             {
+                "record_version": 1,
                 "mv_id": mv_id,
                 "clv_id": "CLV_COLLECT",
                 "cfv_id": "CFV_COLLECT",
+                "gap_type": "bounded",
                 "aps_case": "case_4",
                 "col_clv": col_clv,
                 "col_cfv": col_cfv,
@@ -289,11 +291,13 @@ def _effective_assignment(
                 "t_mv_star": 5.5,
                 "t_star_mv": 5.5,
                 "status": status,
+                "lifecycle_state": "active_control_zone",
                 "source": "aps_updated_this_step",
             }
         ),
         source="aps_updated_this_step",
-        available_for_cooperative_request=status == "valid",
+        consumable_by_step5=status == "valid",
+        consumable_by_cmc=status == "valid",
     )
 
 
@@ -324,5 +328,5 @@ def _state_signature(state: Any) -> tuple[Any, ...]:
             )
             for vehicle_id in state.active_vehicle_ids
         ),
-        tuple((key, tuple(sorted(value.items()))) for key, value in state.aps_assignment_cache.items()),
+        tuple((key, tuple(sorted(value.items()))) for key, value in state.assignment_records_by_mv.items()),
     )
