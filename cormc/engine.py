@@ -221,6 +221,7 @@ class CormcEngine:
             frozen,
             relations,
             command_buffer=command_buffer,
+            geometry=self.geometry,
         )
         workspace.p08_result = p08
         p09 = run_step8_lateral_trajectory_planning_speed_progress(

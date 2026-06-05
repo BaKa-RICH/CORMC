@@ -385,28 +385,141 @@ BASIC-01 900 步诊断结果：
 
 ### BUG-002：MV 在 control zone 内按自由路目标速度加速，导致 APS case 漂移
 
-状态：已确认逻辑链。
+状态：已修复并验证。修复范围覆盖 control zone 内已存在有效 APS assignment 时，MV 继续按自由路目标速度加速、推高 APS 最小间距阈值并触发 case 漂移的问题；BASIC-01 后续是否最终合流仍由 assignment 生命周期、merge_zone 内 CUC/CMC 接力等后续 BUG 决定。
 
-现象：
+#### 原现象
 
-- step 5：MV 速度约 `21.846m/s`，前向最小安全间距 `d_min_CLV≈26.2m`，`d*_CLV=30m`，所以 CLV 方向满足。
-- step 56：MV 速度约 `28.983m/s`，`d_min_CLV≈34.8m`，`d*_CLV` 仍约 `30m`，所以 CLV 方向从“够”变成“不够”，APS 从 `case_2` 漂到 `case_3`。
+- BASIC-01 修复前的 first effective APS 发生在 step 5：
+  - `aps_case = case_2`
+  - `clv_id = B01_CLV`
+  - `cfv_id = B01_CFV`
+  - `col_clv = false`
+  - `col_cfv = true`
+  - `d*_CLV = 30.0m`
+  - Eq.10 desired spacing 绑定 `B01_CFV`
+- step 5 时，MV 速度约 `21.846m/s`。APS 使用的前向最小安全间距阈值是 `v_MV * tau`，其中 `tau = 1.2s`，所以 `d_min_CLV ≈ 26.2m`。此时 `d*_CLV = 30.0m`，CLV 方向满足，APS 判为 `case_2`。
+- 到 step 56 重新 due 时，旧实现下 MV 已按自由路目标速度继续加速到约 `28.983m/s`。此时 `d_min_CLV ≈ 34.8m`，但 APS 记录的 `d*_CLV` 仍约 `30.0m`，于是 CLV 方向从“够”变成“不够”。
+- 因此 APS 从 `case_2` 漂到 `case_3`，active request 从 `B01_CFV` 转给 `B01_CLV`。后续 `B01_CLV` 又被 CUC 推向 lane 1，成为 BASIC-01 后续失败链的一环。
+- 这个漂移不是 CUC 选择 case；case 漂移直接来自 APS 重新分类，而 APS 重新分类的关键数值变化来自 MV 在 control zone 内过度加速。
 
-代码依据：
+#### 查明的原因
 
-- `step7_longitudinal.py:717-724`：`_on_ramp_longitudinal_formula(...)` 使用 `acceleration = CAV.k1 * (desired_speed - current.v)`。
-- `step7_longitudinal.py:1006-1013`：desired speed 来自车辆 spec，否则默认值。
-- `p145_parameters.py:17`：`CAV.k1 = 0.4`。
-- `p145_parameters.py:23`：`CAV.v_e = 30.0`。
+- `step7_longitudinal.py` 中 on-ramp MV 的旧纵向模型只按自由路目标速度计算：`acceleration = CAV.k1 * (desired_speed - current.v)`。
+- `desired_speed` 来自车辆 spec，缺省落到 `CAV.v_e = 30.0m/s`，而 `CAV.k1 = 0.4`。
+- 旧逻辑没有消费 APS 已经形成的 gap reservation 信息：
+  - 不读取 `aps_assignment_cache[mv_id]` 里的 `d*_CLV`。
+  - 不读取 APS 判据使用的最小汇入时间间隔 `tau = APS_MIN_MERGE_TIME_GAP_S = 1.2s`。
+  - 不知道当前 `case_2` 已经预约了一个可用 gap，且 `d*_CLV = 30.0m` 只允许 MV 速度保持在 `30.0 / 1.2 = 25.0m/s` 以内，才不会在下一轮 APS due 时把 `d_min_CLV = v_MV * tau` 推到 `d*_CLV` 之上。
+- 所以旧实现实际比较的是“APS 已经预约的 gap”与“继续自由加速后的 MV 新速度”。只要 MV 继续朝 `30m/s` 加速，`v_MV * 1.2` 就会超过 `30m`，原本稳定的 `case_2` 会被自己后续的纵向推进破坏。
 
-问题解释：
+#### 改了什么
 
-当前 on-ramp MV 在还没进入 CMC 前，基本按“朝 30m/s 自由路目标速度加速”的逻辑走。它没有考虑 APS 已经预约的 CLV/CFV 间隙、Eq.10 调间距状态、或“已经够了就不应继续把安全阈值推高”的合作目标。这会让 APS 重新 due 时看到一个更快的 MV，从而推高 `d_min = v_MV * 1.2`，造成 case 漂移。
+- `cormc/step4a_aps.py`
+  - APS assignment cache 现在写入 gap reservation 字段：
+    - `d_star_clv`
+    - `d_star_cfv`
+    - `aps_min_merge_time_gap_s`
+  - APS event payload 同步记录这些字段，便于后续诊断复核。
+- `cormc/mvs/loader.py`
+  - MVS / 预加载 assignment 支持读取和构造上述 gap reservation 字段，保证回放、单测和闭环路径使用同一份 assignment 语义。
+- `cormc/step7_longitudinal.py`
+  - 新增 `APSGapProtectionResult`。
+  - 新增 `resolve_aps_gap_protection_speed_cap(...)`：
+    - 只对 on-ramp MV 生效。
+    - 只在 `control_zone` 内生效。
+    - 只在存在有效 APS assignment cache 时生效。
+    - 支持 `case_1 / case_2 / case_3 / case_4`。
+    - 从 assignment 中读取 `d_star_clv` 和 `aps_min_merge_time_gap_s`。
+    - 计算速度上限 `speed_cap = d_star_clv / tau`。
+  - `_on_ramp_longitudinal_formula(...)` 不再盲目使用自由路目标速度，而是：
+    - 保留 `original_desired_speed`，通常仍是 `30.0m/s`。
+    - 若 APS gap protection 生效，则令 `effective_desired_speed = min(original_desired_speed, d_star_clv / tau)`。
+    - 再用 `effective_desired_speed` 计算加速度。
+  - longitudinal event 新增诊断字段：
+    - `current_speed`
+    - `original_desired_speed`
+    - `effective_desired_speed`
+    - `aps_gap_protection_applied`
+    - `aps_gap_protection_speed_cap`
+    - `aps_gap_protection_source`
+    - `source_aps_case`
+    - `source_d_star_clv`
+    - `source_tau`
+    - `aps_gap_protection_rejection_reason`
+  - 进入 merge zone 后不使用这套 APS gap protection，避免和 CMC boundary speed cap 混在一起；merge zone 的速度约束仍由 CMC speed cap 口径负责。
+- `cormc/engine.py`
+  - Step7 调用时传入 engine 当前 geometry，使 `resolve_on_ramp_control_region(...)` 使用同一套道路区域定义，而不是隐式默认几何。
+- `cormc/basic_runner.py`
+  - BASIC numeric summary 增加：
+    - `aps_assignment_timeline`
+    - `aps_gap_protection_timeline`
+  - event summary 增加 `t_star_mv / d_star_clv / d_star_cfv / aps_min_merge_time_gap_s`，用于从 artifact 里直接观察 APS reservation 与 MV 速度保护的关系。
+- `cormc/sumo/mvs_replay_artifacts.py`
+  - 回放导出同步保留相关诊断字段，避免 SUMO/MVS artifact 丢失本次修复依赖的 assignment 语义。
+- `tests/test_p04_step4a_aps.py`
+  - 新增测试，锁定 APS effective assignment 与 cache update 都必须包含 gap reservation 字段。
+- `tests/test_p08_step7_longitudinal.py`
+  - 新增测试，锁定 control zone 内四类 APS case 都会应用 `d_star_clv / tau` 速度保护。
+  - 新增测试，锁定缺少 `d_star_clv` 时只记录诊断，不误应用保护。
+  - 新增测试，锁定 assignment status 无效时不应用保护。
+  - 新增测试，锁定 merge zone 内 CMC boundary speed cap 与 APS gap protection 相互独立。
+- `tests/test_basic_numeric_diagnostics.py`
+  - 新增 BASIC-01 70 step 诊断测试，锁定：
+    - first APS 仍为 `case_2`。
+    - first APS 的 `d_star_clv = 30.0`。
+    - first APS 的 `aps_min_merge_time_gap_s = 1.2`。
+    - step 50 以后 `current_speed * tau <= d_star_clv`。
+    - APS assignment timeline 不再出现 `case_3`。
+    - active CV 不再多出 `B01_CLV`。
 
-待修复方向：
+#### 验证
 
-- MV pre-merge longitudinal model 需要与 APS/CMC 合作目标接上。
-- 至少在 BASIC-01 里，不能让 MV 在已经有可用 anticipatory gap 的情况下盲目加速到破坏 gap 判据。
+已运行目标回归：
+
+```text
+python -m pytest tests\test_basic_numeric_diagnostics.py::test_basic_01_bug002_mv_gap_protection_stabilizes_aps_case tests\test_p04_step4a_aps.py::test_p04_effective_assignment_cache_includes_gap_reservation_fields tests\test_p08_step7_longitudinal.py::test_p08_mv_control_zone_applies_aps_gap_protection_for_all_cases tests\test_p08_step7_longitudinal.py::test_p08_mv_control_zone_valid_assignment_missing_d_star_clv_is_diagnostic tests\test_p08_step7_longitudinal.py::test_p08_mv_control_zone_ignores_invalid_assignment_status tests\test_p08_step7_longitudinal.py::test_p08_mv_merge_zone_keeps_cmc_boundary_speed_cap_independent
+6 passed
+```
+
+BASIC-01 70 step 诊断抽查结果：
+
+```text
+first_aps_step = 5
+first_aps.aps_case = case_2
+first_aps.clv_id = B01_CLV
+first_aps.cfv_id = B01_CFV
+first_aps.col_clv = false
+first_aps.col_cfv = true
+first_aps.d_star_clv = 30.0
+first_aps.d_star_cfv = -23.87452478299292
+first_aps.aps_min_merge_time_gap_s = 1.2
+first_aps.desired_spacing_override = 59.03195931723492
+aps_assignment_timeline = [case_2, case_1]
+active_cv_ids = [B01_CFV]
+```
+
+step 56 的关键保护数值：
+
+```text
+current_speed = 24.63273780110797
+source_tau = 1.2
+current_speed_times_tau = 29.559285361329565
+source_d_star_clv = 30.0
+original_desired_speed = 30.0
+effective_desired_speed = 25.0
+aps_gap_protection_applied = true
+aps_gap_protection_speed_cap = 25.0
+aps_gap_protection_source = d_star_clv_over_tau
+source_aps_case = case_2
+candidate_speed_after_lane_clip = 24.647428289063654
+```
+
+验证结论：
+
+- 修复前 step 56 的核心问题是 `v_MV * 1.2 ≈ 34.8m > d*_CLV ≈ 30.0m`，导致 APS 从 `case_2` 漂到 `case_3`。
+- 修复后 step 56 中 `v_MV * 1.2 = 29.559285361329565m <= d*_CLV = 30.0m`，MV 没有再把 APS 前向安全阈值推爆。
+- BASIC-01 70 step 窗口内不再出现 `case_3`，`B01_CLV` 不再进入 active CV 集合。
+- 70 step 抽查里后续出现 `case_1`，不是本 BUG 原先的 `case_2 -> case_3 / B01_CLV active` 漂移；它说明 BUG-002 已把“MV 过度加速导致 CLV 方向不足”的链路切断，后续仍需结合 assignment 生命周期和 merge_zone 接力继续看完整 BASIC-01 是否最终合流。
 
 ### BUG-003：APS 候选收集把正在离开 lane 2 的车辆仍当 lane 2 候选
 

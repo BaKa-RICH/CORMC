@@ -222,6 +222,8 @@ def summarize_basic_numeric_result(
     )
     assignment_validity = _event_timeline(events, "CMC", mv_id, "assignment_validation")
     aps_excluded_candidates = _aps_excluded_candidate_timeline(events, mv_id)
+    aps_assignment_timeline = _aps_assignment_timeline(events, mv_id)
+    aps_gap_protection_timeline = _aps_gap_protection_timeline(events, mv_id)
     cached_boundary_invalidations = _cached_boundary_invalidation_timeline(events, mv_id)
     eq53_timeline = _event_timeline(events, "CMC", mv_id, "eq53_gap")
     boundary_cap_timeline = _event_timeline(events, "CMC", mv_id, "boundary_speed_cap")
@@ -308,6 +310,8 @@ def summarize_basic_numeric_result(
         "expected_eq10_consumer_ids": list(expectation.expected_eq10_consumer_ids),
         "illegal_eq10_consumers": list(illegal_eq10_consumers),
         "assignment_validity_timeline": assignment_validity,
+        "aps_assignment_timeline": aps_assignment_timeline,
+        "aps_gap_protection_timeline": aps_gap_protection_timeline,
         "aps_excluded_candidate_timeline": aps_excluded_candidates,
         "first_cached_boundary_invalidation": (
             cached_boundary_invalidations[0] if cached_boundary_invalidations else None
@@ -494,6 +498,73 @@ def _aps_excluded_candidate_timeline(
                     "candidate_ids": list(payload.get("candidate_ids") or ()),
                     "excluded_candidates": [dict(item) for item in excluded],
                 },
+            }
+        )
+    return timeline
+
+
+def _aps_assignment_timeline(
+    events: list[dict[str, Any]],
+    mv_id: str,
+) -> list[dict[str, Any]]:
+    timeline: list[dict[str, Any]] = []
+    for event in events:
+        if event.get("event_type") != "APS" or event.get("vehicle_id") != mv_id:
+            continue
+        payload = event.get("payload") or {}
+        if payload.get("aps_case") is None:
+            continue
+        timeline.append(
+            {
+                "step": event.get("step"),
+                "t": event.get("t"),
+                "aps_case": payload.get("aps_case"),
+                "d_star_clv": payload.get("d_star_clv"),
+                "d_star_cfv": payload.get("d_star_cfv"),
+                "t_star_mv": payload.get("t_star_mv"),
+                "clv_id": payload.get("clv_id"),
+                "cfv_id": payload.get("cfv_id"),
+            }
+        )
+    return timeline
+
+
+def _aps_gap_protection_timeline(
+    events: list[dict[str, Any]],
+    mv_id: str,
+) -> list[dict[str, Any]]:
+    timeline: list[dict[str, Any]] = []
+    for event in events:
+        if event.get("event_type") != "longitudinal_model" or event.get("vehicle_id") != mv_id:
+            continue
+        payload = event.get("payload") or {}
+        if (
+            payload.get("aps_gap_protection_applied") is not True
+            and payload.get("aps_gap_protection_rejection_reason") is None
+        ):
+            continue
+        current_speed = payload.get("current_speed")
+        source_tau = payload.get("source_tau")
+        timeline.append(
+            {
+                "step": event.get("step"),
+                "t": event.get("t"),
+                "current_speed": current_speed,
+                "current_speed_times_tau": (
+                    float(current_speed) * float(source_tau)
+                    if current_speed is not None and source_tau is not None
+                    else None
+                ),
+                "original_desired_speed": payload.get("original_desired_speed"),
+                "effective_desired_speed": payload.get("effective_desired_speed"),
+                "aps_gap_protection_applied": payload.get("aps_gap_protection_applied"),
+                "aps_gap_protection_speed_cap": payload.get("aps_gap_protection_speed_cap"),
+                "aps_gap_protection_source": payload.get("aps_gap_protection_source"),
+                "source_aps_case": payload.get("source_aps_case"),
+                "source_d_star_clv": payload.get("source_d_star_clv"),
+                "source_tau": source_tau,
+                "rejection_reason": payload.get("aps_gap_protection_rejection_reason"),
+                "candidate_speed_after_lane_clip": payload.get("candidate_speed_after_lane_clip"),
             }
         )
     return timeline
@@ -1054,6 +1125,10 @@ def _event_summary(event: Mapping[str, Any]) -> dict[str, Any]:
         "col_clv",
         "col_cfv",
         "desired_spacing_override",
+        "t_star_mv",
+        "d_star_clv",
+        "d_star_cfv",
+        "aps_min_merge_time_gap_s",
         "source_mv_id",
         "cv_id",
         "cv_role",

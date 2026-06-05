@@ -15,16 +15,20 @@ from cormc.p145_parameters import (
     LOCKED_FORMULA_STATUS,
 )
 from cormc.step0_3 import (
+    DEFAULT_ROAD_GEOMETRY,
     LANE_2,
     LongitudinalControllerMemory,
     ManeuverTrajectoryState,
     ON_RAMP,
     ON_RAMP_MV_ROLE,
     RelationsSnapshot,
+    RoadGeometryConfig,
     SimulationState,
     VehicleState,
     assert_x_plot_not_used_in_algorithm_path,
+    resolve_on_ramp_control_region,
 )
+from cormc.step4a_aps import APS_MIN_MERGE_TIME_GAP_S
 from cormc.step9_11 import (
     CandidateCacheUpdate,
     CandidateLongitudinalKinematics,
@@ -83,6 +87,17 @@ class FrontCollisionAvoidanceResult:
 
 
 @dataclass(frozen=True)
+class APSGapProtectionResult:
+    applied: bool
+    speed_cap: float | None
+    source: str | None = None
+    source_aps_case: str | None = None
+    source_d_star_clv: float | None = None
+    source_tau: float | None = None
+    rejection_reason: str | None = None
+
+
+@dataclass(frozen=True)
 class LongitudinalFormulaResult:
     mode: str
     acceleration: float
@@ -108,6 +123,7 @@ def run_step7_longitudinal_model_spacing_speedcap(
     relations: RelationsSnapshot,
     *,
     command_buffer: CommandBuffer,
+    geometry: RoadGeometryConfig = DEFAULT_ROAD_GEOMETRY,
     vehicle_ids: tuple[str, ...] | None = None,
     front_fallback_speeds: Mapping[str, float] | None = None,
     suppressed_requests: tuple[Mapping[str, Any], ...] = (),
@@ -154,6 +170,7 @@ def run_step7_longitudinal_model_spacing_speedcap(
             vehicle_id,
             spacing=spacing,
             leader_id=leader_id,
+            geometry=geometry,
         )
         if base.cache_update is not None:
             cache_updates.append(base.cache_update)
@@ -673,6 +690,7 @@ def _compute_base_candidate(
     *,
     spacing: SpacingOverrideConsumption,
     leader_id: str | None,
+    geometry: RoadGeometryConfig = DEFAULT_ROAD_GEOMETRY,
 ) -> LongitudinalFormulaResult:
     return compute_p145_longitudinal_formula(
         state,
@@ -681,6 +699,7 @@ def _compute_base_candidate(
         spacing=spacing,
         leader_id=leader_id,
         update_cache=True,
+        geometry=geometry,
     )
 
 
@@ -692,6 +711,7 @@ def compute_p145_longitudinal_formula(
     spacing: SpacingOverrideConsumption | None = None,
     leader_id: str | None = None,
     update_cache: bool = False,
+    geometry: RoadGeometryConfig = DEFAULT_ROAD_GEOMETRY,
 ) -> LongitudinalFormulaResult:
     current = state.vehicle_states[vehicle_id]
     spec = state.vehicle_specs[vehicle_id]
@@ -702,7 +722,7 @@ def compute_p145_longitudinal_formula(
         desired_spacing_source=_ordinary_spacing_source(state, vehicle_id),
     )
     if _is_on_ramp_vehicle(current):
-        return _on_ramp_longitudinal_formula(state, vehicle_id)
+        return _on_ramp_longitudinal_formula(state, vehicle_id, geometry=geometry)
     elif vehicle_type == "chv":
         return _chv_idm_formula(state, vehicle_id, leader_id=leader_id, spacing=spacing)
     return _cav_longitudinal_formula(
@@ -717,10 +737,22 @@ def compute_p145_longitudinal_formula(
 def _on_ramp_longitudinal_formula(
     state: SimulationState,
     vehicle_id: str,
+    *,
+    geometry: RoadGeometryConfig = DEFAULT_ROAD_GEOMETRY,
 ) -> LongitudinalFormulaResult:
     current = state.vehicle_states[vehicle_id]
-    desired_speed = _desired_speed(state, vehicle_id)
-    acceleration = _clip_acceleration(CAV.k1 * (desired_speed - current.v))
+    original_desired_speed = _desired_speed(state, vehicle_id)
+    protection = resolve_aps_gap_protection_speed_cap(
+        state,
+        vehicle_id,
+        geometry=geometry,
+    )
+    effective_desired_speed = (
+        min(original_desired_speed, float(protection.speed_cap))
+        if protection.applied and protection.speed_cap is not None
+        else original_desired_speed
+    )
+    acceleration = _clip_acceleration(CAV.k1 * (effective_desired_speed - current.v))
     candidate_speed = _clip_speed_to_lane(state, vehicle_id, current.v + acceleration * state.dt)
     return LongitudinalFormulaResult(
         mode="mv_on_ramp",
@@ -729,11 +761,104 @@ def _on_ramp_longitudinal_formula(
         payload={
             "formula_status": "engineering_patch",
             "longitudinal_formula_status": "engineering_patch",
-            "on_ramp_longitudinal_source": "first_version_on_ramp_free_road",
-            "desired_speed": desired_speed,
+            "on_ramp_longitudinal_source": (
+                "aps_gap_protected_free_road"
+                if protection.applied
+                else "first_version_on_ramp_free_road"
+            ),
+            "current_speed": current.v,
+            "desired_speed": original_desired_speed,
             "desired_speed_source": _desired_speed_source(state, vehicle_id),
+            "original_desired_speed": original_desired_speed,
+            "effective_desired_speed": effective_desired_speed,
+            "aps_gap_protection_applied": protection.applied,
+            "aps_gap_protection_speed_cap": protection.speed_cap,
+            "aps_gap_protection_source": protection.source,
+            "source_aps_case": protection.source_aps_case,
+            "source_d_star_clv": protection.source_d_star_clv,
+            "source_tau": protection.source_tau,
+            "aps_gap_protection_rejection_reason": protection.rejection_reason,
             "candidate_speed_after_lane_clip": candidate_speed,
         },
+    )
+
+
+def resolve_aps_gap_protection_speed_cap(
+    state: SimulationState,
+    vehicle_id: str,
+    *,
+    geometry: RoadGeometryConfig = DEFAULT_ROAD_GEOMETRY,
+) -> APSGapProtectionResult:
+    current = state.vehicle_states[vehicle_id]
+    if not _is_on_ramp_vehicle(current):
+        return APSGapProtectionResult(
+            applied=False,
+            speed_cap=None,
+            rejection_reason="not_on_ramp_mv",
+        )
+    region = resolve_on_ramp_control_region(
+        current.x_global,
+        current.road_role,
+        geometry=geometry,
+    )
+    if region.region != "control_zone":
+        return APSGapProtectionResult(
+            applied=False,
+            speed_cap=None,
+            rejection_reason=f"not_control_zone:{region.region}",
+        )
+    assignment = state.aps_assignment_cache.get(vehicle_id)
+    if assignment is None:
+        return APSGapProtectionResult(
+            applied=False,
+            speed_cap=None,
+            rejection_reason="missing_aps_assignment_cache",
+        )
+    status = str(assignment.get("status") or "").lower()
+    if status not in {"valid", "available", "ok"}:
+        return APSGapProtectionResult(
+            applied=False,
+            speed_cap=None,
+            source_aps_case=_optional_str(assignment.get("aps_case")),
+            rejection_reason=f"invalid_assignment_status:{status or 'missing'}",
+        )
+    aps_case = str(assignment.get("aps_case") or "").lower()
+    if aps_case not in {"case_1", "case_2", "case_3", "case_4"}:
+        return APSGapProtectionResult(
+            applied=False,
+            speed_cap=None,
+            source_aps_case=aps_case or None,
+            rejection_reason=f"unsupported_aps_case:{aps_case or 'missing'}",
+        )
+    d_star_clv = _optional_float(assignment.get("d_star_clv"))
+    if d_star_clv is None or d_star_clv <= 0.0:
+        return APSGapProtectionResult(
+            applied=False,
+            speed_cap=None,
+            source_aps_case=aps_case,
+            source_d_star_clv=d_star_clv,
+            rejection_reason="missing_d_star_clv",
+        )
+    tau = _optional_float(assignment.get("aps_min_merge_time_gap_s"))
+    if tau is None:
+        tau = APS_MIN_MERGE_TIME_GAP_S
+    if tau <= 0.0:
+        return APSGapProtectionResult(
+            applied=False,
+            speed_cap=None,
+            source_aps_case=aps_case,
+            source_d_star_clv=d_star_clv,
+            source_tau=tau,
+            rejection_reason="nonpositive_aps_min_merge_time_gap_s",
+        )
+    return APSGapProtectionResult(
+        applied=True,
+        speed_cap=d_star_clv / tau,
+        source="d_star_clv_over_tau",
+        source_aps_case=aps_case,
+        source_d_star_clv=d_star_clv,
+        source_tau=tau,
+        rejection_reason=None,
     )
 
 

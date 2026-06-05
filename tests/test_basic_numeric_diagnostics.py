@@ -60,6 +60,41 @@ def test_basic_01_pre_control_first_aps_after_control_zone(tmp_path: Path) -> No
     }
 
 
+def test_basic_01_bug002_mv_gap_protection_stabilizes_aps_case(tmp_path: Path) -> None:
+    result = run_basic_numeric_scenario(
+        "BASIC-01",
+        output_dir=tmp_path,
+        run_id="basic-test",
+        max_steps=70,
+        render_png=False,
+    )
+    summary = result.numeric_summary
+
+    assert summary["first_aps"]["payload"]["aps_case"] == "case_2"
+    assert summary["first_aps"]["payload"]["d_star_clv"] == 30.0
+    assert summary["first_aps"]["payload"]["aps_min_merge_time_gap_s"] == 1.2
+    assert summary["aps_gap_protection_timeline"]
+    assert all(
+        item["aps_gap_protection_applied"] is True
+        for item in summary["aps_gap_protection_timeline"]
+        if item["step"] >= summary["first_aps"]["step"] + 1
+    )
+    drift_window = [
+        item
+        for item in summary["aps_gap_protection_timeline"]
+        if item["step"] >= 50
+    ]
+    assert drift_window
+    assert all(
+        item["current_speed_times_tau"] <= item["source_d_star_clv"] + 1e-9
+        for item in drift_window
+    )
+    aps_cases = [item["aps_case"] for item in summary["aps_assignment_timeline"]]
+    assert aps_cases[0] == "case_2"
+    assert "case_3" not in aps_cases
+    assert "B01_CLV" not in summary["active_cv_ids"]
+
+
 def test_basic_suite_writes_root_reports_and_all_scenario_artifacts(tmp_path: Path) -> None:
     suite = run_basic_numeric_suite(
         output_dir=tmp_path,

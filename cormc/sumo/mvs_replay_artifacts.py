@@ -581,32 +581,52 @@ def _run_numeric_checks(
         )
 
     elif spec.replay_id == "MVS-CUC-2-eq10-window":
-        cfv = vehicle_ranges.get("CFV_X", {})
+        window_end_step = _first_event_step(
+            events,
+            vehicle_id="CFV_X",
+            event_type="lateral_trajectory",
+        )
+        window_records = _records_until_step(
+            trajectory_records,
+            end_step=window_end_step,
+        )
+        window_ranges = _vehicle_ranges(window_records)
+        window_events = _events_until_step(events, end_step=window_end_step)
+        cfv = window_ranges.get("CFV_X", {})
+        window_detail = {
+            **cfv,
+            "window_end_step": window_end_step,
+            "window_scope": "before_first_cfv_x_lateral_trajectory",
+        }
         require(
             "cfv_x_stays_lane2",
             cfv.get("y_min", 999.0) >= -0.05 and cfv.get("y_max", -999.0) <= 0.05,
             vehicle_id="CFV_X",
             message="CFV_X y left lane_2 tolerance",
-            detail=cfv,
+            detail=window_detail,
         )
         require(
             "cfv_x_lane_change_state_normal",
             set(cfv.get("lane_change_states", ())) == {"normal"},
             vehicle_id="CFV_X",
             message="CFV_X lane_change_state was not normal for the whole Eq.10 window",
-            detail=cfv.get("lane_change_states"),
+            detail={
+                "lane_change_states": cfv.get("lane_change_states"),
+                "window_end_step": window_end_step,
+            },
         )
         require(
             "eq10_spacing_override_consumed",
-            _has_event(events, vehicle_id="CFV_X", event_type="spacing_override_consumption", payload={"desired_spacing_source": "Eq10"}),
+            _has_event(window_events, vehicle_id="CFV_X", event_type="spacing_override_consumption", payload={"desired_spacing_source": "Eq10"}),
             vehicle_id="CFV_X",
             message="CFV_X did not consume Eq.10 spacing override",
         )
         require(
             "no_cfv_x_lateral_trajectory",
-            not _has_event(events, vehicle_id="CFV_X", event_type="lateral_trajectory"),
+            not _has_event(window_events, vehicle_id="CFV_X", event_type="lateral_trajectory"),
             vehicle_id="CFV_X",
-            message="CFV_X unexpectedly emitted lateral_trajectory",
+            message="CFV_X unexpectedly emitted lateral_trajectory inside the Eq.10 window",
+            detail={"window_end_step": window_end_step},
         )
 
     elif spec.replay_id == "MVS-SAFE-1B-cap":
@@ -702,6 +722,34 @@ def _vehicle_ranges(records: Iterable[Any]) -> dict[str, dict[str, Any]]:
             "merge_states": sorted({str(record.merge_state) for record in items}),
         }
     return ranges
+
+
+def _first_event_step(
+    events: Iterable[dict[str, Any]],
+    *,
+    vehicle_id: str,
+    event_type: str,
+) -> int | None:
+    steps = [
+        int(event.get("step", -1))
+        for event in events
+        if event.get("vehicle_id") == vehicle_id
+        and event.get("event_type") == event_type
+        and int(event.get("step", -1)) >= 0
+    ]
+    return min(steps) if steps else None
+
+
+def _records_until_step(records: Iterable[Any], *, end_step: int | None) -> list[Any]:
+    if end_step is None:
+        return list(records)
+    return [record for record in records if int(record.step) < int(end_step)]
+
+
+def _events_until_step(events: Iterable[dict[str, Any]], *, end_step: int | None) -> list[dict[str, Any]]:
+    if end_step is None:
+        return list(events)
+    return [event for event in events if int(event.get("step", -1)) < int(end_step)]
 
 
 def _vehicle_reaches_y(

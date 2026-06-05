@@ -96,6 +96,31 @@ def test_p04_effective_assignment_preserves_t_star_handoff() -> None:
     assert assignment["t_mv_star"] == aps_event["payload"]["t_star_mv"]
 
 
+def test_p04_effective_assignment_cache_includes_gap_reservation_fields() -> None:
+    result = run_step4a_aps_for_scenario(
+        _aps_case_config(
+            scenario_id="P04-APS-RESERVATION-CACHE",
+            clv_id="CLV_RESERVATION",
+            clv_x=6884.0,
+            cfv_id="CFV_RESERVATION",
+            cfv_x=6844.0,
+            aps_case="case_2",
+            col_clv=False,
+            col_cfv=True,
+            eq10_spacing=58.0,
+        )
+    )
+
+    assignment = result.effective_assignments["MV_A"].assignment
+    cache_action = result.cache_actions[0]
+    update_request = dict(cache_action.update_request or {})
+
+    assert assignment["d_star_clv"] == update_request["d_star_clv"]
+    assert assignment["d_star_cfv"] == update_request["d_star_cfv"]
+    assert assignment["aps_min_merge_time_gap_s"] == 1.2
+    assert update_request["aps_min_merge_time_gap_s"] == 1.2
+
+
 def test_p04_excludes_executing_lane_change_from_aps_candidates() -> None:
     result = run_step4a_aps_for_scenario(_aps_executing_candidate_config())
 
