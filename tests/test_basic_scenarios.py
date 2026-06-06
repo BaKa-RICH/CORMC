@@ -31,7 +31,7 @@ def test_basic_scenario_vehicle_tables_match_document() -> None:
         "BASIC-02": [
             ("B02_MV", "on_ramp", "on_ramp_mv", 6640.0, -3.5, 20.0),
             ("B02_CLV", "lane_2", "mainline", 6654.0, 0.0, 20.0),
-            ("B02_CFV", "lane_2", "mainline", 6614.0, 0.0, 20.0),
+            ("B02_CFV", "lane_2", "mainline", 6560.0, 0.0, 20.0),
             ("B02_TLV_CLV", "lane_1", "mainline", 6663.0, 3.5, 15.0),
         ],
         "BASIC-03": [

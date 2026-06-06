@@ -84,7 +84,7 @@ docs/papers/Cooperative_On-Ramp_Merging_Control_Model_for_Mixed_Traffic_on_Multi
 | APS 选择 CLV / CFV | `D*_j > 0` 且 `D*_{j+1} < 0` | APS 正文、Algorithm 1 | 论文原机制 | 状态与模块接口规格 |
 | APS case 判断 | CLV/CFV 预测间隙约束与最小间距 | Eq.7-Eq.9 | 论文原公式 | 最小验证场景规格 |
 | APS case 2 / 4 CFV desired spacing | CFV 使用 Eq.10 为 MV 创建后向 gap | Eq.10；case 2/4 正文 | 论文原公式；只明确用于 CFV | 车辆模型规格 |
-| APS case 3 CLV 处理 | MV 可将 CLV 作为 leading vehicle 调整间距，不对 CLV 套 Eq.10 | APS case 3 后正文 | 论文原语义 | 车辆模型规格、状态与模块接口规格 |
+| APS case 3 CLV 处理 | MV 可将 assigned CLV 作为 leading vehicle 调整间距；不对 CLV 套 Eq.10 | APS case 3 后正文 | 论文原语义；`d_star_clv` 只作 APS evidence | 车辆模型规格、状态与模块接口规格 |
 | CMC 动态可接受时间间隙 | `h~_MV^CM(t)` | Eq.52 | 论文原公式 | 车辆模型规格、参数规格 |
 | CMC 合流 gap 判断 | MV 与 assigned CLV / CFV 的实际 gap 是否满足 | Eq.53 | 论文原公式；执行前做 assignment valid 工程验证 | 车辆模型规格、输出指标与日志验证规格 |
 | CMC boundary speed cap | on-ramp downstream boundary 速度约束 | Eq.54-Eq.56 | 论文原公式；职责为 CMC 计算 speed cap | 车辆模型规格 |
@@ -128,9 +128,12 @@ Eq.16 的第一版解释必须写硬：`if U1 > U2 and Eq.14 satisfied -> choice
 | CAV gap-regulating / CPID | spacing error、speed error、outer/inner PID、inertial lag | Eq.21-Eq.27 | 论文原公式；CPID 参数可能需后续审阅 | 车辆模型规格、参数规格 |
 | CHV / IDM | stochastic IDM acceleration 与 desired dynamic spacing | Eq.28-Eq.29 | 论文原公式 | 车辆模型规格、参数规格 |
 | CFV 留 lane 2 协同期望间距 | case 2 / 4 中 CFV 使用 Eq.10 | Eq.10，APS case 2/4 正文 | 论文原公式；不套给 CLV | 车辆模型规格 |
+| case 3 MV-to-CLV 纵向关系 | MV 使用 assigned CLV 作为 logical leader，复用自身 CAV / CHV 纵向模型 | APS case 3 后正文；Eq.17-Eq.29 | 论文原语义；不引入 `d_star_clv / tau` 速度公式 | 车辆模型规格、状态与模块接口规格 |
 | MV waiting / executing 纵向速度约束 | 使用 CMC 产生的 boundary speed cap | Eq.56；时间步总纲职责拆分 | 论文原公式 + 第一版职责约束 | 车辆模型规格 |
 
 当前文档只确认“case 2 / 4 中 CFV 使用 Eq.10”的论文语义。若 CFV 是 CAV、compliant CHV 或 non-compliant CHV，Eq.10 如何进入纵向模型，必须由 `CORMC车辆模型规格.md` 明确；本文档不直接决定它是改 IDM 的期望间距、作为 virtual MV / leader 目标，还是只对可控车辆生效。
+
+`d_star_clv` / `d_star_cfv` 是 APS 到达预测与 case 判断证据，只能出现在 APS assignment / diagnostics 中。第一版不把 `d_star_clv` 解释成 Step7 的 MV speed cap、gap-protection 速度上限或 `d_star_clv / tau` 控制公式；case 3 的 Step7 行为由 assignment logical leader relation 与普通纵向模型共同表达。
 
 ### Step 8：计算横向运动与安全修正
 

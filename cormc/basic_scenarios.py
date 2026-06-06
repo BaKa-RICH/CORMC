@@ -133,10 +133,13 @@ def _base_config(
     description: str,
     vehicles: list[dict[str, Any]],
     cuc_utility_overrides: dict[str, dict[str, Any]] | None = None,
+    freeze_first_aps_assignment_until_cmc: bool = False,
 ) -> dict[str, Any]:
     test_harness_overrides: dict[str, Any] = {"source": "basic_numeric_diagnostic"}
     if cuc_utility_overrides:
         test_harness_overrides["cuc_utility_overrides"] = cuc_utility_overrides
+    if freeze_first_aps_assignment_until_cmc:
+        test_harness_overrides["freeze_first_aps_assignment_until_cmc"] = True
     return {
         "scenario_id": scenario_id,
         "scenario_name": description,
@@ -256,7 +259,7 @@ BASIC_SCENARIO_CONFIGS: dict[str, dict[str, Any]] = {
         vehicles=[
             _mv("B02_MV", 6640.0, "pre-control initial MV"),
             _lane2("B02_CLV", 6654.0, "relative +14 m"),
-            _lane2("B02_CFV", 6614.0, "relative -26 m"),
+            _lane2("B02_CFV", 6560.0, "relative -80 m"),
             _lane1_blocker("B02_TLV_CLV", 6663.0, "makes CLV target lane unsafe"),
         ],
         # TODO(BUG-010): This is a BASIC-02 diagnostic stopgap, not a CUC
@@ -270,6 +273,7 @@ BASIC_SCENARIO_CONFIGS: dict[str, dict[str, Any]] = {
                 "U2": 10000.0,
             }
         },
+        freeze_first_aps_assignment_until_cmc=True,
     ),
     "BASIC-03": _base_config(
         "BASIC-03",

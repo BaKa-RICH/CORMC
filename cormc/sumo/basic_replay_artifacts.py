@@ -293,7 +293,10 @@ def import_basic_numeric_artifact(
     if not history.trajectory_records:
         raise ValueError(f"source trajectory.csv contains no records: {trajectory_path}")
 
-    lifecycle_summary = _summarize_basic_lifecycle_events(events_path if events_path.exists() else None)
+    lifecycle_summary = _summarize_basic_lifecycle_events(
+        events_path if events_path.exists() else None,
+        numeric_summary=numeric_summary,
+    )
     return ImportedBasicNumericArtifact(
         scenario_id=scenario_id,
         source_artifact_dir=str(source_dir),
@@ -388,9 +391,17 @@ def _split_event_tags(value: str | None) -> tuple[str, ...]:
     return tuple(part for part in str(value).split("|") if part)
 
 
-def _summarize_basic_lifecycle_events(events_path: Path | None) -> dict[str, Any]:
+def _summarize_basic_lifecycle_events(
+    events_path: Path | None,
+    *,
+    numeric_summary: Mapping[str, Any] | None = None,
+) -> dict[str, Any]:
+    numeric_summary = numeric_summary or {}
     if events_path is None:
-        return {"status": "not_available"}
+        return {
+            "status": "not_available",
+            **_numeric_assignment_lifecycle_fields(numeric_summary),
+        }
 
     summary: dict[str, Any] = {
         "status": "available",
@@ -400,6 +411,7 @@ def _summarize_basic_lifecycle_events(events_path: Path | None) -> dict[str, Any
         "cmc_recovery_front_only": False,
         "cmc_recovery_leader_id": None,
         "cmc_recovery_step": None,
+        **_numeric_assignment_lifecycle_fields(numeric_summary),
     }
     cooperative_ids: set[str] = set()
     stay_lane_ids: set[str] = set()
@@ -424,6 +436,21 @@ def _summarize_basic_lifecycle_events(events_path: Path | None) -> dict[str, Any
     summary["cooperative_request_vehicle_ids"] = sorted(cooperative_ids)
     summary["cuc_stay_lane_2_vehicle_ids"] = sorted(stay_lane_ids)
     return summary
+
+
+def _numeric_assignment_lifecycle_fields(numeric_summary: Mapping[str, Any]) -> dict[str, Any]:
+    return {
+        "bounded_assignment_merge_success": bool(
+            numeric_summary.get("bounded_assignment_merge_success", False)
+        ),
+        "used_front_only_recovery_for_success": bool(
+            numeric_summary.get("used_front_only_recovery_for_success", False)
+        ),
+        "merge_success_assignment_source": numeric_summary.get("merge_success_assignment_source"),
+        "merge_success_gap_type": numeric_summary.get("merge_success_gap_type"),
+        "merge_success_clv_id": numeric_summary.get("merge_success_clv_id"),
+        "merge_success_cfv_id": numeric_summary.get("merge_success_cfv_id"),
+    }
 
 
 def write_basic_replay_trajectory_jsonl(
@@ -773,6 +800,10 @@ def _write_scenario_report(path: Path, manifest: dict[str, Any]) -> None:
         f"- refresh failed retained count: `{lifecycle.get('refresh_failed_retained_count', 0)}`",
         f"- cooperative request vehicles: `{', '.join(lifecycle.get('cooperative_request_vehicle_ids') or []) or 'none'}`",
         f"- CUC stay lane_2 vehicles: `{', '.join(lifecycle.get('cuc_stay_lane_2_vehicle_ids') or []) or 'none'}`",
+        f"- bounded assignment merge success: `{lifecycle.get('bounded_assignment_merge_success')}`",
+        f"- merge success gap type: `{lifecycle.get('merge_success_gap_type')}`",
+        f"- merge success CLV/CFV: `{lifecycle.get('merge_success_clv_id')}` / `{lifecycle.get('merge_success_cfv_id')}`",
+        f"- used front-only recovery for success: `{lifecycle.get('used_front_only_recovery_for_success')}`",
         f"- CMC recovery front-only: `{lifecycle.get('cmc_recovery_front_only')}`",
         f"- CMC recovery leader: `{lifecycle.get('cmc_recovery_leader_id')}`",
         "",

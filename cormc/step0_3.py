@@ -472,6 +472,29 @@ def refresh_relations_snapshot(
     )
 
 
+def overlay_assignment_logical_relations(
+    state: SimulationState,
+    relations: RelationsSnapshot,
+    *,
+    assignment_views: Mapping[str, Any] | None = None,
+) -> RelationsSnapshot:
+    active_relations = dict(relations.active_maneuver_relation)
+    overlay_records = _iter_assignment_overlay_records(state, assignment_views=assignment_views)
+    for mv_id, record in overlay_records.items():
+        relation = _assignment_logical_relation_for_record(state, mv_id, record)
+        if relation is not None:
+            active_relations[mv_id] = relation
+    return RelationsSnapshot(
+        step=relations.step,
+        t=relations.t,
+        lane_ordering=relations.lane_ordering,
+        leader_by_vehicle=relations.leader_by_vehicle,
+        follower_by_vehicle=relations.follower_by_vehicle,
+        lane_change_neighborhood=relations.lane_change_neighborhood,
+        active_maneuver_relation=MappingProxyType(active_relations),
+    )
+
+
 def resolve_lane_ordering_by_x_global(state: SimulationState, lane_id: str) -> list[str]:
     vehicle_ids = [
         vehicle_id
@@ -1119,6 +1142,65 @@ def _nearest_neighbors_by_x(
         if candidate_x < x_global:
             follower_id = vehicle_id
     return leader_id, follower_id
+
+
+def _iter_assignment_overlay_records(
+    state: SimulationState,
+    *,
+    assignment_views: Mapping[str, Any] | None,
+) -> dict[str, Mapping[str, Any]]:
+    records: dict[str, Mapping[str, Any]] = {
+        str(mv_id): record for mv_id, record in state.assignment_records_by_mv.items()
+    }
+    for mv_id, view in (assignment_views or {}).items():
+        record = getattr(view, "record", None)
+        if record is None and isinstance(view, Mapping):
+            record = view.get("record") or view
+        if isinstance(record, Mapping):
+            records[str(mv_id)] = record
+    return records
+
+
+def _assignment_logical_relation_for_record(
+    state: SimulationState,
+    mv_id: str,
+    record: Mapping[str, Any],
+) -> ActiveManeuverRelation | None:
+    mv_id = str(record.get("mv_id") or mv_id)
+    clv_id = _optional_assignment_str(record.get("clv_id"))
+    cfv_id = _optional_assignment_str(record.get("cfv_id"))
+    if mv_id not in state.vehicle_states or clv_id not in state.vehicle_states:
+        return None
+    mv_state = state.vehicle_states[mv_id]
+    clv_state = state.vehicle_states[clv_id]
+    if mv_state.physical_lane != ON_RAMP and mv_state.road_role != ON_RAMP_MV_ROLE:
+        return None
+    if str(record.get("gap_type") or "bounded").lower() != "bounded":
+        return None
+    if str(record.get("status") or "valid").lower() not in {"valid", "available", "ok"}:
+        return None
+    lifecycle_state = str(record.get("lifecycle_state") or "active_control_zone").lower()
+    if lifecycle_state not in {"active_control_zone", "refresh_failed_retained", "active_merge_zone"}:
+        return None
+    if not clv_state.is_active:
+        return None
+    if clv_state.physical_lane != LANE_2 or clv_state.lane_change_state == "executing":
+        return None
+    if float(clv_state.x_global) <= float(mv_state.x_global):
+        return None
+    return ActiveManeuverRelation(
+        vehicle_id=mv_id,
+        primary_leader_id=clv_id,
+        affected_target_follower_id=cfv_id,
+        affected_source_follower_id=None,
+        relation_source=f"aps_assignment_{record.get('aps_case')}_mv_clv_leader",
+    )
+
+
+def _optional_assignment_str(value: Any) -> str | None:
+    if value in (None, ""):
+        return None
+    return str(value)
 
 
 def _state_machine_status(state: SimulationState) -> str:

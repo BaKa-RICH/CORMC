@@ -11,6 +11,7 @@ from cormc import (
     assert_x_plot_not_used_in_algorithm_path,
     build_prefreeze_workspace_from_scenario,
     freeze_simulation_state,
+    overlay_assignment_logical_relations,
     refresh_relations_snapshot,
     resolve_aps_candidate_ids,
     resolve_aps_candidate_window,
@@ -305,6 +306,42 @@ def test_active_lane_change_relation_not_switched_by_physical_y() -> None:
     assert result.state.vehicle_states["CFV_X"].physical_lane == "lane_2"
 
 
+def test_assignment_logical_relation_overlays_mv_clv_leader() -> None:
+    workspace, _ = build_prefreeze_workspace_from_scenario(_assignment_relation_scenario())
+    state = freeze_simulation_state(workspace)
+    base_relations = refresh_relations_snapshot(state)
+
+    relations = overlay_assignment_logical_relations(state, base_relations)
+
+    relation = relations.active_maneuver_relation["B02_MV"]
+    assert relation.primary_leader_id == "B02_CLV"
+    assert relation.affected_target_follower_id == "B02_CFV"
+    assert relation.affected_source_follower_id is None
+    assert relation.relation_source == "aps_assignment_case_3_mv_clv_leader"
+
+
+def test_assignment_logical_relation_skips_invalid_clv_position_or_lane() -> None:
+    behind_workspace, _ = build_prefreeze_workspace_from_scenario(
+        _assignment_relation_scenario(clv_x=6840.0)
+    )
+    behind_state = freeze_simulation_state(behind_workspace)
+    behind_relations = overlay_assignment_logical_relations(
+        behind_state,
+        refresh_relations_snapshot(behind_state),
+    )
+    assert "B02_MV" not in behind_relations.active_maneuver_relation
+
+    wrong_lane_workspace, _ = build_prefreeze_workspace_from_scenario(
+        _assignment_relation_scenario(clv_lane="lane_1", clv_y=3.5)
+    )
+    wrong_lane_state = freeze_simulation_state(wrong_lane_workspace)
+    wrong_lane_relations = overlay_assignment_logical_relations(
+        wrong_lane_state,
+        refresh_relations_snapshot(wrong_lane_state),
+    )
+    assert "B02_MV" not in wrong_lane_relations.active_maneuver_relation
+
+
 def test_p02_event_and_sanity_candidates_are_consumable_by_p01_matcher() -> None:
     result = run_step0_to_step3(_cuc_relation_scenario())
 
@@ -404,6 +441,7 @@ def _base_scenario(
     *,
     vehicles: list[dict],
     module_overrides: dict | None = None,
+    preloaded_assignments: list[dict] | None = None,
     preloaded_maneuver_trajectory_states: list[dict] | None = None,
 ) -> dict:
     return {
@@ -423,6 +461,7 @@ def _base_scenario(
             "mpc_lateral_tracking_enabled": False,
             **(module_overrides or {}),
         },
+        "preloaded_assignments": preloaded_assignments or [],
         "preloaded_maneuver_trajectory_states": preloaded_maneuver_trajectory_states or [],
         "expected_events": [],
         "forbidden_events": [],
@@ -481,6 +520,34 @@ def _cuc_relation_scenario() -> dict:
                 "target_y": 3.5,
                 "planned_length": 100.0,
                 "progress": 0.8,
+            }
+        ],
+    )
+
+
+def _assignment_relation_scenario(
+    *,
+    clv_x: float = 6865.0,
+    clv_lane: str = "lane_2",
+    clv_y: float = 0.0,
+) -> dict:
+    return _base_scenario(
+        "P02-ASSIGNMENT-RELATION",
+        vehicles=[
+            _vehicle("B02_MV", "on_ramp", 6850.0, -3.5, road_role="on_ramp_mv"),
+            _vehicle("B02_CLV", clv_lane, clv_x, clv_y),
+            _vehicle("B02_CFV", "lane_2", 6810.0, 0.0),
+        ],
+        preloaded_assignments=[
+            {
+                "mv_id": "B02_MV",
+                "clv_id": "B02_CLV",
+                "cfv_id": "B02_CFV",
+                "aps_case": "case_3",
+                "col_clv": True,
+                "col_cfv": False,
+                "status": "valid",
+                "source": "aps_cache",
             }
         ],
     )

@@ -14,7 +14,7 @@ from cormc.sumo.mapping import to_sumo_position
 
 
 BASIC01_SOURCE = Path("artifacts/basic/basic_01_06_900_bugcheck_20260605/scenarios/BASIC-01")
-BASIC02_SOURCE = Path("artifacts/basic/basic02_900_assignment_lifecycle_check/BASIC-02")
+BASIC02_SOURCE = Path("artifacts/basic/basic02_case3_mv_clv_relation_900/BASIC-02")
 
 
 def test_basic_01_sumo_replay_imports_existing_numeric_artifact(tmp_path: Path) -> None:
@@ -128,10 +128,15 @@ def test_basic_02_sumo_replay_imports_assignment_lifecycle_artifact(tmp_path: Pa
     assert roles["B02_TLV_CLV"] == "tlv"
 
     manifest = json.loads(Path(scenario.artifact_manifest_path).read_text(encoding="utf-8"))
-    assert manifest["numeric_summary"]["actual_steps"] == 446
+    assert manifest["numeric_summary"]["actual_steps"] == 221
     assert manifest["numeric_summary"]["observed_aps_case"] == "case_3"
     assert manifest["numeric_summary"]["active_cv_ids"] == ["B02_CLV"]
     assert manifest["numeric_summary"]["eq10_consumers"] == []
+    assert manifest["numeric_summary"]["bounded_assignment_merge_success"] is True
+    assert manifest["numeric_summary"]["used_front_only_recovery_for_success"] is False
+    assert manifest["numeric_summary"]["merge_success_gap_type"] == "bounded"
+    assert manifest["numeric_summary"]["merge_success_clv_id"] == "B02_CLV"
+    assert manifest["numeric_summary"]["merge_success_cfv_id"] == "B02_CFV"
     assert manifest["numeric_summary"]["merged_and_past_ramp"] is True
     assert manifest["role_map"] == {
         "B02_CFV": "cfv",
@@ -139,11 +144,16 @@ def test_basic_02_sumo_replay_imports_assignment_lifecycle_artifact(tmp_path: Pa
         "B02_MV": "mv_on_ramp_active",
         "B02_TLV_CLV": "tlv",
     }
-    assert manifest["lifecycle_summary"]["refresh_failed_retained_count"] > 0
+    assert manifest["lifecycle_summary"]["refresh_failed_retained_count"] == 0
     assert manifest["lifecycle_summary"]["cooperative_request_vehicle_ids"] == ["B02_CLV"]
     assert manifest["lifecycle_summary"]["cuc_stay_lane_2_vehicle_ids"] == ["B02_CLV"]
-    assert manifest["lifecycle_summary"]["cmc_recovery_front_only"] is True
-    assert manifest["lifecycle_summary"]["cmc_recovery_leader_id"] == "B02_CFV"
+    assert manifest["lifecycle_summary"]["bounded_assignment_merge_success"] is True
+    assert manifest["lifecycle_summary"]["used_front_only_recovery_for_success"] is False
+    assert manifest["lifecycle_summary"]["merge_success_gap_type"] == "bounded"
+    assert manifest["lifecycle_summary"]["merge_success_clv_id"] == "B02_CLV"
+    assert manifest["lifecycle_summary"]["merge_success_cfv_id"] == "B02_CFV"
+    assert manifest["lifecycle_summary"]["cmc_recovery_front_only"] is False
+    assert manifest["lifecycle_summary"]["cmc_recovery_leader_id"] is None
     assert manifest["replay_fidelity"]["status"] == "passed"
     assert manifest["replay_fidelity"]["basic_visual_checks"]["pre_control_hint_count"] == 0
 

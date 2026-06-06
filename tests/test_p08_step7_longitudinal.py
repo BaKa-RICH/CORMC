@@ -3,7 +3,12 @@ from __future__ import annotations
 from types import MappingProxyType
 from typing import Any
 
-from cormc import build_prefreeze_workspace_from_scenario, freeze_simulation_state, refresh_relations_snapshot
+from cormc import (
+    build_prefreeze_workspace_from_scenario,
+    freeze_simulation_state,
+    overlay_assignment_logical_relations,
+    refresh_relations_snapshot,
+)
 from cormc.step7_longitudinal import run_step7_longitudinal_model_spacing_speedcap
 from cormc.step9_11 import CommandBuffer
 
@@ -258,58 +263,28 @@ def test_p08_mv_on_ramp_longitudinal_candidate_without_boundary_cap() -> None:
     )
 
     event = _event(result.actual_events, event_type="longitudinal_model", vehicle_id="MV_CUC")
-    assert event["payload"]["longitudinal_mode"] == "mv_on_ramp"
+    assert event["payload"]["longitudinal_mode"] == "cav_cruising"
+    assert event["payload"]["leader_id"] is None
+    assert event["payload"]["desired_spacing_target_source"] == "Eq18"
     assert "MV_CUC" in result.next_state_buffer.candidate_longitudinal
     assert not _has_event_type(result.actual_events, "speed_cap")
     assert not _has_event_type(result.actual_events, "CMC")
     assert not _has_event_type(result.actual_events, "lateral_trajectory")
 
 
-def test_p08_mv_control_zone_applies_aps_gap_protection_for_all_cases() -> None:
-    for aps_case in ("case_1", "case_2", "case_3", "case_4"):
-        state, relations = _state_and_relations(
-            _p08_config(
-                mv_x=6840.0,
-                mv_initial_v=28.0,
-                preloaded_assignments=[
-                    _aps_assignment("MV_CUC", aps_case=aps_case, d_star_clv=30.0)
-                ],
-            )
-        )
-
-        result = run_step7_longitudinal_model_spacing_speedcap(
-            state,
-            relations,
-            command_buffer=CommandBuffer(step=state.step, t=state.t),
-            vehicle_ids=("MV_CUC",),
-        )
-
-        event = _event(result.actual_events, event_type="longitudinal_model", vehicle_id="MV_CUC")
-        candidate = result.next_state_buffer.candidate_longitudinal["MV_CUC"]
-        assert event["payload"]["aps_gap_protection_applied"] is True
-        assert event["payload"]["aps_gap_protection_speed_cap"] == 25.0
-        assert event["payload"]["aps_gap_protection_source"] == "d_star_clv_over_tau"
-        assert event["payload"]["source_aps_case"] == aps_case
-        assert event["payload"]["source_d_star_clv"] == 30.0
-        assert event["payload"]["source_tau"] == 1.2
-        assert event["payload"]["original_desired_speed"] == 30.0
-        assert event["payload"]["effective_desired_speed"] == 25.0
-        assert event["payload"]["aps_gap_protection_rejection_reason"] is None
-        assert candidate.v < state.vehicle_states["MV_CUC"].v
-        assert candidate.a < 0.0
-        assert not _has_event_type(result.actual_events, "speed_cap")
-
-
-def test_p08_mv_control_zone_valid_assignment_missing_d_star_clv_is_diagnostic() -> None:
+def test_p08_case3_mv_uses_assigned_clv_as_cav_leader() -> None:
     state, relations = _state_and_relations(
         _p08_config(
             mv_x=6840.0,
-            mv_initial_v=28.0,
+            mv_initial_v=20.0,
+            leader_x=6860.0,
+            cfv_x=6810.0,
             preloaded_assignments=[
-                _aps_assignment("MV_CUC", aps_case="case_2", include_d_star_clv=False)
+                _aps_assignment("MV_CUC", aps_case="case_3", d_star_clv=10.0)
             ],
         )
     )
+    relations = overlay_assignment_logical_relations(state, relations)
 
     result = run_step7_longitudinal_model_spacing_speedcap(
         state,
@@ -319,38 +294,24 @@ def test_p08_mv_control_zone_valid_assignment_missing_d_star_clv_is_diagnostic()
     )
 
     event = _event(result.actual_events, event_type="longitudinal_model", vehicle_id="MV_CUC")
-    candidate = result.next_state_buffer.candidate_longitudinal["MV_CUC"]
-    assert event["payload"]["aps_gap_protection_applied"] is False
-    assert event["payload"]["aps_gap_protection_rejection_reason"] == "missing_d_star_clv"
-    assert event["payload"]["effective_desired_speed"] == 30.0
-    assert candidate.v > state.vehicle_states["MV_CUC"].v
-
-
-def test_p08_mv_control_zone_ignores_invalid_assignment_status() -> None:
-    state, relations = _state_and_relations(
-        _p08_config(
-            mv_x=6840.0,
-            mv_initial_v=28.0,
-            preloaded_assignments=[
-                _aps_assignment("MV_CUC", aps_case="case_2", d_star_clv=30.0, status="invalid")
-            ],
-        )
+    payload = event["payload"]
+    assert payload["leader_id"] == "CLV_Y"
+    assert payload["leader_relation_source"] == "aps_assignment_case_3_mv_clv_leader"
+    assert payload["affected_target_follower_id"] == "CFV_X"
+    assert payload["desired_spacing_target_source"] == "Eq18"
+    assert payload["spacing_override_consumed"] is False
+    assert payload["longitudinal_mode"] in {"cav_gap_regulating", "cav_cruising"}
+    assert payload["actual_spacing_d_i"] == 16.0
+    assert payload["eq18_desired_spacing_S_i"] == (
+        payload["current_speed"] * payload["h_i"]
+        + payload["d0"]
+        + payload["collision_avoidance_spacing_C_i"]
     )
-
-    result = run_step7_longitudinal_model_spacing_speedcap(
-        state,
-        relations,
-        command_buffer=CommandBuffer(step=state.step, t=state.t),
-        vehicle_ids=("MV_CUC",),
-    )
-
-    event = _event(result.actual_events, event_type="longitudinal_model", vehicle_id="MV_CUC")
-    assert event["payload"]["aps_gap_protection_applied"] is False
-    assert (
-        event["payload"]["aps_gap_protection_rejection_reason"]
-        == "not_control_zone_gap_protection:invalid:invalid"
-    )
-    assert event["payload"]["effective_desired_speed"] == 30.0
+    assert event["source"] == "paper_formula"
+    assert event["is_engineering_patch"] is False
+    assert not any(key.startswith("aps_" + "gap_protection") for key in payload)
+    assert ("source_" + "d_star_clv") not in payload
+    assert ("source_" + "tau") not in payload
 
 
 def test_p08_mv_merge_zone_keeps_cmc_boundary_speed_cap_independent() -> None:
@@ -390,9 +351,10 @@ def test_p08_mv_merge_zone_keeps_cmc_boundary_speed_cap_independent() -> None:
 
     longitudinal = _event(result.actual_events, event_type="longitudinal_model", vehicle_id="MV_CUC")
     speed_cap = _event(result.actual_events, event_type="speed_cap", vehicle_id="MV_CUC")
-    assert longitudinal["payload"]["aps_gap_protection_applied"] is False
-    assert longitudinal["payload"]["aps_gap_protection_rejection_reason"] == "not_control_zone:merge_zone"
-    assert longitudinal["payload"]["aps_gap_protection_speed_cap"] is None
+    assert not any(
+        key.startswith("aps_" + "gap_protection") for key in longitudinal["payload"]
+    )
+    assert longitudinal["payload"]["longitudinal_mode"] == "cav_cruising"
     assert speed_cap["payload"]["boundary_speed_cap"] == 2.63
     assert speed_cap["payload"]["most_conservative_source"] == "boundary_speed_cap"
 

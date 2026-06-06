@@ -253,6 +253,14 @@ Eq.10 只用于 APS case 2 / 4 中需要协同的 CFV，不用于 case 3 的 CLV
 
 该规则是第一版落地口径，用于把论文 Eq.10 的语义接入实际纵向模型。后续如需更严格复现 virtual MV' 的具体构造，应在车辆模型规格修订后再进入代码。
 
+### 5.5 Case 3 的 CLV 协同边界
+
+APS case 3 中，active cooperative vehicle 是 CLV，但这不等于 CLV 消费 Eq.10。CLV 的 active cooperative 身份只表示它参与 CUC choice、assignment lifecycle 和 lane_2 gap 边界；若 CLV 最终 stay lane_2，它仍按自身 CAV / CHV 纵向模型行驶，不套用 CFV 的 Eq.10 desired spacing。
+
+case 3 的纵向协同由 MV 侧表达：MV 将 assigned CLV 作为 logical leading vehicle，继续使用自身车辆类型对应的纵向模型。若 MV 是 CAV，则以 assigned CLV 作为 leader 计算 Eq.17-Eq.19 / CPID 或 cruising；若 MV 是 CHV，则以 assigned CLV 作为 leader 使用 IDM。该 leader 关系只在 assigned CLV 仍 active、位于 lane_2、未执行换道且位于 MV 前方时有效。
+
+`d_star_clv` 和 `d_star_cfv` 在 case 3 中只属于 APS assignment evidence，用于说明为什么得到 case 3；它们不是 MV 速度公式、不是 boundary speed cap，也不是 `d_star_clv / tau` 形式的纵向控制量。
+
 ## 6. MV 的 CMC 纵向与合流
 
 CMC 只对已经进入 merging zone 的 MV 执行。MV 状态沿用时间步总纲：

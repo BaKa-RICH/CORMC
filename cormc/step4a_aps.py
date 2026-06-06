@@ -130,6 +130,7 @@ def run_step4a_aps(
     assignment_record_updates: dict[str, Mapping[str, Any]] = {}
     cache_actions: list[APSCacheAction] = []
     last_aps_times = _last_aps_times(config or {})
+    freeze_first_assignment = _freeze_first_aps_assignment_until_cmc(config or {})
 
     for mv_id in _step4a_mv_ids(state, eligible_mv_ids=eligible_mv_ids):
         mv_state = state.vehicle_states[mv_id]
@@ -159,6 +160,7 @@ def run_step4a_aps(
             mv_id,
             last_aps_time=last_aps_times.get(mv_id),
             existing_cache=record_value,
+            freeze_existing_assignment=freeze_first_assignment,
         )
         invalid_boundary = _cached_assignment_invalid_boundary(state, record_value)
         if record_value is not None and invalid_boundary is not None:
@@ -242,9 +244,12 @@ def resolve_aps_trigger(
     last_aps_time: float | None,
     existing_cache: Mapping[str, Any] | None,
     aps_decision_interval_s: float = APS_DECISION_INTERVAL_S,
+    freeze_existing_assignment: bool = False,
 ) -> str:
     if existing_cache is None:
         return "first_APS"
+    if freeze_existing_assignment:
+        return "reuse_cache"
     last_update_t = last_aps_time
     if last_update_t is None and existing_cache.get("created_at_t") is not None:
         last_update_t = float(existing_cache["created_at_t"])
@@ -782,6 +787,12 @@ def _last_aps_times(config: dict[str, Any]) -> dict[str, float]:
         if item.get("last_aps_time") is not None:
             values[str(item["vehicle_id"])] = float(item["last_aps_time"])
     return values
+
+
+def _freeze_first_aps_assignment_until_cmc(config: dict[str, Any]) -> bool:
+    module_overrides = config.get("module_overrides") or {}
+    harness = module_overrides.get("test_harness_overrides") or {}
+    return bool(harness.get("freeze_first_aps_assignment_until_cmc"))
 
 
 def _eq10_desired_spacing(*, d_min_cfv: float, d_star_clv: float) -> float:

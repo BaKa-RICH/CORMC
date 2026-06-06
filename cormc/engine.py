@@ -21,6 +21,7 @@ from cormc.step0_3 import (
     emit_geometry_event_candidate,
     emit_relation_refresh_event_candidate,
     freeze_simulation_state,
+    overlay_assignment_logical_relations,
     refresh_relations_snapshot,
     run_geometry_sanity_baseline,
     resolve_on_ramp_control_region,
@@ -192,6 +193,11 @@ class CormcEngine:
                 **dict(p04.assignment_views),
             }
         )
+        relations_for_longitudinal = overlay_assignment_logical_relations(
+            frozen,
+            relations,
+            assignment_views=step5_assignment_views,
+        )
         p06 = run_step5_cooperative_request_conflict_resolution(
             frozen,
             relations,
@@ -223,7 +229,7 @@ class CormcEngine:
         workspace.command_sanity = command_sanity
         p08 = run_step7_longitudinal_model_spacing_speedcap(
             frozen,
-            relations,
+            relations_for_longitudinal,
             command_buffer=command_buffer,
             geometry=self.geometry,
         )

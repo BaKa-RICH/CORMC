@@ -5,7 +5,6 @@ from math import sqrt
 from types import MappingProxyType
 from typing import Any, Mapping
 
-from cormc.assignment_lifecycle import assignment_lifecycle_manager
 from cormc.p145_parameters import (
     CAV,
     CORMC_PARAMETER_SPEC_SOURCE,
@@ -20,16 +19,11 @@ from cormc.step0_3 import (
     LANE_2,
     LongitudinalControllerMemory,
     ManeuverTrajectoryState,
-    ON_RAMP,
-    ON_RAMP_MV_ROLE,
     RelationsSnapshot,
     RoadGeometryConfig,
     SimulationState,
-    VehicleState,
     assert_x_plot_not_used_in_algorithm_path,
-    resolve_on_ramp_control_region,
 )
-from cormc.step4a_aps import APS_MIN_MERGE_TIME_GAP_S
 from cormc.step9_11 import (
     CandidateCacheUpdate,
     CandidateLongitudinalKinematics,
@@ -88,14 +82,11 @@ class FrontCollisionAvoidanceResult:
 
 
 @dataclass(frozen=True)
-class APSGapProtectionResult:
-    applied: bool
-    speed_cap: float | None
-    source: str | None = None
-    source_aps_case: str | None = None
-    source_d_star_clv: float | None = None
-    source_tau: float | None = None
-    rejection_reason: str | None = None
+class LeaderRelationContext:
+    leader_id: str | None
+    relation_source: str | None
+    affected_target_follower_id: str | None
+    affected_source_follower_id: str | None
 
 
 @dataclass(frozen=True)
@@ -146,7 +137,8 @@ def run_step7_longitudinal_model_spacing_speedcap(
             continue
         current = state.vehicle_states[vehicle_id]
         spec = state.vehicle_specs[vehicle_id]
-        leader_id = _leader_id_for_vehicle(relations, vehicle_id)
+        leader_relation = _leader_relation_for_vehicle(relations, vehicle_id)
+        leader_id = leader_relation.leader_id
         spacing = consume_spacing_override_command(
             state,
             vehicle_id,
@@ -231,6 +223,7 @@ def run_step7_longitudinal_model_spacing_speedcap(
                 vehicle_id,
                 mode=base.mode,
                 leader_id=leader_id,
+                leader_relation=leader_relation,
                 spacing=spacing,
                 composition=composition,
                 candidate=candidate,
@@ -450,6 +443,7 @@ def emit_longitudinal_model_event(
     *,
     mode: str,
     leader_id: str | None,
+    leader_relation: LeaderRelationContext,
     spacing: SpacingOverrideConsumption,
     composition: PlanningSpeedComposition,
     candidate: CandidateLongitudinalKinematics,
@@ -463,6 +457,9 @@ def emit_longitudinal_model_event(
         "vehicle_type": spec.vehicle_type,
         "compliance_state": spec.compliance_state,
         "leader_id": leader_id,
+        "leader_relation_source": leader_relation.relation_source,
+        "affected_target_follower_id": leader_relation.affected_target_follower_id,
+        "affected_source_follower_id": leader_relation.affected_source_follower_id,
         "desired_spacing_source": spacing.desired_spacing_source,
         "desired_spacing_override": spacing.desired_spacing,
         "spacing_override_consumed": spacing.consumed,
@@ -722,9 +719,7 @@ def compute_p145_longitudinal_formula(
         desired_spacing=None,
         desired_spacing_source=_ordinary_spacing_source(state, vehicle_id),
     )
-    if _is_on_ramp_vehicle(current):
-        return _on_ramp_longitudinal_formula(state, vehicle_id, geometry=geometry)
-    elif vehicle_type == "chv":
+    if vehicle_type == "chv":
         return _chv_idm_formula(state, vehicle_id, leader_id=leader_id, spacing=spacing)
     return _cav_longitudinal_formula(
         state,
@@ -732,143 +727,6 @@ def compute_p145_longitudinal_formula(
         leader_id=leader_id,
         spacing=spacing,
         update_cache=update_cache,
-    )
-
-
-def _on_ramp_longitudinal_formula(
-    state: SimulationState,
-    vehicle_id: str,
-    *,
-    geometry: RoadGeometryConfig = DEFAULT_ROAD_GEOMETRY,
-) -> LongitudinalFormulaResult:
-    current = state.vehicle_states[vehicle_id]
-    original_desired_speed = _desired_speed(state, vehicle_id)
-    protection = resolve_aps_gap_protection_speed_cap(
-        state,
-        vehicle_id,
-        geometry=geometry,
-    )
-    effective_desired_speed = (
-        min(original_desired_speed, float(protection.speed_cap))
-        if protection.applied and protection.speed_cap is not None
-        else original_desired_speed
-    )
-    acceleration = _clip_acceleration(CAV.k1 * (effective_desired_speed - current.v))
-    candidate_speed = _clip_speed_to_lane(state, vehicle_id, current.v + acceleration * state.dt)
-    return LongitudinalFormulaResult(
-        mode="mv_on_ramp",
-        acceleration=acceleration,
-        candidate_speed=candidate_speed,
-        payload={
-            "formula_status": "engineering_patch",
-            "longitudinal_formula_status": "engineering_patch",
-            "on_ramp_longitudinal_source": (
-                "aps_gap_protected_free_road"
-                if protection.applied
-                else "first_version_on_ramp_free_road"
-            ),
-            "current_speed": current.v,
-            "desired_speed": original_desired_speed,
-            "desired_speed_source": _desired_speed_source(state, vehicle_id),
-            "original_desired_speed": original_desired_speed,
-            "effective_desired_speed": effective_desired_speed,
-            "aps_gap_protection_applied": protection.applied,
-            "aps_gap_protection_speed_cap": protection.speed_cap,
-            "aps_gap_protection_source": protection.source,
-            "source_aps_case": protection.source_aps_case,
-            "source_d_star_clv": protection.source_d_star_clv,
-            "source_tau": protection.source_tau,
-            "aps_gap_protection_rejection_reason": protection.rejection_reason,
-            "candidate_speed_after_lane_clip": candidate_speed,
-        },
-    )
-
-
-def resolve_aps_gap_protection_speed_cap(
-    state: SimulationState,
-    vehicle_id: str,
-    *,
-    geometry: RoadGeometryConfig = DEFAULT_ROAD_GEOMETRY,
-) -> APSGapProtectionResult:
-    current = state.vehicle_states[vehicle_id]
-    if not _is_on_ramp_vehicle(current):
-        return APSGapProtectionResult(
-            applied=False,
-            speed_cap=None,
-            rejection_reason="not_on_ramp_mv",
-        )
-    region = resolve_on_ramp_control_region(
-        current.x_global,
-        current.road_role,
-        geometry=geometry,
-    )
-    if region.region != "control_zone":
-        return APSGapProtectionResult(
-            applied=False,
-            speed_cap=None,
-            rejection_reason=f"not_control_zone:{region.region}",
-        )
-    assignment = state.assignment_records_by_mv.get(vehicle_id)
-    if assignment is None:
-        return APSGapProtectionResult(
-            applied=False,
-            speed_cap=None,
-            rejection_reason="missing_assignment_records_by_mv",
-        )
-    if not assignment_lifecycle_manager.is_control_zone_gap_protection_record(assignment):
-        lifecycle_state = str(assignment.get("lifecycle_state") or "missing")
-        status = str(assignment.get("status") or "missing").lower()
-        return APSGapProtectionResult(
-            applied=False,
-            speed_cap=None,
-            source_aps_case=_optional_str(assignment.get("aps_case")),
-            rejection_reason=f"not_control_zone_gap_protection:{lifecycle_state}:{status}",
-        )
-    status = str(assignment.get("status") or "").lower()
-    if status not in {"valid", "available", "ok"}:
-        return APSGapProtectionResult(
-            applied=False,
-            speed_cap=None,
-            source_aps_case=_optional_str(assignment.get("aps_case")),
-            rejection_reason=f"invalid_assignment_status:{status or 'missing'}",
-        )
-    aps_case = str(assignment.get("aps_case") or "").lower()
-    if aps_case not in {"case_1", "case_2", "case_3", "case_4"}:
-        return APSGapProtectionResult(
-            applied=False,
-            speed_cap=None,
-            source_aps_case=aps_case or None,
-            rejection_reason=f"unsupported_aps_case:{aps_case or 'missing'}",
-        )
-    d_star_clv = _optional_float(assignment.get("d_star_clv"))
-    if d_star_clv is None or d_star_clv <= 0.0:
-        return APSGapProtectionResult(
-            applied=False,
-            speed_cap=None,
-            source_aps_case=aps_case,
-            source_d_star_clv=d_star_clv,
-            rejection_reason="missing_d_star_clv",
-        )
-    tau = _optional_float(assignment.get("aps_min_merge_time_gap_s"))
-    if tau is None:
-        tau = APS_MIN_MERGE_TIME_GAP_S
-    if tau <= 0.0:
-        return APSGapProtectionResult(
-            applied=False,
-            speed_cap=None,
-            source_aps_case=aps_case,
-            source_d_star_clv=d_star_clv,
-            source_tau=tau,
-            rejection_reason="nonpositive_aps_min_merge_time_gap_s",
-        )
-    return APSGapProtectionResult(
-        applied=True,
-        speed_cap=d_star_clv / tau,
-        source="d_star_clv_over_tau",
-        source_aps_case=aps_case,
-        source_d_star_clv=d_star_clv,
-        source_tau=tau,
-        rejection_reason=None,
     )
 
 
@@ -1119,11 +977,24 @@ def _speed_cap_command(command_buffer: CommandBuffer, vehicle_id: str) -> Mappin
     return None
 
 
-def _leader_id_for_vehicle(relations: RelationsSnapshot, vehicle_id: str) -> str | None:
+def _leader_relation_for_vehicle(
+    relations: RelationsSnapshot,
+    vehicle_id: str,
+) -> LeaderRelationContext:
     active_relation = relations.active_maneuver_relation.get(vehicle_id)
     if active_relation is not None:
-        return active_relation.primary_leader_id
-    return relations.leader_by_vehicle.get(vehicle_id)
+        return LeaderRelationContext(
+            leader_id=active_relation.primary_leader_id,
+            relation_source=active_relation.relation_source,
+            affected_target_follower_id=active_relation.affected_target_follower_id,
+            affected_source_follower_id=active_relation.affected_source_follower_id,
+        )
+    return LeaderRelationContext(
+        leader_id=relations.leader_by_vehicle.get(vehicle_id),
+        relation_source="lane_ordering",
+        affected_target_follower_id=relations.follower_by_vehicle.get(vehicle_id),
+        affected_source_follower_id=None,
+    )
 
 
 def _actual_spacing(
@@ -1159,10 +1030,6 @@ def _ordinary_spacing_source(state: SimulationState, vehicle_id: str) -> str:
 
 def _vehicle_length(state: SimulationState, vehicle_id: str) -> float:
     return float(state.vehicle_specs[vehicle_id].length)
-
-
-def _is_on_ramp_vehicle(vehicle: VehicleState) -> bool:
-    return vehicle.physical_lane == ON_RAMP or vehicle.road_role == ON_RAMP_MV_ROLE
 
 
 def _clip_acceleration(value: float) -> float:

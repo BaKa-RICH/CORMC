@@ -223,12 +223,19 @@ def summarize_basic_numeric_result(
     assignment_validity = _event_timeline(events, "CMC", mv_id, "assignment_validation")
     aps_excluded_candidates = _aps_excluded_candidate_timeline(events, mv_id)
     aps_assignment_timeline = _aps_assignment_timeline(events, mv_id)
-    aps_gap_protection_timeline = _aps_gap_protection_timeline(events, mv_id)
+    mv_longitudinal_relation_timeline = _mv_longitudinal_relation_timeline(events, mv_id)
+    expected_clv_id, expected_cfv_id = _expected_boundary_ids(expectation, first_aps=first_aps)
     cached_boundary_invalidations = _cached_boundary_invalidation_timeline(events, mv_id)
     eq53_timeline = _event_timeline(events, "CMC", mv_id, "eq53_gap")
     boundary_cap_timeline = _event_timeline(events, "CMC", mv_id, "boundary_speed_cap")
     merge_state_timeline = _merge_state_timeline(simulation, mv_id)
     merge_transition_timeline = _event_timeline(events, "CMC", mv_id, "merge_start")
+    bounded_merge = _bounded_assignment_merge_outcome(
+        events,
+        mv_id,
+        expected_clv_id=expected_clv_id,
+        expected_cfv_id=expected_cfv_id,
+    )
     illegal_pre_control = _illegal_pre_control_events(simulation, mv_id)
     pre_control_suppressed_counts = {
         event_type: 0
@@ -247,6 +254,9 @@ def summarize_basic_numeric_result(
             eq10_consumers=eq10_consumers,
             illegal_eq10_consumers=illegal_eq10_consumers,
             missing_eq10_consumers=missing_eq10_consumers,
+            bounded_merge=bounded_merge,
+            expected_clv_id=expected_clv_id,
+            expected_cfv_id=expected_cfv_id,
             illegal_pre_control=illegal_pre_control,
         ),
         *failed_or_warning_sanity,
@@ -311,7 +321,7 @@ def summarize_basic_numeric_result(
         "illegal_eq10_consumers": list(illegal_eq10_consumers),
         "assignment_validity_timeline": assignment_validity,
         "aps_assignment_timeline": aps_assignment_timeline,
-        "aps_gap_protection_timeline": aps_gap_protection_timeline,
+        "mv_longitudinal_relation_timeline": mv_longitudinal_relation_timeline,
         "aps_excluded_candidate_timeline": aps_excluded_candidates,
         "first_cached_boundary_invalidation": (
             cached_boundary_invalidations[0] if cached_boundary_invalidations else None
@@ -321,6 +331,7 @@ def summarize_basic_numeric_result(
         "boundary_cap_timeline": boundary_cap_timeline,
         "merge_state_timeline": merge_state_timeline,
         "merge_transition_timeline": merge_transition_timeline,
+        **bounded_merge,
         "final_mv_state": _vehicle_state_payload(final_mv),
         "merged_and_past_ramp": merged_and_past_ramp,
         "diagnostic_issues": diagnostic_issues,
@@ -412,6 +423,20 @@ def _active_cv_ids(events: list[dict[str, Any]], *, source_mv_id: str) -> tuple[
         if cv_id not in ids:
             ids.append(cv_id)
     return tuple(ids)
+
+
+def _expected_boundary_ids(
+    expectation: BasicScenarioExpectation,
+    *,
+    first_aps: Mapping[str, Any] | None,
+) -> tuple[str, str]:
+    payload = (first_aps or {}).get("payload") or {}
+    clv_id = payload.get("clv_id")
+    cfv_id = payload.get("cfv_id")
+    if clv_id and cfv_id:
+        return str(clv_id), str(cfv_id)
+    prefix = expectation.mv_id.removesuffix("_MV")
+    return f"{prefix}_CLV", f"{prefix}_CFV"
 
 
 def _cuc_choice_timeline(
@@ -529,7 +554,7 @@ def _aps_assignment_timeline(
     return timeline
 
 
-def _aps_gap_protection_timeline(
+def _mv_longitudinal_relation_timeline(
     events: list[dict[str, Any]],
     mv_id: str,
 ) -> list[dict[str, Any]]:
@@ -538,36 +563,94 @@ def _aps_gap_protection_timeline(
         if event.get("event_type") != "longitudinal_model" or event.get("vehicle_id") != mv_id:
             continue
         payload = event.get("payload") or {}
-        if (
-            payload.get("aps_gap_protection_applied") is not True
-            and payload.get("aps_gap_protection_rejection_reason") is None
-        ):
-            continue
-        current_speed = payload.get("current_speed")
-        source_tau = payload.get("source_tau")
         timeline.append(
             {
                 "step": event.get("step"),
                 "t": event.get("t"),
-                "current_speed": current_speed,
-                "current_speed_times_tau": (
-                    float(current_speed) * float(source_tau)
-                    if current_speed is not None and source_tau is not None
-                    else None
-                ),
-                "original_desired_speed": payload.get("original_desired_speed"),
-                "effective_desired_speed": payload.get("effective_desired_speed"),
-                "aps_gap_protection_applied": payload.get("aps_gap_protection_applied"),
-                "aps_gap_protection_speed_cap": payload.get("aps_gap_protection_speed_cap"),
-                "aps_gap_protection_source": payload.get("aps_gap_protection_source"),
-                "source_aps_case": payload.get("source_aps_case"),
-                "source_d_star_clv": payload.get("source_d_star_clv"),
-                "source_tau": source_tau,
-                "rejection_reason": payload.get("aps_gap_protection_rejection_reason"),
+                "longitudinal_mode": payload.get("longitudinal_mode"),
+                "leader_id": payload.get("leader_id"),
+                "leader_relation_source": payload.get("leader_relation_source"),
+                "affected_target_follower_id": payload.get("affected_target_follower_id"),
+                "actual_spacing_d_i": payload.get("actual_spacing_d_i"),
+                "eq18_desired_spacing_S_i": payload.get("eq18_desired_spacing_S_i"),
+                "desired_spacing_target": payload.get("desired_spacing_target"),
+                "desired_spacing_target_source": payload.get("desired_spacing_target_source"),
+                "collision_avoidance_spacing_C_i": payload.get("collision_avoidance_spacing_C_i"),
                 "candidate_speed_after_lane_clip": payload.get("candidate_speed_after_lane_clip"),
+                "planning_speed": payload.get("planning_speed"),
             }
         )
     return timeline
+
+
+def _bounded_assignment_merge_outcome(
+    events: list[dict[str, Any]],
+    mv_id: str,
+    *,
+    expected_clv_id: str,
+    expected_cfv_id: str,
+) -> dict[str, Any]:
+    validations: list[dict[str, Any]] = []
+    eq53_by_step: dict[Any, dict[str, Any]] = {}
+    recovery_by_step: dict[Any, dict[str, Any]] = {}
+    for event in events:
+        if event.get("vehicle_id") != mv_id:
+            continue
+        payload = event.get("payload") or {}
+        if event.get("event_type") == "CMC" and event.get("reason") == "assignment_validation":
+            validations.append(event)
+        elif event.get("event_type") == "CMC" and event.get("reason") == "eq53_gap":
+            eq53_by_step[event.get("step")] = event
+        elif event.get("event_type") == "CMC" and event.get("reason") == "cmc_recovery_current_gap":
+            recovery_by_step[event.get("step")] = event
+
+    for event in events:
+        if (
+            event.get("vehicle_id") != mv_id
+            or event.get("event_type") != "CMC"
+            or event.get("reason") != "merge_start"
+        ):
+            continue
+        payload = event.get("payload") or {}
+        clv_id = payload.get("assigned_clv_id")
+        cfv_id = payload.get("assigned_cfv_id")
+        step = event.get("step")
+        eq53 = eq53_by_step.get(step)
+        eq53_payload = (eq53 or {}).get("payload") or {}
+        recovery = recovery_by_step.get(step)
+        recovery_payload = (recovery or {}).get("payload") or {}
+        gap_type = (
+            recovery_payload.get("gap_type")
+            if recovery is not None
+            else ("bounded" if clv_id is not None and cfv_id is not None else "front_only")
+        )
+        return {
+            "bounded_assignment_merge_success": (
+                clv_id == expected_clv_id
+                and cfv_id == expected_cfv_id
+                and gap_type == "bounded"
+                and eq53_payload.get("eq53_pass") is True
+            ),
+            "used_front_only_recovery_for_success": bool(
+                recovery is not None and recovery_payload.get("gap_type") == "front_only"
+            ),
+            "merge_success_assignment_source": (
+                recovery_payload.get("recovery_record", {}).get("source")
+                if recovery is not None
+                else None
+            ),
+            "merge_success_gap_type": gap_type,
+            "merge_success_clv_id": clv_id,
+            "merge_success_cfv_id": cfv_id,
+        }
+    return {
+        "bounded_assignment_merge_success": False,
+        "used_front_only_recovery_for_success": False,
+        "merge_success_assignment_source": None,
+        "merge_success_gap_type": None,
+        "merge_success_clv_id": None,
+        "merge_success_cfv_id": None,
+    }
 
 
 def _cached_boundary_invalidation_timeline(
@@ -712,6 +795,9 @@ def _gate_issues(
     eq10_consumers: tuple[str, ...],
     illegal_eq10_consumers: tuple[str, ...],
     missing_eq10_consumers: tuple[str, ...],
+    bounded_merge: Mapping[str, Any],
+    expected_clv_id: str,
+    expected_cfv_id: str,
     illegal_pre_control: list[dict[str, Any]],
 ) -> list[dict[str, Any]]:
     issues: list[dict[str, Any]] = []
@@ -864,6 +950,38 @@ def _gate_issues(
                 status="unresolved",
             )
         )
+    if scenario_id == "BASIC-02":
+        wrong_order_original_pair = [
+            item
+            for item in simulation.history.event_dicts()
+            if item.get("event_type") == "CMC"
+            and item.get("vehicle_id") == mv_id
+            and item.get("reason") == "assignment_validation"
+            and (item.get("payload") or {}).get("assigned_clv_id") == expected_clv_id
+            and (item.get("payload") or {}).get("assigned_cfv_id") == expected_cfv_id
+            and (item.get("payload") or {}).get("invalid_reason") == "wrong_order"
+        ]
+        if (
+            bounded_merge.get("bounded_assignment_merge_success") is not True
+            or bounded_merge.get("used_front_only_recovery_for_success") is True
+            or wrong_order_original_pair
+        ):
+            issues.append(
+                _issue(
+                    issue_id=f"{scenario_id}:cmc:bounded_assignment_merge",
+                    category="cmc_issue",
+                    severity="error",
+                    step=simulation.final_state.step,
+                    t=simulation.final_state.t,
+                    vehicle_ids=[mv_id, expected_clv_id, expected_cfv_id],
+                    message="BASIC-02 must merge with the original bounded CLV/CFV assignment, not front-only recovery.",
+                    evidence={
+                        **dict(bounded_merge),
+                        "wrong_order_original_pair_count": len(wrong_order_original_pair),
+                    },
+                    status="unresolved",
+                )
+            )
     return issues
 
 
@@ -972,6 +1090,7 @@ def _write_scenario_report(
             f"- APS excluded candidates: `{_compact_excluded_candidates(summary.get('aps_excluded_candidate_timeline') or [])}`",
             f"- first cached boundary invalidation: `{_compact_event(summary.get('first_cached_boundary_invalidation'))}`",
             f"- CUC choices: `{_compact_timeline(summary.get('cuc_choice_timeline') or [], 'final_choice')}`",
+            f"- MV longitudinal relation: `{_compact_timeline(summary.get('mv_longitudinal_relation_timeline') or [], 'leader_id')}`",
             f"- assignment validity: `{_compact_timeline(summary.get('assignment_validity_timeline') or [], 'assignment_valid')}`",
             f"- assignment invalid reasons: `{_compact_timeline(summary.get('assignment_validity_timeline') or [], 'invalid_reason')}`",
             f"- Eq.53: `{_compact_timeline(summary.get('eq53_timeline') or [], 'eq53_pass')}`",
@@ -1154,6 +1273,10 @@ def _event_summary(event: Mapping[str, Any]) -> dict[str, Any]:
         "lifecycle_state",
         "invalid_boundary_role",
         "invalid_boundary_id",
+        "leader_id",
+        "leader_relation_source",
+        "longitudinal_mode",
+        "desired_spacing_target_source",
     )
     return {
         "step": event.get("step"),
