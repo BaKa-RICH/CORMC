@@ -7,6 +7,7 @@ MAINLINE_START_X = 0.0
 MERGE_START_X = 6950.0
 MERGE_END_X = 7250.0
 MAINLINE_END_X = 10000.0
+RAMP_UPSTREAM_START_X = 6450.0
 RAMP_START_X = 6650.0
 LANE_WIDTH = 3.5
 
@@ -36,6 +37,7 @@ EDGE_METADATA: dict[str, EdgeMetadata] = {
     "main_pre": EdgeMetadata("main_pre", MAINLINE_START_X, MERGE_START_X, 2, ("mainline",)),
     "merge_zone": EdgeMetadata("merge_zone", MERGE_START_X, MERGE_END_X, 3, ("mainline", "on_ramp")),
     "main_post": EdgeMetadata("main_post", MERGE_END_X, MAINLINE_END_X, 2, ("mainline",)),
+    "ramp_upstream": EdgeMetadata("ramp_upstream", RAMP_UPSTREAM_START_X, RAMP_START_X, 1, ("on_ramp",)),
     "ramp_pre": EdgeMetadata("ramp_pre", RAMP_START_X, MERGE_START_X, 1, ("on_ramp",)),
 }
 
@@ -53,6 +55,7 @@ LANE_ROLE_MAP: dict[str, tuple[LaneRole, ...]] = {
         LaneRole("main_post", 0, "lane_2", 0.0),
         LaneRole("main_post", 1, "lane_1", LANE_WIDTH),
     ),
+    "ramp_upstream": (LaneRole("ramp_upstream", 0, "on_ramp", -LANE_WIDTH),),
     "ramp_pre": (LaneRole("ramp_pre", 0, "on_ramp", -LANE_WIDTH),),
 }
 
@@ -95,9 +98,14 @@ def lane_index_for_role(edge_id: str, physical_lane: str) -> int:
 
 def _edge_for_x_and_role(x_global: float, road_role: str) -> str:
     if road_role == "on_ramp" and x_global < MERGE_START_X:
+        if RAMP_UPSTREAM_START_X <= x_global < RAMP_START_X:
+            return "ramp_upstream"
         if RAMP_START_X <= x_global < MERGE_START_X:
             return "ramp_pre"
-        raise ValueError(f"on_ramp x_global={x_global} is outside ramp_pre range [{RAMP_START_X}, {MERGE_START_X})")
+        raise ValueError(
+            f"on_ramp x_global={x_global} is outside ramp range "
+            f"[{RAMP_UPSTREAM_START_X}, {MERGE_START_X})"
+        )
     if road_role == "on_ramp" and MERGE_START_X <= x_global < MERGE_END_X:
         return "merge_zone"
     if road_role not in {"mainline", "on_ramp"}:

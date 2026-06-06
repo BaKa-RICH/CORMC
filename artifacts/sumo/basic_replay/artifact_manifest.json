@@ -4,30 +4,30 @@
     "basic_sumo_replay": "This is a SUMO-GUI replay of CORMC internal numeric trajectories, not a SUMO-native closed-loop simulation.",
     "p17": "P17 true closed-loop TraCI trajectory authority remains the SUMO-native evidence path."
   },
-  "generated_at": "2026-06-05T11:50:59+00:00",
-  "git_commit": "5ef28c3b486d3ed152631dbb8c24225278f48788",
-  "max_steps": 900,
-  "output_root": "artifacts\\sumo\\basic_replay",
+  "generated_at": "2026-06-06T07:42:53+00:00",
+  "git_commit": "82162ffe7a53d25270ba44f6394b2895afad27cb",
+  "max_steps": null,
+  "output_root": "D:\\PycharmProjects\\CORMC\\artifacts\\sumo\\basic_replay",
   "run_id": "basic01_sumo_replay",
   "scenarios": [
     {
-      "artifact_manifest_path": "artifacts\\sumo\\basic_replay\\scenarios\\BASIC-01\\artifact_manifest.json",
-      "events_path": "artifacts\\sumo\\basic_replay\\scenarios\\BASIC-01\\events.jsonl",
-      "gui_replay_script_path": "D:\\PycharmProjects\\CORMC\\artifacts\\sumo\\basic_replay\\scenarios\\BASIC-01\\play_gui_replay.ps1",
-      "gui_smoke_status": "not_run",
-      "gui_smoke_status_path": "artifacts\\sumo\\basic_replay\\scenarios\\BASIC-01\\gui_smoke_status.json",
+      "artifact_manifest_path": "D:\\PycharmProjects\\CORMC\\artifacts\\sumo\\basic_replay\\scenarios\\BASIC-02\\artifact_manifest.json",
+      "events_path": "D:\\PycharmProjects\\CORMC\\artifacts\\basic\\basic02_900_assignment_lifecycle_check\\BASIC-02\\events.jsonl",
+      "gui_replay_script_path": "D:\\PycharmProjects\\CORMC\\artifacts\\sumo\\basic_replay\\scenarios\\BASIC-02\\play_gui_replay.ps1",
+      "gui_smoke_status": "ok",
+      "gui_smoke_status_path": "D:\\PycharmProjects\\CORMC\\artifacts\\sumo\\basic_replay\\scenarios\\BASIC-02\\gui_smoke_status.json",
       "numeric_gate_status": "passed",
-      "numeric_summary_path": "artifacts\\sumo\\basic_replay\\scenarios\\BASIC-01\\numeric_summary.json",
-      "output_dir": "artifacts\\sumo\\basic_replay\\scenarios\\BASIC-01",
+      "numeric_summary_path": "D:\\PycharmProjects\\CORMC\\artifacts\\basic\\basic02_900_assignment_lifecycle_check\\BASIC-02\\numeric_summary.json",
+      "output_dir": "D:\\PycharmProjects\\CORMC\\artifacts\\sumo\\basic_replay\\scenarios\\BASIC-02",
       "replay_fidelity_status": "passed",
-      "replay_trajectory_path": "artifacts\\sumo\\basic_replay\\scenarios\\BASIC-01\\replay_trajectory.jsonl",
+      "replay_trajectory_path": "D:\\PycharmProjects\\CORMC\\artifacts\\sumo\\basic_replay\\scenarios\\BASIC-02\\replay_trajectory.jsonl",
       "run_id": "basic01_sumo_replay",
-      "sanity_path": "artifacts\\sumo\\basic_replay\\scenarios\\BASIC-01\\sanity.jsonl",
-      "scenario_id": "BASIC-01",
-      "scenario_report_path": "artifacts\\sumo\\basic_replay\\scenarios\\BASIC-01\\scenario_report.md",
+      "sanity_path": "D:\\PycharmProjects\\CORMC\\artifacts\\basic\\basic02_900_assignment_lifecycle_check\\BASIC-02\\sanity.jsonl",
+      "scenario_id": "BASIC-02",
+      "scenario_report_path": "D:\\PycharmProjects\\CORMC\\artifacts\\sumo\\basic_replay\\scenarios\\BASIC-02\\scenario_report.md",
       "status": "passed",
-      "sumo_config_path": "artifacts\\sumo\\basic_replay\\scenarios\\BASIC-01\\sumo\\p17.sumocfg",
-      "trajectory_path": "artifacts\\sumo\\basic_replay\\scenarios\\BASIC-01\\trajectory.csv"
+      "sumo_config_path": "D:\\PycharmProjects\\CORMC\\artifacts\\sumo\\basic_replay\\scenarios\\BASIC-02\\sumo\\p17.sumocfg",
+      "trajectory_path": "D:\\PycharmProjects\\CORMC\\artifacts\\basic\\basic02_900_assignment_lifecycle_check\\BASIC-02\\trajectory.csv"
     }
   ],
   "status": "passed",
@@ -38,5 +38,5 @@
     "sumo_home": "D:\\software\\Eclipse\\Sumo\\",
     "version": "Eclipse SUMO sumo Version 1.22.0"
   },
-  "validate_gui_smoke": false
+  "validate_gui_smoke": true
 }

@@ -11,6 +11,8 @@ def test_p17_edge_metadata_and_lane_role_map_are_fixed() -> None:
     assert EDGE_METADATA["main_pre"].lane_count == 2
     assert EDGE_METADATA["merge_zone"].lane_count == 3
     assert EDGE_METADATA["main_post"].end_x == 10000
+    assert EDGE_METADATA["ramp_upstream"].start_x == 6450
+    assert EDGE_METADATA["ramp_upstream"].end_x == 6650
     assert EDGE_METADATA["ramp_pre"].start_x == 6650
 
     assert [(lane.lane_index, lane.role, lane.y) for lane in LANE_ROLE_MAP["merge_zone"]] == [
@@ -30,6 +32,8 @@ def test_p17_edge_metadata_and_lane_role_map_are_fixed() -> None:
         (6950.0, "on_ramp", "on_ramp_mv", ("merge_zone", 0, 0.0)),
         (7250.0, "lane_1", "mainline", ("main_post", 1, 0.0)),
         (10000.0, "lane_2", "mainline", ("main_post", 0, 2750.0)),
+        (6450.0, "on_ramp", "on_ramp", ("ramp_upstream", 0, 0.0)),
+        (6642.04, "on_ramp", "on_ramp_mv", ("ramp_upstream", 0, 192.04)),
         (6650.0, "on_ramp", "on_ramp", ("ramp_pre", 0, 0.0)),
         (6949.9, "on_ramp", "on_ramp", ("ramp_pre", 0, 299.9)),
     ],
@@ -46,6 +50,7 @@ def test_p17_to_sumo_position_boundaries(
 def test_p17_from_sumo_position_round_trips_x_global() -> None:
     for x_global, physical_lane, road_role in (
         (10.0, "lane_2", "mainline"),
+        (6642.04, "on_ramp", "on_ramp"),
         (7000.0, "lane_1", "mainline"),
         (6900.0, "on_ramp", "on_ramp"),
         (7300.0, "lane_2", "mainline"),
@@ -61,8 +66,8 @@ def test_p17_to_sumo_xy_uses_cormc_coordinates_directly() -> None:
 def test_p17_mapping_errors_are_clear() -> None:
     with pytest.raises(ValueError, match="outside supported P17 range"):
         to_sumo_position(10000.1, "lane_2", "mainline")
-    with pytest.raises(ValueError, match="outside ramp_pre range"):
-        to_sumo_position(6649.9, "on_ramp", "on_ramp")
+    with pytest.raises(ValueError, match="outside ramp range"):
+        to_sumo_position(6449.9, "on_ramp", "on_ramp")
     with pytest.raises(ValueError, match="invalid on edge"):
         to_sumo_position(10.0, "on_ramp", "mainline")
     with pytest.raises(ValueError, match="Unknown SUMO edge_id"):

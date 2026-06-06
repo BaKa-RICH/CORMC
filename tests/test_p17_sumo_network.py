@@ -32,6 +32,7 @@ def test_p17_builds_plainxml_net_routes_and_sumocfg(tmp_path: Path) -> None:
     assert edges["main_pre"]["numLanes"] == "2"
     assert edges["merge_zone"]["numLanes"] == "3"
     assert edges["main_post"]["numLanes"] == "2"
+    assert edges["ramp_upstream"]["numLanes"] == "1"
     assert edges["ramp_pre"]["numLanes"] == "1"
 
 
@@ -45,7 +46,7 @@ def test_p17_routes_and_sumocfg_have_required_defaults(tmp_path: Path) -> None:
     route_by_id = {route.attrib["id"]: route.attrib["edges"] for route in routes.findall("route")}
     assert route_by_id == {
         "route_main": "main_pre merge_zone main_post",
-        "route_ramp": "ramp_pre merge_zone main_post",
+        "route_ramp": "ramp_upstream ramp_pre merge_zone main_post",
     }
 
     vtypes = {vtype.attrib["id"]: vtype.attrib for vtype in routes.findall("vType")}

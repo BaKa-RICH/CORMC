@@ -314,7 +314,7 @@ def _preview_routes_xml(records: Iterable[Any], *, seed: int, background_ids: tu
         latAlignment="center",
     )
     ET.SubElement(routes, "route", id="route_main", edges="main_pre merge_zone main_post")
-    ET.SubElement(routes, "route", id="route_ramp", edges="ramp_pre merge_zone main_post")
+    ET.SubElement(routes, "route", id="route_ramp", edges="ramp_upstream ramp_pre merge_zone main_post")
 
     vehicle_specs: list[dict[str, str]] = []
     first_record_by_vehicle: dict[str, Any] = {}

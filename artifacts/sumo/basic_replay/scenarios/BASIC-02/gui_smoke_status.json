@@ -1,0 +1,11 @@
+{
+  "closed_on_finish": false,
+  "error": "Connection closed by SUMO.",
+  "replay_jsonl": "D:\\PycharmProjects\\CORMC\\artifacts\\sumo\\basic_replay\\scenarios\\BASIC-02\\replay_trajectory.jsonl",
+  "replayed_steps": 0,
+  "replayed_vehicle_ids": [],
+  "status": "failed",
+  "sumo_gui_started": false,
+  "sumocfg_file": "D:\\PycharmProjects\\CORMC\\artifacts\\sumo\\basic_replay\\scenarios\\BASIC-02\\sumo\\p17.sumocfg",
+  "track_vehicle_id": "B02_MV"
+}

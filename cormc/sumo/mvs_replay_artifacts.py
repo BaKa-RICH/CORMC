@@ -47,6 +47,7 @@ ROLE_COLORS: dict[str, tuple[int, int, int]] = {
 }
 
 EXPECTED_LANE_CENTERLINES: dict[str, float] = {
+    "ramp_upstream_0": -3.5,
     "ramp_pre_0": -3.5,
     "main_pre_0": 0.0,
     "main_pre_1": 3.5,

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import csv
 import json
 import subprocess
 from dataclasses import asdict, dataclass
@@ -9,11 +10,11 @@ from pathlib import Path
 from typing import Any, Iterable, Mapping
 from xml.etree import ElementTree as ET
 
-from cormc.basic_runner import run_basic_numeric_scenario
 from cormc.basic_scenarios import BASIC_SCENARIO_IDS, get_basic_expectation
-from cormc.simulation_loop import SimulationLoopResult
+from cormc.step9_11 import OutputHistory, TrajectoryRecord
 from cormc.sumo.env import ensure_sumo_tools_on_path, get_sumo_version
 from cormc.sumo.gui_replay import DEFAULT_GUI_DELAY_MS
+from cormc.sumo.mapping import RAMP_UPSTREAM_START_X
 from cormc.sumo.mvs_gui_replay import run_mvs_gui_replay
 from cormc.sumo.mvs_replay_artifacts import ROLE_COLORS, verify_replay_fidelity
 from cormc.sumo.network import P17SumoNetworkConfig, build_p17_sumo_network
@@ -23,13 +24,9 @@ DEFAULT_RUN_ID = "basic01_sumo_replay"
 DEFAULT_OUTPUT_ROOT = "artifacts/sumo/basic_replay"
 VISUAL_HINT_MODE = "allow_pre_control_on_ramp"
 
-BASIC_ROLE_MAP: dict[str, dict[str, str]] = {
-    "BASIC-01": {
-        "B01_MV": "mv_on_ramp_active",
-        "B01_CLV": "clv",
-        "B01_CFV": "cfv_active_cooperative",
-        "B01_TLV_CFV": "tlv",
-    },
+BASIC_ROLE_COLORS: dict[str, tuple[int, int, int]] = {
+    **ROLE_COLORS,
+    "clv_active_cooperative": ROLE_COLORS["clv"],
 }
 
 
@@ -72,12 +69,34 @@ class BasicSumoReplayRunResult:
         return payload
 
 
+@dataclass(frozen=True)
+class ImportedBasicNumericArtifact:
+    scenario_id: str
+    source_artifact_dir: str
+    trajectory_path: Path
+    events_path: Path | None
+    sanity_path: Path | None
+    numeric_summary_path: Path
+    numeric_summary: dict[str, Any]
+    history: OutputHistory
+    lifecycle_summary: dict[str, Any]
+
+
+@dataclass(frozen=True)
+class ImportedBasicSimulation:
+    history: OutputHistory
+    scenario_id: str
+    run_id: str
+    status: str = "imported_from_artifact"
+
+
 def run_basic_sumo_replay_artifacts(
     *,
+    source_artifact_dir: str | Path,
     output_root: str | Path = DEFAULT_OUTPUT_ROOT,
     run_id: str = DEFAULT_RUN_ID,
     scenario: str = "BASIC-01",
-    max_steps: int = 900,
+    max_steps: int | None = None,
     validate_gui_smoke: bool = False,
 ) -> BasicSumoReplayRunResult:
     output_dir = Path(output_root)
@@ -89,6 +108,7 @@ def run_basic_sumo_replay_artifacts(
     scenario_results = tuple(
         build_basic_sumo_replay_artifact(
             scenario_id=scenario_id,
+            source_artifact_dir=source_artifact_dir,
             scenario_dir=scenarios_dir / scenario_id,
             run_id=run_id,
             max_steps=max_steps,
@@ -122,28 +142,27 @@ def run_basic_sumo_replay_artifacts(
 def build_basic_sumo_replay_artifact(
     *,
     scenario_id: str = "BASIC-01",
+    source_artifact_dir: str | Path,
     scenario_dir: str | Path,
     run_id: str = DEFAULT_RUN_ID,
-    max_steps: int = 900,
+    max_steps: int | None = None,
     validate_gui_smoke: bool = False,
 ) -> BasicSumoReplayScenarioResult:
-    if scenario_id not in BASIC_ROLE_MAP:
-        known = ", ".join(sorted(BASIC_ROLE_MAP))
-        raise ValueError(f"unsupported BASIC SUMO replay scenario {scenario_id!r}; expected one of: {known}")
-
     out = Path(scenario_dir)
     out.mkdir(parents=True, exist_ok=True)
 
-    numeric = run_basic_numeric_scenario(
-        scenario_id,
-        output_dir=out.parent,
-        run_id=run_id,
-        max_steps=max_steps,
-        render_png=False,
+    source = import_basic_numeric_artifact(
+        scenario_id=scenario_id,
+        source_artifact_dir=source_artifact_dir,
     )
-    simulation = numeric.simulation_result
-    numeric_summary = dict(numeric.numeric_summary)
+    simulation = ImportedBasicSimulation(
+        history=source.history,
+        scenario_id=source.scenario_id,
+        run_id=run_id,
+    )
+    numeric_summary = dict(source.numeric_summary)
     numeric_gate_status = str(numeric_summary["status"])
+    effective_max_steps = int(numeric_summary.get("max_steps") or max_steps or numeric_summary.get("actual_steps") or 0)
 
     replay_path: Path | None = None
     sumocfg_path: Path | None = None
@@ -158,7 +177,7 @@ def build_basic_sumo_replay_artifact(
         replay_records = write_basic_replay_trajectory_jsonl(
             replay_path,
             scenario_id=scenario_id,
-            simulation=simulation,
+            source=source,
         )
         replay_fidelity = verify_replay_fidelity(simulation, replay_records)
         _augment_pre_control_replay_checks(replay_fidelity, replay_records, scenario_id=scenario_id)
@@ -180,6 +199,7 @@ def build_basic_sumo_replay_artifact(
                 replay_path=replay_path,
                 status_path=gui_smoke_status_path,
                 track_vehicle_id=get_basic_expectation(scenario_id).mv_id,
+                expected_vehicle_ids=source_vehicle_ids(source),
             )
 
     scenario_manifest_path = out / "artifact_manifest.json"
@@ -195,16 +215,18 @@ def build_basic_sumo_replay_artifact(
         scenario_id=scenario_id,
         scenario_dir=out,
         status=scenario_status,
-        max_steps=max_steps,
+        max_steps=effective_max_steps,
+        source=source,
         simulation=simulation,
         numeric_summary=numeric_summary,
         replay_fidelity=replay_fidelity,
         gui_smoke_status=gui_smoke_payload,
         paths={
-            "trajectory_csv": Path(numeric.numeric_summary["artifact_paths"]["trajectory"]),
-            "events_jsonl": Path(numeric.numeric_summary["artifact_paths"]["events"]),
-            "sanity_jsonl": Path(numeric.numeric_summary["artifact_paths"]["sanity"]),
-            "numeric_summary_json": Path(numeric.numeric_summary_path),
+            "source_artifact_dir": Path(source.source_artifact_dir),
+            "trajectory_csv": source.trajectory_path,
+            "events_jsonl": source.events_path,
+            "sanity_jsonl": source.sanity_path,
+            "numeric_summary_json": source.numeric_summary_path,
             "replay_trajectory_jsonl": replay_path,
             "scenario_report_md": scenario_report_path,
             "artifact_manifest_json": scenario_manifest_path,
@@ -224,10 +246,10 @@ def build_basic_sumo_replay_artifact(
         numeric_gate_status=numeric_gate_status,
         replay_fidelity_status=str(replay_fidelity["status"]),
         gui_smoke_status=str(gui_smoke_payload["status"]),
-        trajectory_path=str(numeric.numeric_summary["artifact_paths"]["trajectory"]),
-        events_path=str(numeric.numeric_summary["artifact_paths"]["events"]),
-        sanity_path=str(numeric.numeric_summary["artifact_paths"]["sanity"]),
-        numeric_summary_path=str(numeric.numeric_summary_path),
+        trajectory_path=str(source.trajectory_path),
+        events_path=str(source.events_path) if source.events_path is not None else "",
+        sanity_path=str(source.sanity_path) if source.sanity_path is not None else "",
+        numeric_summary_path=str(source.numeric_summary_path),
         replay_trajectory_path=str(replay_path) if replay_path is not None else None,
         scenario_report_path=str(scenario_report_path),
         artifact_manifest_path=str(scenario_manifest_path),
@@ -237,20 +259,191 @@ def build_basic_sumo_replay_artifact(
     )
 
 
+def import_basic_numeric_artifact(
+    *,
+    scenario_id: str,
+    source_artifact_dir: str | Path,
+) -> ImportedBasicNumericArtifact:
+    if scenario_id not in BASIC_SCENARIO_IDS:
+        known = ", ".join(BASIC_SCENARIO_IDS)
+        raise ValueError(f"unknown BASIC scenario {scenario_id!r}; expected one of: {known}")
+
+    source_dir = Path(source_artifact_dir)
+    if not source_dir.is_dir():
+        raise FileNotFoundError(f"source artifact directory does not exist: {source_dir}")
+
+    trajectory_path = source_dir / "trajectory.csv"
+    numeric_summary_path = source_dir / "numeric_summary.json"
+    events_path = source_dir / "events.jsonl"
+    sanity_path = source_dir / "sanity.jsonl"
+    for required in (trajectory_path, numeric_summary_path):
+        if not required.exists():
+            raise FileNotFoundError(f"source artifact directory is missing required file: {required}")
+
+    numeric_summary = json.loads(numeric_summary_path.read_text(encoding="utf-8"))
+    summary_scenario = str(numeric_summary.get("scenario_id", ""))
+    if summary_scenario != scenario_id:
+        raise ValueError(
+            f"--scenario {scenario_id!r} does not match numeric_summary.json scenario_id {summary_scenario!r}"
+        )
+    if str(numeric_summary.get("status")) != "passed":
+        raise ValueError(f"source numeric_summary.json status must be 'passed', got {numeric_summary.get('status')!r}")
+
+    history = OutputHistory(trajectory_records=_read_trajectory_csv(trajectory_path, scenario_id=scenario_id))
+    if not history.trajectory_records:
+        raise ValueError(f"source trajectory.csv contains no records: {trajectory_path}")
+
+    lifecycle_summary = _summarize_basic_lifecycle_events(events_path if events_path.exists() else None)
+    return ImportedBasicNumericArtifact(
+        scenario_id=scenario_id,
+        source_artifact_dir=str(source_dir),
+        trajectory_path=trajectory_path,
+        events_path=events_path if events_path.exists() else None,
+        sanity_path=sanity_path if sanity_path.exists() else None,
+        numeric_summary_path=numeric_summary_path,
+        numeric_summary=numeric_summary,
+        history=history,
+        lifecycle_summary=lifecycle_summary,
+    )
+
+
+def source_vehicle_ids(source: ImportedBasicNumericArtifact) -> tuple[str, ...]:
+    return tuple(sorted({str(record.vehicle_id) for record in source.history.trajectory_records}))
+
+
+def build_basic_role_map(
+    *,
+    scenario_id: str,
+    vehicle_ids: Iterable[str],
+    numeric_summary: Mapping[str, Any],
+) -> dict[str, str]:
+    expectation = get_basic_expectation(scenario_id)
+    active_cv_ids = {str(vehicle_id) for vehicle_id in numeric_summary.get("active_cv_ids", ())}
+    role_map: dict[str, str] = {}
+    for vehicle_id in vehicle_ids:
+        base_role = _base_role_for_basic_vehicle(vehicle_id, mv_id=expectation.mv_id)
+        if vehicle_id in active_cv_ids:
+            if base_role == "clv":
+                base_role = "clv_active_cooperative"
+            elif base_role == "cfv":
+                base_role = "cfv_active_cooperative"
+            elif base_role == "background":
+                base_role = "active_cooperative_cv"
+        role_map[vehicle_id] = base_role
+    return role_map
+
+
+def _base_role_for_basic_vehicle(vehicle_id: str, *, mv_id: str) -> str:
+    if vehicle_id == mv_id or vehicle_id.endswith("_MV"):
+        return "mv_on_ramp_active"
+    if "_TLV_" in vehicle_id or vehicle_id.endswith("_TLV"):
+        return "tlv"
+    if "_TFV_" in vehicle_id or vehicle_id.endswith("_TFV"):
+        return "tfv"
+    if vehicle_id.endswith("_CLV"):
+        return "clv"
+    if vehicle_id.endswith("_CFV"):
+        return "cfv"
+    return "background"
+
+
+def _read_trajectory_csv(path: Path, *, scenario_id: str) -> list[TrajectoryRecord]:
+    records: list[TrajectoryRecord] = []
+    with path.open(encoding="utf-8", newline="") as handle:
+        reader = csv.DictReader(handle)
+        for row_number, row in enumerate(reader, start=2):
+            row_scenario = str(row.get("scenario_id", ""))
+            if row_scenario != scenario_id:
+                raise ValueError(
+                    f"--scenario {scenario_id!r} does not match trajectory.csv scenario_id "
+                    f"{row_scenario!r} at row {row_number}"
+                )
+            records.append(
+                TrajectoryRecord(
+                    run_id=str(row.get("run_id", "")),
+                    scenario_id=row_scenario,
+                    step=int(row["step"]),
+                    t=float(row["t"]),
+                    vehicle_id=str(row["vehicle_id"]),
+                    vehicle_type=str(row.get("vehicle_type") or ""),
+                    compliance_state=str(row.get("compliance_state") or ""),
+                    x_global=float(row["x_global"]),
+                    y=float(row["y"]),
+                    v=float(row["v"]),
+                    a=float(row["a"]),
+                    physical_lane=str(row.get("physical_lane") or ""),
+                    road_role=str(row.get("road_role") or ""),
+                    primary_leader_id=str(row.get("primary_leader_id") or "") or None,
+                    lane_change_state=str(row.get("lane_change_state") or "normal"),
+                    merge_state=str(row.get("merge_state") or "none"),
+                    active_event_tags=_split_event_tags(row.get("active_event_tags")),
+                )
+            )
+    return records
+
+
+def _split_event_tags(value: str | None) -> tuple[str, ...]:
+    if not value:
+        return ()
+    return tuple(part for part in str(value).split("|") if part)
+
+
+def _summarize_basic_lifecycle_events(events_path: Path | None) -> dict[str, Any]:
+    if events_path is None:
+        return {"status": "not_available"}
+
+    summary: dict[str, Any] = {
+        "status": "available",
+        "refresh_failed_retained_count": 0,
+        "cooperative_request_vehicle_ids": [],
+        "cuc_stay_lane_2_vehicle_ids": [],
+        "cmc_recovery_front_only": False,
+        "cmc_recovery_leader_id": None,
+        "cmc_recovery_step": None,
+    }
+    cooperative_ids: set[str] = set()
+    stay_lane_ids: set[str] = set()
+    for line in events_path.read_text(encoding="utf-8").splitlines():
+        if not line.strip():
+            continue
+        event = json.loads(line)
+        payload = event.get("payload", {}) or {}
+        reason = str(event.get("reason", ""))
+        event_type = str(event.get("event_type", ""))
+        vehicle_id = event.get("vehicle_id")
+        if payload.get("lifecycle_state") == "refresh_failed_retained":
+            summary["refresh_failed_retained_count"] += 1
+        if event_type == "cooperative_request" and vehicle_id:
+            cooperative_ids.add(str(vehicle_id))
+        if event_type == "CUC" and payload.get("final_choice") == "stay_lane_2" and vehicle_id:
+            stay_lane_ids.add(str(vehicle_id))
+        if reason == "cmc_recovery_current_gap" and payload.get("gap_type") == "front_only":
+            summary["cmc_recovery_front_only"] = True
+            summary["cmc_recovery_leader_id"] = payload.get("leader_id")
+            summary["cmc_recovery_step"] = event.get("step")
+    summary["cooperative_request_vehicle_ids"] = sorted(cooperative_ids)
+    summary["cuc_stay_lane_2_vehicle_ids"] = sorted(stay_lane_ids)
+    return summary
+
+
 def write_basic_replay_trajectory_jsonl(
     path: str | Path,
     *,
     scenario_id: str,
-    simulation: SimulationLoopResult,
+    source: ImportedBasicNumericArtifact,
 ) -> list[dict[str, Any]]:
-    role_map = BASIC_ROLE_MAP[scenario_id]
+    role_map = build_basic_role_map(
+        scenario_id=scenario_id,
+        vehicle_ids=source_vehicle_ids(source),
+        numeric_summary=source.numeric_summary,
+    )
     expectation = get_basic_expectation(scenario_id)
     out = Path(path)
     out.parent.mkdir(parents=True, exist_ok=True)
     records: list[dict[str, Any]] = []
     with out.open("w", encoding="utf-8") as handle:
         for record in sorted(
-            simulation.history.trajectory_records,
+            source.history.trajectory_records,
             key=lambda item: (int(item.step), str(item.vehicle_id)),
         ):
             vehicle_role = role_map.get(record.vehicle_id, "background")
@@ -268,14 +461,14 @@ def write_basic_replay_trajectory_jsonl(
                 "road_role": record.road_role,
                 "merge_state": record.merge_state,
                 "lane_change_state": record.lane_change_state,
-                "color_rgb": list(ROLE_COLORS.get(vehicle_role, ROLE_COLORS["background"])),
+                "color_rgb": list(BASIC_ROLE_COLORS.get(vehicle_role, ROLE_COLORS["background"])),
             }
             if _needs_visual_hint(payload, control_activation_x_global=expectation.control_activation_x_global):
                 payload["visual_replay_hint"] = {
                     "mode": VISUAL_HINT_MODE,
-                    "edge_id": "ramp_pre",
+                    "edge_id": "ramp_upstream",
                     "lane_index": 0,
-                    "reason": "pre-control on-ramp record is before current P17 ramp_pre edge start",
+                    "reason": "pre-control on-ramp record is before current P17 ramp_upstream edge start",
                 }
             records.append(payload)
             handle.write(json.dumps(payload, ensure_ascii=False, sort_keys=True) + "\n")
@@ -285,7 +478,7 @@ def write_basic_replay_trajectory_jsonl(
 def build_basic_sumo_replay_files(
     output_dir: str | Path,
     *,
-    simulation: SimulationLoopResult,
+    simulation: ImportedBasicSimulation,
 ) -> dict[str, str]:
     t_values = [float(record.t) for record in simulation.history.trajectory_records]
     end = (max(t_values) + 2.0) if t_values else 5.0
@@ -304,6 +497,7 @@ def validate_gui_smoke_for_basic_scenario(
     replay_path: str | Path,
     status_path: str | Path,
     track_vehicle_id: str,
+    expected_vehicle_ids: Iterable[str],
 ) -> dict[str, Any]:
     try:
         summary = run_mvs_gui_replay(
@@ -331,7 +525,7 @@ def validate_gui_smoke_for_basic_scenario(
         return payload
 
     payload = summary.to_dict()
-    expected_ids = set(BASIC_ROLE_MAP["BASIC-01"])
+    expected_ids = set(expected_vehicle_ids)
     replayed_ids = set(payload["replayed_vehicle_ids"])
     if summary.status == "ok" and summary.replayed_steps > 0 and expected_ids <= replayed_ids:
         payload["status"] = "ok"
@@ -347,21 +541,19 @@ def validate_gui_smoke_for_basic_scenario(
 
 def _select_scenarios(selector: str) -> tuple[str, ...]:
     if selector == "all":
-        return tuple(BASIC_ROLE_MAP)
+        raise ValueError("BASIC replay artifact import requires one --scenario and one --source-artifact-dir")
     if selector not in BASIC_SCENARIO_IDS:
         known = ", ".join(BASIC_SCENARIO_IDS)
         raise ValueError(f"unknown BASIC scenario {selector!r}; expected one of: {known}")
-    if selector not in BASIC_ROLE_MAP:
-        known = ", ".join(sorted(BASIC_ROLE_MAP))
-        raise ValueError(f"unsupported BASIC SUMO replay scenario {selector!r}; expected one of: {known}")
     return (selector,)
 
 
 def _needs_visual_hint(record: Mapping[str, Any], *, control_activation_x_global: float) -> bool:
+    _ = control_activation_x_global
     return (
         str(record.get("road_role")) in {"on_ramp", "on_ramp_mv"}
         and str(record.get("physical_lane")) == "on_ramp"
-        and float(record["x_global"]) < control_activation_x_global
+        and float(record["x_global"]) < RAMP_UPSTREAM_START_X
     )
 
 
@@ -401,14 +593,19 @@ def _scenario_manifest(
     scenario_dir: Path,
     status: str,
     max_steps: int,
-    simulation: SimulationLoopResult,
+    source: ImportedBasicNumericArtifact,
+    simulation: ImportedBasicSimulation,
     numeric_summary: dict[str, Any],
     replay_fidelity: dict[str, Any],
     gui_smoke_status: dict[str, Any],
     paths: dict[str, Path | None],
 ) -> dict[str, Any]:
     expectation = get_basic_expectation(scenario_id)
-    role_map = BASIC_ROLE_MAP[scenario_id]
+    role_map = build_basic_role_map(
+        scenario_id=scenario_id,
+        vehicle_ids=source_vehicle_ids(source),
+        numeric_summary=numeric_summary,
+    )
     command = f'& "{(scenario_dir / "play_gui_replay.ps1").resolve()}"'
     t_values = [float(record.t) for record in simulation.history.trajectory_records]
     return {
@@ -421,12 +618,14 @@ def _scenario_manifest(
         "max_steps": max_steps,
         "actual_steps": numeric_summary["actual_steps"],
         "t_range": [min(t_values), max(t_values)] if t_values else None,
+        "source_artifact_dir": source.source_artifact_dir,
         "track_vehicle_id": expectation.mv_id,
         "role_map": dict(role_map),
         "role_color_legend": _role_color_legend(role_map),
         "expectation": expectation.to_dict(),
         "numeric_summary": numeric_summary,
         "numeric_gate_status": numeric_summary["status"],
+        "lifecycle_summary": source.lifecycle_summary,
         "replay_fidelity": replay_fidelity,
         "gui_smoke_status": gui_smoke_status,
         "vehicle_ranges": _vehicle_ranges(simulation.history.trajectory_records),
@@ -435,9 +634,8 @@ def _scenario_manifest(
             "kind": "SUMO-GUI replay",
             "not_sumo_native_simulation": True,
             "pre_control_segment": (
-                "pre-control segment 6450 -> 6650 is numeric-simulation-only in the current P17 map. "
-                "SUMO replay uses a visual edge/lane hint for those records and becomes visually authoritative "
-                "after the MV enters ramp_pre at x >= 6650."
+                "pre-control segment 6450 -> 6650 is visible through the ramp_upstream SUMO edge; "
+                "records below 6450 remain numeric-only and use a replay hint fallback."
             ),
             "scope": "Internal trajectory replay; it does not replace P17 true closed-loop TraCI authority.",
         },
@@ -450,7 +648,7 @@ def _root_manifest(
     run_id: str,
     output_dir: Path,
     status: str,
-    max_steps: int,
+    max_steps: int | None,
     scenario_results: tuple[BasicSumoReplayScenarioResult, ...],
     validate_gui_smoke: bool,
 ) -> dict[str, Any]:
@@ -552,12 +750,14 @@ def _write_root_report(path: Path, manifest: dict[str, Any]) -> None:
 
 def _write_scenario_report(path: Path, manifest: dict[str, Any]) -> None:
     numeric = manifest["numeric_summary"]
+    lifecycle = manifest.get("lifecycle_summary", {})
     checks = manifest["replay_fidelity"].get("basic_visual_checks", {})
     command = manifest["manual_replay_command"]
     lines = [
         f"# BASIC SUMO Replay: {manifest['scenario_id']}",
         "",
         f"- scenario_id: `{manifest['scenario_id']}`",
+        f"- source_artifact_dir: `{manifest['source_artifact_dir']}`",
         f"- status: `{manifest['status']}`",
         f"- actual_steps: `{manifest['actual_steps']}` / max `{manifest['max_steps']}`",
         f"- numeric_gate_status: `{manifest['numeric_gate_status']}`",
@@ -570,6 +770,11 @@ def _write_scenario_report(path: Path, manifest: dict[str, Any]) -> None:
         f"- expected Eq.10 consumers: `{', '.join(numeric.get('expected_eq10_consumer_ids') or []) or 'none'}`",
         f"- Eq.10 consumers: `{', '.join(numeric.get('eq10_consumers') or []) or 'none'}`",
         f"- merged past ramp: `{numeric['merged_and_past_ramp']}`",
+        f"- refresh failed retained count: `{lifecycle.get('refresh_failed_retained_count', 0)}`",
+        f"- cooperative request vehicles: `{', '.join(lifecycle.get('cooperative_request_vehicle_ids') or []) or 'none'}`",
+        f"- CUC stay lane_2 vehicles: `{', '.join(lifecycle.get('cuc_stay_lane_2_vehicle_ids') or []) or 'none'}`",
+        f"- CMC recovery front-only: `{lifecycle.get('cmc_recovery_front_only')}`",
+        f"- CMC recovery leader: `{lifecycle.get('cmc_recovery_leader_id')}`",
         "",
         "## Replay Checks",
         "",
@@ -815,15 +1020,17 @@ def _to_plain(value: Any) -> Any:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Build BASIC numeric and SUMO replay artifacts.")
+    parser = argparse.ArgumentParser(description="Import BASIC numeric artifacts and build SUMO replay artifacts.")
+    parser.add_argument("--source-artifact-dir", required=True)
     parser.add_argument("--output-root", default=DEFAULT_OUTPUT_ROOT)
     parser.add_argument("--run-id", default=DEFAULT_RUN_ID)
     parser.add_argument("--scenario", default="BASIC-01")
-    parser.add_argument("--max-steps", type=int, default=900)
+    parser.add_argument("--max-steps", type=int)
     parser.add_argument("--validate-gui-smoke", action="store_true")
     args = parser.parse_args(argv)
 
     result = run_basic_sumo_replay_artifacts(
+        source_artifact_dir=args.source_artifact_dir,
         output_root=args.output_root,
         run_id=args.run_id,
         scenario=args.scenario,

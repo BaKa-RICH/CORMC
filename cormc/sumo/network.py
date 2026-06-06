@@ -98,6 +98,7 @@ def _nodes_xml() -> ET.Element:
         ("merge_start", 6950.0, 0.0),
         ("merge_end", 7250.0, 0.0),
         ("main_end", 10000.0, 0.0),
+        ("ramp_upstream_start", 6450.0, -3.5),
         ("ramp_start", 6650.0, -3.5),
     ):
         ET.SubElement(nodes, "node", id=node_id, x=f"{x:.3f}", y=f"{y:.3f}", type="priority")
@@ -110,6 +111,7 @@ def _edges_xml(config: P17SumoNetworkConfig) -> ET.Element:
         ("main_pre", "main_start", "merge_start", 2, "0.000,1.750 6950.000,1.750"),
         ("merge_zone", "merge_start", "merge_end", 3, "6950.000,0.000 7250.000,0.000"),
         ("main_post", "merge_end", "main_end", 2, "7250.000,1.750 10000.000,1.750"),
+        ("ramp_upstream", "ramp_upstream_start", "ramp_start", 1, "6450.000,-3.500 6650.000,-3.500"),
         ("ramp_pre", "ramp_start", "merge_start", 1, "6650.000,-3.500 6950.000,-3.500"),
     )
     for edge_id, from_node, to_node, lanes, shape in edge_specs:
@@ -132,6 +134,7 @@ def _connections_xml() -> ET.Element:
     connection_specs = (
         ("main_pre", "merge_zone", 0, 1),
         ("main_pre", "merge_zone", 1, 2),
+        ("ramp_upstream", "ramp_pre", 0, 0),
         ("ramp_pre", "merge_zone", 0, 0),
         ("merge_zone", "main_post", 1, 0),
         ("merge_zone", "main_post", 2, 1),
@@ -180,7 +183,7 @@ def _routes_xml() -> ET.Element:
         latAlignment="center",
     )
     ET.SubElement(routes, "route", id="route_main", edges="main_pre merge_zone main_post")
-    ET.SubElement(routes, "route", id="route_ramp", edges="ramp_pre merge_zone main_post")
+    ET.SubElement(routes, "route", id="route_ramp", edges="ramp_upstream ramp_pre merge_zone main_post")
     return routes
 
 
