@@ -1,0 +1,11 @@
+.agents/
+.venv/
+__pycache__/
+.pytest_cache/
+artifacts/**
+!artifacts/
+!artifacts/scene_interface_phase7_validation/**
+!artifacts/stage2_random/
+!artifacts/stage2_random/RM-ONESTEP-RANDOM-S07-LANE2-RAMP-100S/
+!artifacts/stage2_random/RM-ONESTEP-RANDOM-S07-LANE2-RAMP-100S/onestep-stage2-random-100s-seed645001/**
+artifacts/phase9_regression/**

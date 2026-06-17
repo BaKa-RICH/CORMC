@@ -1,0 +1,1753 @@
+[
+  {
+    "id": "M2-S01",
+    "scenario_id": "RM-M2-S01",
+    "mv_count": 2,
+    "category": "2MV / 独立无协作",
+    "title": "两辆 MV 分别进入相邻且已满足安全长度的 gap",
+    "x_targets": [
+      -300,
+      -215,
+      -130,
+      -45,
+      40,
+      125,
+      210,
+      295,
+      380
+    ],
+    "x_m_list": [
+      0,
+      -90
+    ],
+    "planning_order": [
+      "MV1",
+      "MV2"
+    ],
+    "purpose": "验证多 MV rolling 不是只能处理一辆车；两次调用都应走 Delta=0 的无协作分支，且第一次插入的 MV 不应破坏第二次求解。",
+    "modules": [
+      "rolling 状态更新；Delta=0；插入 MV 后重新排序"
+    ],
+    "expected": {
+      "static_rolling": [
+        {
+          "mv": "MV1",
+          "x_m0": 0,
+          "best_gap": [
+            -45.0,
+            40.0
+          ],
+          "delta_f": 0.0,
+          "delta_r": 0.0,
+          "d": -2.5,
+          "t_m": 2.381,
+          "p_m": 45.121,
+          "J": 31.748
+        },
+        {
+          "mv": "MV2",
+          "x_m0": -90,
+          "best_gap": [
+            -130.0,
+            -45.0
+          ],
+          "delta_f": 0.0,
+          "delta_r": 0.0,
+          "d": 2.5,
+          "t_m": 2.381,
+          "p_m": -39.879,
+          "J": 31.748
+        }
+      ]
+    },
+    "final_x_targets_after_static_rolling": [
+      -300.0,
+      -215.0,
+      -130.0,
+      -87.5,
+      -45.0,
+      -2.5,
+      40.0,
+      125.0,
+      210.0,
+      295.0,
+      380.0
+    ],
+    "hdv_lane2_indices": []
+  },
+  {
+    "id": "M2-S02",
+    "scenario_id": "RM-M2-S02",
+    "mv_count": 2,
+    "category": "2MV / 基准泛化",
+    "title": "原始单 MV 基准场景扩展为两辆 MV",
+    "x_targets": [
+      -180,
+      -90,
+      -25,
+      30,
+      110,
+      190,
+      250
+    ],
+    "x_m_list": [
+      0,
+      -70
+    ],
+    "planning_order": [
+      "MV1",
+      "MV2"
+    ],
+    "purpose": "第一辆复现原始基准 [30,110]；第二辆在更新后的目标车道中重新求解，验证原场景能自然扩展到 2MV。",
+    "modules": [
+      "基准复现；rolling 后状态；前车优先调整"
+    ],
+    "expected": {
+      "static_rolling": [
+        {
+          "mv": "MV1",
+          "x_m0": 0,
+          "best_gap": [
+            30.0,
+            110.0
+          ],
+          "delta_f": 5.0,
+          "delta_r": 0.0,
+          "d": 72.5,
+          "t_m": 13.594,
+          "p_m": 344.375,
+          "J": 176.808
+        },
+        {
+          "mv": "MV2",
+          "x_m0": -70,
+          "best_gap": [
+            -90.0,
+            -25.0
+          ],
+          "delta_f": 0.0,
+          "delta_r": 20.0,
+          "d": 2.5,
+          "t_m": 2.381,
+          "p_m": -19.879,
+          "J": 49.458
+        }
+      ]
+    },
+    "final_x_targets_after_static_rolling": [
+      -180.0,
+      -110.0,
+      -67.5,
+      -25.0,
+      30.0,
+      72.5,
+      115.0,
+      190.0,
+      250.0
+    ],
+    "hdv_lane2_indices": []
+  },
+  {
+    "id": "M2-S03",
+    "scenario_id": "RM-M2-S03",
+    "mv_count": 2,
+    "category": "2MV / 资源竞争",
+    "title": "两辆 MV 争夺同一局部区域，第二辆必须避开已插入 MV",
+    "x_targets": [
+      -140,
+      -60,
+      20,
+      100,
+      180,
+      260
+    ],
+    "x_m_list": [
+      0,
+      -20
+    ],
+    "planning_order": [
+      "MV1",
+      "MV2"
+    ],
+    "purpose": "第一辆进入中心 gap 后，第二辆不能继续使用被占用的同一 gap，应重新选择后方 gap。",
+    "modules": [
+      "资源竞争；已合流 MV 参与后续 gap；滚动重规划"
+    ],
+    "expected": {
+      "static_rolling": [
+        {
+          "mv": "MV1",
+          "x_m0": 0,
+          "best_gap": [
+            -60.0,
+            20.0
+          ],
+          "delta_f": 2.5,
+          "delta_r": 2.5,
+          "d": -20.0,
+          "t_m": 6.735,
+          "p_m": 114.693,
+          "J": 92.296
+        },
+        {
+          "mv": "MV2",
+          "x_m0": -20,
+          "best_gap": [
+            -140.0,
+            -62.5
+          ],
+          "delta_f": 0.0,
+          "delta_r": 7.5,
+          "d": -85.0,
+          "t_m": 13.884,
+          "p_m": 172.677,
+          "J": 185.139
+        }
+      ]
+    },
+    "final_x_targets_after_static_rolling": [
+      -147.5,
+      -105.0,
+      -62.5,
+      -20.0,
+      22.5,
+      100.0,
+      180.0,
+      260.0
+    ],
+    "hdv_lane2_indices": []
+  },
+  {
+    "id": "M2-S04",
+    "scenario_id": "RM-M2-S04",
+    "mv_count": 2,
+    "category": "2MV / 前后混合",
+    "title": "一辆前方加速合流，一辆后方减速等待",
+    "x_targets": [
+      -260,
+      -175,
+      -90,
+      -5,
+      80,
+      165,
+      250
+    ],
+    "x_m_list": [
+      0,
+      -120
+    ],
+    "planning_order": [
+      "MV1",
+      "MV2"
+    ],
+    "purpose": "验证同一场景中 d>0 与 d<0 的分支可以连续出现；第二辆 MV 的目标 gap 在其前后关系上与第一辆不同。",
+    "modules": [
+      "正 d/负 d；速度上界/下界；rolling 顺序"
+    ],
+    "expected": {
+      "static_rolling": [
+        {
+          "mv": "MV1",
+          "x_m0": 0,
+          "best_gap": [
+            -5.0,
+            80.0
+          ],
+          "delta_f": 0.0,
+          "delta_r": 0.0,
+          "d": 37.5,
+          "t_m": 9.222,
+          "p_m": 221.708,
+          "J": 122.958
+        },
+        {
+          "mv": "MV2",
+          "x_m0": -120,
+          "best_gap": [
+            -175.0,
+            -90.0
+          ],
+          "delta_f": 0.0,
+          "delta_r": 0.0,
+          "d": -12.5,
+          "t_m": 5.324,
+          "p_m": -26.024,
+          "J": 70.99
+        }
+      ]
+    },
+    "final_x_targets_after_static_rolling": [
+      -260.0,
+      -175.0,
+      -132.5,
+      -90.0,
+      -5.0,
+      37.5,
+      80.0,
+      165.0,
+      250.0
+    ],
+    "hdv_lane2_indices": []
+  },
+  {
+    "id": "M2-S05",
+    "scenario_id": "RM-M2-S05",
+    "mv_count": 2,
+    "category": "2MV / 密集交通",
+    "title": "密集交通下两辆 MV 都需要利用边界/后向空间扩张",
+    "x_targets": [
+      -100,
+      -50,
+      0,
+      50,
+      100,
+      150,
+      235
+    ],
+    "x_m_list": [
+      0,
+      -60
+    ],
+    "planning_order": [
+      "MV1",
+      "MV2"
+    ],
+    "purpose": "验证密集 gap 中可行性筛选、边界容量和后车后移分配；中间不可行 gap 不应被选中。",
+    "modules": [
+      "coop_feasible；边界容量；后车优先"
+    ],
+    "expected": {
+      "static_rolling": [
+        {
+          "mv": "MV1",
+          "x_m0": 0,
+          "best_gap": [
+            -100.0,
+            -50.0
+          ],
+          "delta_f": 0.0,
+          "delta_r": 35.0,
+          "d": -92.5,
+          "t_m": 14.483,
+          "p_m": 197.169,
+          "J": 193.563
+        },
+        {
+          "mv": "MV2",
+          "x_m0": -60,
+          "best_gap": [
+            -135.0,
+            -92.5
+          ],
+          "delta_f": 0.0,
+          "delta_r": 42.5,
+          "d": -75.0,
+          "t_m": 13.042,
+          "p_m": 125.831,
+          "J": 174.552
+        }
+      ]
+    },
+    "final_x_targets_after_static_rolling": [
+      -177.5,
+      -135.0,
+      -92.5,
+      -50.0,
+      0.0,
+      50.0,
+      100.0,
+      150.0,
+      235.0
+    ],
+    "hdv_lane2_indices": []
+  },
+  {
+    "id": "M2-S06",
+    "scenario_id": "RM-M2-S06",
+    "mv_count": 2,
+    "category": "2MV / 边界 gap",
+    "title": "第一辆选择边界 gap 后，第二辆继续使用被扩张后的边界区域",
+    "x_targets": [
+      -70,
+      10,
+      65,
+      130,
+      200,
+      280
+    ],
+    "x_m_list": [
+      0,
+      -40
+    ],
+    "planning_order": [
+      "MV1",
+      "MV2"
+    ],
+    "purpose": "验证第一个 gap 缺少更后方实体车辆时，boundary_adjustment 能正确接入；第二辆验证边界更新后的稳定性。",
+    "modules": [
+      "边界虚拟 gap；状态更新；连续后移"
+    ],
+    "expected": {
+      "static_rolling": [
+        {
+          "mv": "MV1",
+          "x_m0": 0,
+          "best_gap": [
+            -70.0,
+            10.0
+          ],
+          "delta_f": 0.0,
+          "delta_r": 5.0,
+          "d": -32.5,
+          "t_m": 8.585,
+          "p_m": 139.192,
+          "J": 114.477
+        },
+        {
+          "mv": "MV2",
+          "x_m0": -40,
+          "best_gap": [
+            -75.0,
+            -32.5
+          ],
+          "delta_f": 0.0,
+          "delta_r": 42.5,
+          "d": -35.0,
+          "t_m": 8.909,
+          "p_m": 103.185,
+          "J": 119.452
+        }
+      ]
+    },
+    "final_x_targets_after_static_rolling": [
+      -117.5,
+      -75.0,
+      -32.5,
+      10.0,
+      65.0,
+      130.0,
+      200.0,
+      280.0
+    ],
+    "hdv_lane2_indices": []
+  },
+  {
+    "id": "M2-S07",
+    "scenario_id": "RM-M2-S07",
+    "mv_count": 2,
+    "category": "2MV / 单侧可控",
+    "title": "目标 gap 只有前车可控，第二辆走常规双侧可控",
+    "x_targets": [
+      -160,
+      -80,
+      0,
+      80,
+      160,
+      240
+    ],
+    "x_m_list": [
+      0,
+      -40
+    ],
+    "planning_order": [
+      "MV1",
+      "MV2"
+    ],
+    "purpose": "验证 gap_boundary_controllability：若后车不可控，应强制 delta_r=0；若单侧容量不足，gap 应进入 failure_reason 而非被选中。",
+    "modules": [
+      "可控性约束；insufficient_single_side_capacity；诊断行"
+    ],
+    "expected": {
+      "static_rolling": [
+        {
+          "mv": "MV1",
+          "x_m0": 0,
+          "best_gap": [
+            -80.0,
+            0.0
+          ],
+          "delta_f": 5.0,
+          "delta_r": 0.0,
+          "d": -37.5,
+          "t_m": 9.167,
+          "J": 127.958
+        },
+        {
+          "mv": "MV2",
+          "x_m0": -40,
+          "best_gap": [
+            -160.0,
+            -80.0
+          ],
+          "delta_f": 0.0,
+          "delta_r": 5.0,
+          "d": -82.5,
+          "t_m": 13.681,
+          "J": 182.385
+        }
+      ],
+      "controllability": "step1 gap2 [-80,0]: front_controllable=True, rear_controllable=False"
+    },
+    "final_x_targets_after_static_rolling": [
+      -165.0,
+      -122.5,
+      -80.0,
+      -37.5,
+      5.0,
+      80.0,
+      160.0,
+      240.0
+    ],
+    "hdv_lane2_indices": [
+      2
+    ]
+  },
+  {
+    "id": "M2-S08",
+    "scenario_id": "RM-M2-S08",
+    "mv_count": 2,
+    "category": "2MV / 参数敏感",
+    "title": "两辆 MV 下扫描 w_c，观察是否从近处高协作切换到远处低协作",
+    "x_targets": [
+      -120,
+      -40,
+      20,
+      90,
+      180,
+      270
+    ],
+    "x_m_list": [
+      0,
+      -50
+    ],
+    "planning_order": [
+      "MV1",
+      "MV2"
+    ],
+    "purpose": "验证多 MV 状态下 w_c 不只影响第一辆，也会通过第一辆的状态更新影响第二辆。",
+    "modules": [
+      "w_c 参数敏感性；评分权重；rolling 联动"
+    ],
+    "expected": {
+      "static_rolling": [
+        {
+          "mv": "MV1",
+          "x_m0": 0,
+          "best_gap": [
+            -40.0,
+            20.0
+          ],
+          "delta_f": 0.0,
+          "delta_r": 25.0,
+          "d": -22.5,
+          "t_m": 7.147,
+          "J": 117.66
+        },
+        {
+          "mv": "MV2",
+          "x_m0": -50,
+          "best_gap": [
+            -65.0,
+            -22.5
+          ],
+          "delta_f": 0.0,
+          "delta_r": 42.5,
+          "d": -20.0,
+          "t_m": 6.735,
+          "J": 91.969
+        }
+      ]
+    },
+    "final_x_targets_after_static_rolling": [
+      -107.5,
+      -65.0,
+      -22.5,
+      20.0,
+      90.0,
+      180.0,
+      270.0
+    ],
+    "hdv_lane2_indices": []
+  },
+  {
+    "id": "M3-S01",
+    "scenario_id": "RM-M3-S01",
+    "mv_count": 3,
+    "category": "3MV / 独立无协作",
+    "title": "三辆 MV 分别进入三个相邻 85m gap",
+    "x_targets": [
+      -380,
+      -295,
+      -210,
+      -125,
+      -40,
+      45,
+      130,
+      215
+    ],
+    "x_m_list": [
+      0,
+      -85,
+      -170
+    ],
+    "planning_order": [
+      "MV1",
+      "MV2",
+      "MV3"
+    ],
+    "purpose": "验证 3MV 最基本通过性；每步 Delta=0，理论上不需要协作。",
+    "modules": [
+      "3 次 rolling；无协作；稳定排序"
+    ],
+    "expected": {
+      "static_rolling": [
+        {
+          "mv": "MV1",
+          "x_m0": 0,
+          "best_gap": [
+            -40.0,
+            45.0
+          ],
+          "delta_f": 0.0,
+          "delta_r": 0.0,
+          "d": 2.5,
+          "t_m": 2.381,
+          "p_m": 50.121,
+          "J": 31.748
+        },
+        {
+          "mv": "MV2",
+          "x_m0": -85,
+          "best_gap": [
+            -125.0,
+            -40.0
+          ],
+          "delta_f": 0.0,
+          "delta_r": 0.0,
+          "d": 2.5,
+          "t_m": 2.381,
+          "p_m": -34.879,
+          "J": 31.748
+        },
+        {
+          "mv": "MV3",
+          "x_m0": -170,
+          "best_gap": [
+            -210.0,
+            -125.0
+          ],
+          "delta_f": 0.0,
+          "delta_r": 0.0,
+          "d": 2.5,
+          "t_m": 2.381,
+          "p_m": -119.879,
+          "J": 31.748
+        }
+      ]
+    },
+    "final_x_targets_after_static_rolling": [
+      -380.0,
+      -295.0,
+      -210.0,
+      -167.5,
+      -125.0,
+      -82.5,
+      -40.0,
+      2.5,
+      45.0,
+      130.0,
+      215.0
+    ],
+    "hdv_lane2_indices": []
+  },
+  {
+    "id": "M3-S02",
+    "scenario_id": "RM-M3-S02",
+    "mv_count": 3,
+    "category": "3MV / 级联占用",
+    "title": "三辆 MV 连续占用同一局部区域的后续 gap",
+    "x_targets": [
+      -220,
+      -140,
+      -60,
+      20,
+      100,
+      180,
+      260,
+      340
+    ],
+    "x_m_list": [
+      0,
+      -40,
+      -80
+    ],
+    "planning_order": [
+      "MV1",
+      "MV2",
+      "MV3"
+    ],
+    "purpose": "第一辆进入 [-60,20] 后，第二、第三辆逐步向后寻找可行 gap，验证插入 MV 后 gap 分裂与容量消耗。",
+    "modules": [
+      "级联；资源消耗；后向重规划"
+    ],
+    "expected": {
+      "static_rolling": [
+        {
+          "mv": "MV1",
+          "x_m0": 0,
+          "best_gap": [
+            -60.0,
+            20.0
+          ],
+          "delta_f": 2.5,
+          "delta_r": 2.5,
+          "d": -20.0,
+          "t_m": 6.735,
+          "p_m": 114.693,
+          "J": 92.296
+        },
+        {
+          "mv": "MV2",
+          "x_m0": -40,
+          "best_gap": [
+            -140.0,
+            -62.5
+          ],
+          "delta_f": 0.0,
+          "delta_r": 7.5,
+          "d": -65.0,
+          "t_m": 12.141,
+          "p_m": 137.818,
+          "J": 173.131
+        },
+        {
+          "mv": "MV3",
+          "x_m0": -80,
+          "best_gap": [
+            -220.0,
+            -147.5
+          ],
+          "delta_f": 0.0,
+          "delta_r": 12.5,
+          "d": -110.0,
+          "t_m": 15.794,
+          "p_m": 125.875,
+          "J": 210.647
+        }
+      ]
+    },
+    "final_x_targets_after_static_rolling": [
+      -232.5,
+      -190.0,
+      -147.5,
+      -105.0,
+      -62.5,
+      -20.0,
+      22.5,
+      100.0,
+      180.0,
+      260.0,
+      340.0
+    ],
+    "hdv_lane2_indices": []
+  },
+  {
+    "id": "M3-S03",
+    "scenario_id": "RM-M3-S03",
+    "mv_count": 3,
+    "category": "3MV / 交替前后",
+    "title": "三辆 MV 在同一区域形成前后交替选择",
+    "x_targets": [
+      -160,
+      -80,
+      0,
+      80,
+      160,
+      240
+    ],
+    "x_m_list": [
+      0,
+      -10,
+      -20
+    ],
+    "planning_order": [
+      "MV1",
+      "MV2",
+      "MV3"
+    ],
+    "purpose": "验证第一辆、第二辆、第三辆可能分别选择后方/前方/更后方 gap，测试 rolling 顺序的可解释性。",
+    "modules": [
+      "gap 切换；状态耦合；正负 d 混合"
+    ],
+    "expected": {
+      "static_rolling": [
+        {
+          "mv": "MV1",
+          "x_m0": 0,
+          "best_gap": [
+            -80.0,
+            0.0
+          ],
+          "delta_f": 2.5,
+          "delta_r": 2.5,
+          "d": -40.0,
+          "t_m": 9.524,
+          "p_m": 150.472,
+          "J": 129.49
+        },
+        {
+          "mv": "MV2",
+          "x_m0": -10,
+          "best_gap": [
+            2.5,
+            80.0
+          ],
+          "delta_f": 7.5,
+          "delta_r": 0.0,
+          "d": 55.0,
+          "t_m": 11.168,
+          "p_m": 268.36,
+          "J": 160.159
+        },
+        {
+          "mv": "MV3",
+          "x_m0": -20,
+          "best_gap": [
+            -160.0,
+            -82.5
+          ],
+          "delta_f": 0.0,
+          "delta_r": 7.5,
+          "d": -105.0,
+          "t_m": 15.431,
+          "p_m": 183.613,
+          "J": 205.768
+        }
+      ]
+    },
+    "final_x_targets_after_static_rolling": [
+      -167.5,
+      -125.0,
+      -82.5,
+      -40.0,
+      2.5,
+      45.0,
+      87.5,
+      160.0,
+      240.0
+    ],
+    "hdv_lane2_indices": []
+  },
+  {
+    "id": "M3-S04",
+    "scenario_id": "RM-M3-S04",
+    "mv_count": 3,
+    "category": "3MV / 后方队列",
+    "title": "三辆 MV 均需要进入其后方队列中的 gap",
+    "x_targets": [
+      -360,
+      -275,
+      -190,
+      -105,
+      -20,
+      65,
+      150
+    ],
+    "x_m_list": [
+      -20,
+      -105,
+      -190
+    ],
+    "planning_order": [
+      "MV1",
+      "MV2",
+      "MV3"
+    ],
+    "purpose": "验证连续 d<0 分支，速度下界和减速等待公式在多车滚动中保持稳定。",
+    "modules": [
+      "d<0；v_min；队列稳定性"
+    ],
+    "expected": {
+      "static_rolling": [
+        {
+          "mv": "MV1",
+          "x_m0": -20,
+          "best_gap": [
+            -105.0,
+            -20.0
+          ],
+          "delta_f": 0.0,
+          "delta_r": 0.0,
+          "d": -42.5,
+          "t_m": 9.817,
+          "p_m": 133.845,
+          "J": 130.898
+        },
+        {
+          "mv": "MV2",
+          "x_m0": -105,
+          "best_gap": [
+            -190.0,
+            -105.0
+          ],
+          "delta_f": 0.0,
+          "delta_r": 0.0,
+          "d": -42.5,
+          "t_m": 9.817,
+          "p_m": 48.845,
+          "J": 130.898
+        },
+        {
+          "mv": "MV3",
+          "x_m0": -190,
+          "best_gap": [
+            -275.0,
+            -190.0
+          ],
+          "delta_f": 0.0,
+          "delta_r": 0.0,
+          "d": -42.5,
+          "t_m": 9.817,
+          "p_m": -36.155,
+          "J": 130.898
+        }
+      ]
+    },
+    "final_x_targets_after_static_rolling": [
+      -360.0,
+      -275.0,
+      -232.5,
+      -190.0,
+      -147.5,
+      -105.0,
+      -62.5,
+      -20.0,
+      65.0,
+      150.0
+    ],
+    "hdv_lane2_indices": []
+  },
+  {
+    "id": "M3-S05",
+    "scenario_id": "RM-M3-S05",
+    "mv_count": 3,
+    "category": "3MV / 全部不可达",
+    "title": "所有目标 gap 均在过远前方，三辆 MV 都不可达",
+    "x_targets": [
+      220,
+      280,
+      340,
+      400,
+      460,
+      520
+    ],
+    "x_m_list": [
+      0,
+      -50,
+      -100
+    ],
+    "planning_order": [
+      "MV1",
+      "MV2",
+      "MV3"
+    ],
+    "purpose": "验证多 MV 下的无解处理：每辆都应返回 no reachable gap，且不应插入伪车辆。",
+    "modules": [
+      "无可达 gap；安全退出；无状态污染"
+    ],
+    "expected": {
+      "static_rolling": [
+        {
+          "mv": "MV1",
+          "x_m0": 0,
+          "best_gap": null,
+          "status": "no_feasible_gap"
+        },
+        {
+          "mv": "MV2",
+          "x_m0": -50,
+          "best_gap": null,
+          "status": "no_feasible_gap"
+        },
+        {
+          "mv": "MV3",
+          "x_m0": -100,
+          "best_gap": null,
+          "status": "no_feasible_gap"
+        }
+      ],
+      "diagnostic_expectation": "all MV records are no_feasible_gap in the source static design"
+    },
+    "final_x_targets_after_static_rolling": [
+      220.0,
+      280.0,
+      340.0,
+      400.0,
+      460.0,
+      520.0
+    ],
+    "hdv_lane2_indices": []
+  },
+  {
+    "id": "M3-S06",
+    "scenario_id": "RM-M3-S06",
+    "mv_count": 3,
+    "category": "3MV / 原始场景多车扩展",
+    "title": "原始基准场景扩展为三辆 MV，第三辆从更前位置触发",
+    "x_targets": [
+      -180,
+      -90,
+      -25,
+      30,
+      110,
+      190,
+      250
+    ],
+    "x_m_list": [
+      0,
+      -70,
+      40
+    ],
+    "planning_order": [
+      "MV1",
+      "MV2",
+      "MV3"
+    ],
+    "purpose": "验证同一原始场景下，不同 MV 初始位置会改变最优 gap；第三辆可能选择后方大范围等待。",
+    "modules": [
+      "基准扩展；x_m0 影响；长距离 d<0"
+    ],
+    "expected": {
+      "static_rolling": [
+        {
+          "mv": "MV1",
+          "x_m0": 0,
+          "best_gap": [
+            30.0,
+            110.0
+          ],
+          "delta_f": 5.0,
+          "delta_r": 0.0,
+          "d": 72.5,
+          "t_m": 13.594,
+          "p_m": 344.375,
+          "J": 176.808
+        },
+        {
+          "mv": "MV2",
+          "x_m0": -70,
+          "best_gap": [
+            -90.0,
+            -25.0
+          ],
+          "delta_f": 0.0,
+          "delta_r": 20.0,
+          "d": 2.5,
+          "t_m": 2.381,
+          "p_m": -19.879,
+          "J": 49.458
+        },
+        {
+          "mv": "MV3",
+          "x_m0": 40,
+          "best_gap": [
+            -180.0,
+            -110.0
+          ],
+          "delta_f": 0.0,
+          "delta_r": 15.0,
+          "d": -192.5,
+          "t_m": 20.894,
+          "p_m": 265.375,
+          "J": 278.666
+        }
+      ]
+    },
+    "final_x_targets_after_static_rolling": [
+      -195.0,
+      -152.5,
+      -110.0,
+      -67.5,
+      -25.0,
+      30.0,
+      72.5,
+      115.0,
+      190.0,
+      250.0
+    ],
+    "hdv_lane2_indices": []
+  },
+  {
+    "id": "M3-S07",
+    "scenario_id": "RM-M3-S07",
+    "mv_count": 3,
+    "category": "3MV / tie-breaking",
+    "title": "完全对称 gap 中的三辆 MV，要求 tie-breaking 可复现",
+    "x_targets": [
+      -170,
+      -85,
+      0,
+      85,
+      170
+    ],
+    "x_m_list": [
+      -42.5,
+      42.5,
+      0
+    ],
+    "planning_order": [
+      "MV1",
+      "MV2",
+      "MV3"
+    ],
+    "purpose": "验证分数相等或近似相等时的规则：建议固定为 index 最小或返回所有并列最优。",
+    "modules": [
+      "tie-breaking；确定性；零位移"
+    ],
+    "expected": {
+      "static_rolling": [
+        {
+          "mv": "MV1",
+          "x_m0": -42.5,
+          "best_gap": [
+            -85.0,
+            0.0
+          ],
+          "delta_f": 0.0,
+          "delta_r": 0.0,
+          "d": 0.0,
+          "t_m": 0.0,
+          "p_m": -42.5,
+          "J": 0.0
+        },
+        {
+          "mv": "MV2",
+          "x_m0": 42.5,
+          "best_gap": [
+            0.0,
+            85.0
+          ],
+          "delta_f": 0.0,
+          "delta_r": 0.0,
+          "d": 0.0,
+          "t_m": 0.0,
+          "p_m": 42.5,
+          "J": 0.0
+        },
+        {
+          "mv": "MV3",
+          "x_m0": 0,
+          "best_gap": [
+            -170.0,
+            -85.0
+          ],
+          "delta_f": 0.0,
+          "delta_r": 0.0,
+          "d": -127.5,
+          "t_m": 17.004,
+          "p_m": 212.583,
+          "J": 226.723
+        }
+      ]
+    },
+    "final_x_targets_after_static_rolling": [
+      -170.0,
+      -127.5,
+      -85.0,
+      -42.5,
+      0.0,
+      42.5,
+      85.0,
+      170.0
+    ],
+    "hdv_lane2_indices": []
+  },
+  {
+    "id": "M4-S01",
+    "scenario_id": "RM-M4-S01",
+    "mv_count": 4,
+    "category": "4MV / 独立无协作",
+    "title": "四辆 MV 分别进入四个连续 85m gap",
+    "x_targets": [
+      -470,
+      -385,
+      -300,
+      -215,
+      -130,
+      -45,
+      40,
+      125,
+      210,
+      295
+    ],
+    "x_m_list": [
+      0,
+      -85,
+      -170,
+      -255
+    ],
+    "planning_order": [
+      "MV1",
+      "MV2",
+      "MV3",
+      "MV4"
+    ],
+    "purpose": "验证 4MV 的最低通过性；每一步都应可解且不需要协作。",
+    "modules": [
+      "4 次 rolling；Delta=0；大规模稳定性"
+    ],
+    "expected": {
+      "static_rolling": [
+        {
+          "mv": "MV1",
+          "x_m0": 0,
+          "best_gap": [
+            -45.0,
+            40.0
+          ],
+          "delta_f": 0.0,
+          "delta_r": 0.0,
+          "d": -2.5,
+          "t_m": 2.381,
+          "p_m": 45.121,
+          "J": 31.748
+        },
+        {
+          "mv": "MV2",
+          "x_m0": -85,
+          "best_gap": [
+            -130.0,
+            -45.0
+          ],
+          "delta_f": 0.0,
+          "delta_r": 0.0,
+          "d": -2.5,
+          "t_m": 2.381,
+          "p_m": -39.879,
+          "J": 31.748
+        },
+        {
+          "mv": "MV3",
+          "x_m0": -170,
+          "best_gap": [
+            -215.0,
+            -130.0
+          ],
+          "delta_f": 0.0,
+          "delta_r": 0.0,
+          "d": -2.5,
+          "t_m": 2.381,
+          "p_m": -124.879,
+          "J": 31.748
+        },
+        {
+          "mv": "MV4",
+          "x_m0": -255,
+          "best_gap": [
+            -300.0,
+            -215.0
+          ],
+          "delta_f": 0.0,
+          "delta_r": 0.0,
+          "d": -2.5,
+          "t_m": 2.381,
+          "p_m": -209.879,
+          "J": 31.748
+        }
+      ]
+    },
+    "final_x_targets_after_static_rolling": [
+      -470.0,
+      -385.0,
+      -300.0,
+      -257.5,
+      -215.0,
+      -172.5,
+      -130.0,
+      -87.5,
+      -45.0,
+      -2.5,
+      40.0,
+      125.0,
+      210.0,
+      295.0
+    ],
+    "hdv_lane2_indices": []
+  },
+  {
+    "id": "M4-S02",
+    "scenario_id": "RM-M4-S02",
+    "mv_count": 4,
+    "category": "4MV / 高耦合冲突",
+    "title": "四辆 MV 依次进入拥挤局部区域，产生前后交替选择",
+    "x_targets": [
+      -240,
+      -160,
+      -80,
+      0,
+      80,
+      160,
+      240,
+      320
+    ],
+    "x_m_list": [
+      0,
+      -20,
+      -40,
+      -60
+    ],
+    "planning_order": [
+      "MV1",
+      "MV2",
+      "MV3",
+      "MV4"
+    ],
+    "purpose": "验证 4MV 级联冲突：第 1、2 辆可能前后分流，第 3、4 辆继续向后寻找空间。",
+    "modules": [
+      "高耦合；局部竞争；滚动重规划"
+    ],
+    "expected": {
+      "static_rolling": [
+        {
+          "mv": "MV1",
+          "x_m0": 0,
+          "best_gap": [
+            -80.0,
+            0.0
+          ],
+          "delta_f": 2.5,
+          "delta_r": 2.5,
+          "d": -40.0,
+          "t_m": 9.524,
+          "p_m": 150.472,
+          "J": 129.49
+        },
+        {
+          "mv": "MV2",
+          "x_m0": -20,
+          "best_gap": [
+            2.5,
+            80.0
+          ],
+          "delta_f": 7.5,
+          "delta_r": 0.0,
+          "d": 65.0,
+          "t_m": 12.188,
+          "p_m": 288.75,
+          "J": 173.135
+        },
+        {
+          "mv": "MV3",
+          "x_m0": -40,
+          "best_gap": [
+            -160.0,
+            -82.5
+          ],
+          "delta_f": 0.0,
+          "delta_r": 7.5,
+          "d": -85.0,
+          "t_m": 13.884,
+          "p_m": 152.677,
+          "J": 196.368
+        },
+        {
+          "mv": "MV4",
+          "x_m0": -60,
+          "best_gap": [
+            -240.0,
+            -167.5
+          ],
+          "delta_f": 0.0,
+          "delta_r": 12.5,
+          "d": -150.0,
+          "t_m": 18.444,
+          "p_m": 158.875,
+          "J": 245.973
+        }
+      ]
+    },
+    "final_x_targets_after_static_rolling": [
+      -252.5,
+      -210.0,
+      -167.5,
+      -125.0,
+      -82.5,
+      -40.0,
+      2.5,
+      45.0,
+      87.5,
+      160.0,
+      240.0,
+      320.0
+    ],
+    "hdv_lane2_indices": []
+  },
+  {
+    "id": "M4-S03",
+    "scenario_id": "RM-M4-S03",
+    "mv_count": 4,
+    "category": "4MV / 前后分布",
+    "title": "四辆 MV 初始位置分布较宽，分别进入附近 gap",
+    "x_targets": [
+      -360,
+      -275,
+      -190,
+      -105,
+      -20,
+      65,
+      150,
+      235,
+      320
+    ],
+    "x_m_list": [
+      20,
+      -70,
+      -160,
+      -250
+    ],
+    "planning_order": [
+      "MV1",
+      "MV2",
+      "MV3",
+      "MV4"
+    ],
+    "purpose": "验证当 MV 位置与目标车道 gap 接近时，算法应优先选择附近低代价 gap，而不是远方大 gap。",
+    "modules": [
+      "局部最优；低协作；不同 x_m0"
+    ],
+    "expected": {
+      "static_rolling": [
+        {
+          "mv": "MV1",
+          "x_m0": 20,
+          "best_gap": [
+            -20.0,
+            65.0
+          ],
+          "delta_f": 0.0,
+          "delta_r": 0.0,
+          "d": 2.5,
+          "t_m": 2.381,
+          "p_m": 70.121,
+          "J": 31.748
+        },
+        {
+          "mv": "MV2",
+          "x_m0": -70,
+          "best_gap": [
+            -105.0,
+            -20.0
+          ],
+          "delta_f": 0.0,
+          "delta_r": 0.0,
+          "d": 7.5,
+          "t_m": 4.124,
+          "p_m": 20.989,
+          "J": 54.988
+        },
+        {
+          "mv": "MV3",
+          "x_m0": -160,
+          "best_gap": [
+            -190.0,
+            -105.0
+          ],
+          "delta_f": 0.0,
+          "delta_r": 0.0,
+          "d": 12.5,
+          "t_m": 5.324,
+          "p_m": -41.024,
+          "J": 70.99
+        },
+        {
+          "mv": "MV4",
+          "x_m0": -250,
+          "best_gap": [
+            -275.0,
+            -190.0
+          ],
+          "delta_f": 0.0,
+          "delta_r": 0.0,
+          "d": 17.5,
+          "t_m": 6.3,
+          "p_m": -106.508,
+          "J": 83.996
+        }
+      ]
+    },
+    "final_x_targets_after_static_rolling": [
+      -360.0,
+      -275.0,
+      -232.5,
+      -190.0,
+      -147.5,
+      -105.0,
+      -62.5,
+      -20.0,
+      22.5,
+      65.0,
+      150.0,
+      235.0,
+      320.0
+    ],
+    "hdv_lane2_indices": []
+  },
+  {
+    "id": "M4-S04",
+    "scenario_id": "RM-M4-S04",
+    "mv_count": 4,
+    "category": "4MV / 密集容量压力",
+    "title": "目标车道多个 60m gap，需要多次强协作扩张",
+    "x_targets": [
+      -180,
+      -120,
+      -60,
+      0,
+      60,
+      120,
+      180,
+      260,
+      345
+    ],
+    "x_m_list": [
+      0,
+      -30,
+      -60,
+      -90
+    ],
+    "planning_order": [
+      "MV1",
+      "MV2",
+      "MV3",
+      "MV4"
+    ],
+    "purpose": "验证连续强协作时，容量逐步消耗后仍能给出诊断和可解释解；重点看 failure_reason 是否正确。",
+    "modules": [
+      "强协作；容量消耗；诊断稳定性"
+    ],
+    "expected": {
+      "static_rolling": [
+        {
+          "mv": "MV1",
+          "x_m0": 0,
+          "best_gap": [
+            -180.0,
+            -120.0
+          ],
+          "delta_f": 0.0,
+          "delta_r": 25.0,
+          "d": -162.5,
+          "t_m": 19.197,
+          "p_m": 221.447,
+          "J": 256.187
+        },
+        {
+          "mv": "MV2",
+          "x_m0": -30,
+          "best_gap": [
+            -205.0,
+            -162.5
+          ],
+          "delta_f": 0.0,
+          "delta_r": 42.5,
+          "d": -175.0,
+          "t_m": 19.921,
+          "p_m": 193.414,
+          "J": 266.283
+        },
+        {
+          "mv": "MV3",
+          "x_m0": -60,
+          "best_gap": [
+            -247.5,
+            -205.0
+          ],
+          "delta_f": 0.0,
+          "delta_r": 42.5,
+          "d": -187.5,
+          "t_m": 20.621,
+          "p_m": 164.912,
+          "J": 275.606
+        },
+        {
+          "mv": "MV4",
+          "x_m0": -90,
+          "best_gap": [
+            -290.0,
+            -247.5
+          ],
+          "delta_f": 0.0,
+          "delta_r": 42.5,
+          "d": -200.0,
+          "t_m": 21.297,
+          "p_m": 135.94,
+          "J": 284.623
+        }
+      ]
+    },
+    "final_x_targets_after_static_rolling": [
+      -332.5,
+      -290.0,
+      -247.5,
+      -205.0,
+      -162.5,
+      -120.0,
+      -60.0,
+      0.0,
+      60.0,
+      120.0,
+      180.0,
+      260.0,
+      345.0
+    ],
+    "hdv_lane2_indices": []
+  },
+  {
+    "id": "M4-S05",
+    "scenario_id": "RM-M4-S05",
+    "mv_count": 4,
+    "category": "4MV / 远方大 gap 诱惑",
+    "title": "近处 gap 较小但可协作，远方大 gap 不应因低代价被误选",
+    "x_targets": [
+      -160,
+      -80,
+      0,
+      80,
+      300,
+      410,
+      520
+    ],
+    "x_m_list": [
+      0,
+      -40,
+      -80,
+      -120
+    ],
+    "planning_order": [
+      "MV1",
+      "MV2",
+      "MV3",
+      "MV4"
+    ],
+    "purpose": "验证多 MV 下可达性前置筛选仍然高优先级；远方大 gap 若不可达不得参与评分。",
+    "modules": [
+      "reachable 前置；远方 gap 剔除；多车稳定"
+    ],
+    "expected": {
+      "static_rolling": [
+        {
+          "mv": "MV1",
+          "x_m0": 0,
+          "best_gap": [
+            -80.0,
+            0.0
+          ],
+          "delta_f": 2.5,
+          "delta_r": 2.5,
+          "d": -40.0,
+          "t_m": 9.524,
+          "p_m": 150.472,
+          "J": 129.49
+        },
+        {
+          "mv": "MV2",
+          "x_m0": -40,
+          "best_gap": [
+            -160.0,
+            -82.5
+          ],
+          "delta_f": 0.0,
+          "delta_r": 7.5,
+          "d": -85.0,
+          "t_m": 13.884,
+          "p_m": 152.677,
+          "J": 185.139
+        },
+        {
+          "mv": "MV3",
+          "x_m0": -80,
+          "best_gap": [
+            -167.5,
+            -125.0
+          ],
+          "delta_f": 0.0,
+          "delta_r": 42.5,
+          "d": -87.5,
+          "t_m": 14.087,
+          "p_m": 114.25,
+          "J": 188.485
+        },
+        {
+          "mv": "MV4",
+          "x_m0": -120,
+          "best_gap": [
+            -210.0,
+            -167.5
+          ],
+          "delta_f": 0.0,
+          "delta_r": 42.5,
+          "d": -90.0,
+          "t_m": 14.286,
+          "p_m": 75.714,
+          "J": 191.149
+        }
+      ]
+    },
+    "final_x_targets_after_static_rolling": [
+      -252.5,
+      -210.0,
+      -167.5,
+      -125.0,
+      -82.5,
+      -40.0,
+      2.5,
+      80.0,
+      300.0,
+      410.0,
+      520.0
+    ],
+    "hdv_lane2_indices": []
+  },
+  {
+    "id": "M4-S06",
+    "scenario_id": "RM-M4-S06",
+    "mv_count": 4,
+    "category": "4MV / 可控性与边界组合",
+    "title": "四辆 MV 中同时出现边界 gap、单侧可控、双侧不可控 fallback",
+    "x_targets": [
+      -230,
+      -150,
+      -70,
+      10,
+      90,
+      170,
+      250,
+      330
+    ],
+    "x_m_list": [
+      0,
+      -30,
+      -60,
+      -90
+    ],
+    "planning_order": [
+      "MV1",
+      "MV2",
+      "MV3",
+      "MV4"
+    ],
+    "purpose": "验证工程约束组合：边界可调整空间、单侧不可控、双侧不可控且 G_i>95 的 ego-only fallback。",
+    "modules": [
+      "gap_boundary_controllability；boundary_adjustment；fallback"
+    ],
+    "expected": {
+      "static_rolling": null,
+      "controllability": "建议设置：step1 gap3 [-70,10] 单侧可控；step2 某个后方 gap 双侧不可控；其中 G_i>95 的候选仅允许 ego-only fallback。该场景以断言 failure_reason/fallback 为主，不强行写死全部最优 gap。"
+    },
+    "final_x_targets_after_static_rolling": [],
+    "hdv_lane2_indices": [
+      2,
+      3
+    ]
+  }
+]

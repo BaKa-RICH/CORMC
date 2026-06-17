@@ -1,0 +1,182 @@
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+from typing import Any
+
+from cormc.scenario_schema.config import classify_scenario_status, load_scenario_config
+from cormc.scenes import STATIC_SCENE_IDS, load_scene_config
+from cormc.scenario_schema.matcher import (
+    MatcherResult,
+    match_expected_events,
+    match_expected_png_features_v0,
+    match_expected_sanity_checks,
+    match_event_counts,
+    match_forbidden_events,
+)
+
+
+STATIC_SCENARIO_ROUTE_MATRIX: dict[str, str] = {
+    scenario_id: "static_scene_registry" for scenario_id in STATIC_SCENE_IDS
+}
+
+
+@dataclass(frozen=True)
+class ScenarioRuntimeContext:
+    config: dict[str, Any]
+
+    @property
+    def scenario_id(self) -> str:
+        return self.config["scenario_id"]
+
+    @property
+    def status(self) -> str:
+        return classify_scenario_status(self.config)
+
+
+@dataclass(frozen=True)
+class ScenarioRunResult:
+    actual_events: list[dict[str, Any]] = field(default_factory=list)
+    actual_sanity_checks: list[dict[str, Any]] = field(default_factory=list)
+    actual_png_artifacts: list[dict[str, Any]] = field(default_factory=list)
+
+
+@dataclass(frozen=True)
+class ScenarioReport:
+    scenario_id: str
+    test_level: str
+    status: str
+    classification: str
+    passed: bool
+    blocks_required_suite: bool
+    failure_reasons: list[str]
+    matcher_results: list[MatcherResult]
+    registered_png_features: list[dict[str, Any]]
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "scenario_id": self.scenario_id,
+            "test_level": self.test_level,
+            "status": self.status,
+            "classification": self.classification,
+            "passed": self.passed,
+            "blocks_required_suite": self.blocks_required_suite,
+            "failure_reasons": list(self.failure_reasons),
+            "matcher_results": [
+                {
+                    "name": result.name,
+                    "passed": result.passed,
+                    "issues": [
+                        {
+                            "code": issue.code,
+                            "message": issue.message,
+                            "expected": issue.expected,
+                            "actual": issue.actual,
+                            "required": issue.required,
+                        }
+                        for issue in result.issues
+                    ],
+                    "registered": result.registered,
+                }
+                for result in self.matcher_results
+            ],
+            "registered_png_features": list(self.registered_png_features),
+        }
+
+
+def run_targeted_scenario(
+    scenario: str | dict[str, Any],
+    *,
+    actual_events: list[dict[str, Any]] | None = None,
+    actual_sanity_checks: list[dict[str, Any]] | None = None,
+) -> ScenarioReport:
+    if isinstance(scenario, str):
+        config = load_scene_config(scenario)
+    else:
+        config = load_scenario_config(scenario)
+    context = ScenarioRuntimeContext(config=config)
+    if context.status == "deferred":
+        return build_scenario_report(context, ScenarioRunResult(), skipped_deferred=True)
+
+    result = ScenarioRunResult(
+        actual_events=list(actual_events or []),
+        actual_sanity_checks=list(actual_sanity_checks or []),
+    )
+    return build_scenario_report(context, result)
+
+
+def build_scenario_report(
+    context: ScenarioRuntimeContext,
+    result: ScenarioRunResult,
+    *,
+    skipped_deferred: bool = False,
+) -> ScenarioReport:
+    status = context.status
+    event_result = match_expected_events(
+        context.config["expected_events"],
+        result.actual_events,
+        context.config["tolerances"],
+    )
+    forbidden_result = match_forbidden_events(
+        context.config["forbidden_events"],
+        result.actual_events,
+    )
+    event_count_result = match_event_counts(
+        context.config["expected_event_counts"],
+        result.actual_events,
+    )
+    sanity_result = match_expected_sanity_checks(
+        context.config["expected_sanity_checks"],
+        result.actual_sanity_checks,
+    )
+    png_result = match_expected_png_features_v0(context.config["expected_png_features"])
+    matcher_results = [
+        event_result,
+        forbidden_result,
+        event_count_result,
+        sanity_result,
+        png_result,
+    ]
+
+    required_failures = [
+        issue.message
+        for matcher_result in matcher_results
+        for issue in matcher_result.issues
+        if issue.required
+    ]
+    if skipped_deferred:
+        classification = "skipped_deferred"
+        passed = True
+        blocks_required_suite = False
+        failure_reasons: list[str] = []
+    elif status == "required":
+        classification = "required_failed" if required_failures else "required_passed"
+        passed = not required_failures
+        blocks_required_suite = bool(required_failures)
+        failure_reasons = required_failures
+    elif status == "probe":
+        classification = "probe_failed" if required_failures else "probe_observation"
+        passed = True
+        blocks_required_suite = False
+        failure_reasons = required_failures
+    elif status == "deferred":
+        classification = "loaded_deferred"
+        passed = True
+        blocks_required_suite = False
+        failure_reasons = []
+    else:
+        classification = status
+        passed = not required_failures
+        blocks_required_suite = False
+        failure_reasons = required_failures
+
+    return ScenarioReport(
+        scenario_id=context.scenario_id,
+        test_level=str(context.config["test_level"]),
+        status=status,
+        classification=classification,
+        passed=passed,
+        blocks_required_suite=blocks_required_suite,
+        failure_reasons=failure_reasons,
+        matcher_results=matcher_results,
+        registered_png_features=png_result.registered,
+    )
