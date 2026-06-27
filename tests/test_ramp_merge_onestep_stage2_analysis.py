@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import csv
 import json
 import sys
 from pathlib import Path
@@ -10,6 +11,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from cormc.onestep.rolling import run_onestep_stage2_analysis
 from cormc.scenes import (
+    RM_MULTIMV_M4_S03_SCENARIO_ID,
     RM_ONESTEP_S05_PLAN_STEP0_SCENARIO_ID,
     RM_ONESTEP_S07_2MV_REAR_MV_ID,
     RM_ONESTEP_S07_2MV_ROLLING_ENTRY_SCENARIO_ID,
@@ -54,6 +56,32 @@ def test_stage2_analysis_exports_summary_report_and_artifacts(
     assert "Artifacts" in report
     for artifact_path in payload["artifact_paths"].values():
         assert Path(artifact_path).exists()
+
+
+def test_stage2_analysis_exports_rm_m4_s03_planning_timing_artifacts(
+    tmp_path: Path,
+) -> None:
+    result = run_onestep_stage2_analysis(
+        RM_MULTIMV_M4_S03_SCENARIO_ID,
+        tmp_path,
+        max_steps=320,
+        run_id="timing-artifact-test",
+    )
+    payload = json.loads(Path(result.summary_json_path).read_text(encoding="utf-8"))
+    report = Path(result.report_path).read_text(encoding="utf-8")
+    with Path(result.planning_timing_csv_path).open(encoding="utf-8", newline="") as handle:
+        timing_rows = list(csv.DictReader(handle))
+
+    timing_summary = payload["scenario_summary"]["planning_timing_summary"]
+
+    assert Path(result.planning_timing_csv_path).exists()
+    assert payload["artifact_paths"]["planning_timing_csv"] == result.planning_timing_csv_path
+    assert len(timing_rows) == timing_summary["timed_round_count"]
+    assert any(row["planned_mv_count"] == "4" for row in timing_rows)
+    assert any(row["controlled_vehicle_count"] == "4" for row in timing_rows)
+    assert "## Planning Timing" in report
+    assert "By planned MV count" in report
+    assert "By controlled vehicle count" in report
 
 
 def test_stage2_analysis_exports_2mv_formal_summary_report_and_gap_rows(

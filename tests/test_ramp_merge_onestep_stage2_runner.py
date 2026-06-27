@@ -9,6 +9,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from cormc.onestep.lab.reference_case import get_reference_expected
 from cormc.scenes import (
+    RM_MULTIMV_M4_S03_SCENARIO_ID,
     RM_ONESTEP_S05_PLAN_STEP0_SCENARIO_ID,
     RM_ONESTEP_S05_ROLLING_ENTRY_SCENARIO_ID,
     RM_ONESTEP_S07_PLAN_STEP0_SCENARIO_ID,
@@ -137,6 +138,52 @@ def test_stage2_runner_s05_rolling_entry_first_trigger_is_at_6650_and_filters_de
             assert row["controllability_branch"] == CONTROLLABILITY_BRANCH_A
 
 
+def test_stage2_runner_rm_m4_s03_reports_round_level_planning_timing() -> None:
+    summary = run_onestep_stage2_summary(
+        RM_MULTIMV_M4_S03_SCENARIO_ID,
+        max_steps=320,
+        run_id="timing-summary-test",
+    )
+    timing_summary = summary["scenario_summary"]["planning_timing_summary"]
+
+    assert timing_summary["clock"] == "time.perf_counter_ns"
+    for planned_mv_count in ("1", "2", "3", "4"):
+        assert (
+            timing_summary["by_planned_mv_count"][planned_mv_count]["sample_count"]
+            > 0
+        )
+    assert (
+        timing_summary["by_controlled_vehicle_count"]["3"]["sample_count"]
+        > 0
+    )
+    assert (
+        timing_summary["by_controlled_vehicle_count"]["4"]["sample_count"]
+        > 0
+    )
+
+    rounds = {round_summary["round_id"]: round_summary for round_summary in summary["round_summaries"]}
+    assert rounds["trigger_round:207"]["planning_timing"]["controlled_vehicle_count"] == 4
+
+    timed_round_count = 0
+    for round_summary in summary["round_summaries"]:
+        timing = round_summary["planning_timing"]
+        if timing is None:
+            continue
+        timed_round_count += 1
+        assert timing["duration_ns"] > 0
+        assert timing["duration_ms"] > 0
+        assert timing["planned_mv_count"] == len(round_summary["plan_summaries"])
+        controlled_vehicle_ids = _ordered_unique(
+            vehicle_id
+            for plan in round_summary["plan_summaries"]
+            for vehicle_id in plan["controlled_vehicle_ids"]
+        )
+        assert timing["controlled_vehicle_ids"] == controlled_vehicle_ids
+        assert timing["controlled_vehicle_count"] == len(controlled_vehicle_ids)
+
+    assert timed_round_count == timing_summary["timed_round_count"]
+
+
 def _all_plans(summary):
     return [
         plan
@@ -177,3 +224,7 @@ def _bundle_released_events(summary):
 def _lateral_start(summary):
     events = _formal_events(summary, "lateral_started")
     return events[0]["payload"] if events else None
+
+
+def _ordered_unique(values):
+    return list(dict.fromkeys(values))

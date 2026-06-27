@@ -187,6 +187,21 @@ class TriggerDecision:
 
 
 @dataclass(frozen=True)
+class PlanningTimingRecord:
+    step: int
+    t: float
+    round_id: str
+    trigger_reason: str
+    active_trigger_reasons: tuple[str, ...]
+    entry_vehicle_ids: tuple[str, ...]
+    duration_ns: int
+    planned_mv_ids: tuple[str, ...]
+    controlled_vehicle_ids: tuple[str, ...]
+    gap_count: int
+    plan_count: int
+
+
+@dataclass(frozen=True)
 class GapCandidate:
     gap_id: str
     index: int

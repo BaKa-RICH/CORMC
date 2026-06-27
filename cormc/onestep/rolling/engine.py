@@ -1,7 +1,8 @@
 from __future__ import annotations
 
+import time
 from dataclasses import dataclass, replace
-from typing import Any, Mapping
+from typing import Any, Iterable, Mapping
 
 from cormc.traffic_flow.generation import BoundaryQueueItem, compute_spawn_decisions
 from cormc.simulation_core.pre_freeze import (
@@ -51,6 +52,7 @@ from cormc.onestep.rolling.gaps import identify_and_number_gaps
 from cormc.onestep.rolling.motion import build_motion_outputs
 from cormc.onestep.rolling.stage2_planner import plan_stage2_for_trigger
 from cormc.onestep.rolling.planner import (
+    PlanningResult,
     decide_trigger_plan,
     detect_entry_vehicle_ids,
     detect_entry_plan_trigger,
@@ -60,6 +62,7 @@ from cormc.onestep.rolling.planner import (
 from cormc.onestep.rolling.safety import run_safety_check
 from cormc.onestep.rolling.state import (
     GapSnapshot,
+    PlanningTimingRecord,
     RampMergeRuntimeState,
     SafetyCheckResult,
     TriggerDecision,
@@ -82,6 +85,7 @@ class RampMergeStepResult:
     safety_result: SafetyCheckResult
     trigger_decision: TriggerDecision
     gap_snapshot: GapSnapshot | None
+    planning_timing: PlanningTimingRecord | None
     actual_events: list[dict[str, Any]]
     actual_sanity_checks: list[dict[str, Any]]
 
@@ -143,7 +147,10 @@ class RampMergeEngine:
             danger_vehicle_ids=safety_result.danger_vehicle_ids,
         )
         gap_snapshot: GapSnapshot | None = None
+        planning_start_ns: int | None = None
+        planning_timing: PlanningTimingRecord | None = None
         if trigger_decision.trigger_plan:
+            planning_start_ns = time.perf_counter_ns()
             gap_snapshot = identify_and_number_gaps(
                 frozen,
                 safety_result.danger_vehicle_ids,
@@ -176,6 +183,14 @@ class RampMergeEngine:
             geometry=self.geometry,
             algorithm_variant=self.algorithm_variant,
         )
+        if planning_start_ns is not None:
+            planning_timing = _build_planning_timing_record(
+                frozen,
+                trigger_decision,
+                gap_snapshot,
+                control_plan,
+                duration_ns=time.perf_counter_ns() - planning_start_ns,
+            )
         runtime = motion_outputs.runtime
         command_buffer = CommandBuffer(step=frozen.step, t=frozen.t)
         next_state_buffer = NextStateBuffer(
@@ -322,9 +337,50 @@ class RampMergeEngine:
             safety_result=safety_result,
             trigger_decision=trigger_decision,
             gap_snapshot=gap_snapshot,
+            planning_timing=planning_timing,
             actual_events=actual_events,
             actual_sanity_checks=actual_sanity_checks,
         )
+
+
+def _build_planning_timing_record(
+    state: SimulationState,
+    trigger_decision: TriggerDecision,
+    gap_snapshot: GapSnapshot,
+    control_plan: PlanningResult,
+    *,
+    duration_ns: int,
+) -> PlanningTimingRecord:
+    plan_records = tuple(control_plan.gap_selection_records)
+    round_id = (
+        str(plan_records[0]["round_id"])
+        if plan_records
+        else f"trigger_round:{state.step}"
+    )
+    return PlanningTimingRecord(
+        step=state.step,
+        t=state.t,
+        round_id=round_id,
+        trigger_reason=trigger_decision.trigger_reason,
+        active_trigger_reasons=trigger_decision.active_trigger_reasons,
+        entry_vehicle_ids=trigger_decision.entry_vehicle_ids,
+        duration_ns=duration_ns,
+        planned_mv_ids=_ordered_unique(
+            str(record["mv_id"])
+            for record in plan_records
+        ),
+        controlled_vehicle_ids=_ordered_unique(
+            str(vehicle_id)
+            for record in plan_records
+            for vehicle_id in record["controlled_vehicle_ids"]
+        ),
+        gap_count=len(gap_snapshot.gaps),
+        plan_count=len(plan_records),
+    )
+
+
+def _ordered_unique(values: Iterable[str]) -> tuple[str, ...]:
+    return tuple(dict.fromkeys(values))
 
 
 def _run_step0_to_3_from_state(

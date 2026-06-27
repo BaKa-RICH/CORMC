@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import csv
 import json
 from dataclasses import dataclass
 from pathlib import Path
@@ -31,6 +32,7 @@ class OneStepStage2ArtifactResult:
     process_y_t_plot_path: str
     lifecycle_timeline_plot_path: str
     gap_rows_json_path: str
+    planning_timing_csv_path: str
 
 
 def export_onestep_stage2_analysis(
@@ -45,6 +47,7 @@ def export_onestep_stage2_analysis(
     summary_json_path = scenario_dir / "stage2_summary.json"
     report_path = scenario_dir / "stage2_report.md"
     gap_rows_json_path = scenario_dir / "gap_rows.json"
+    planning_timing_csv_path = scenario_dir / "planning_timing_rows.csv"
     artifact_paths = {
         "summary_json": str(summary_json_path),
         "report_markdown": str(report_path),
@@ -54,6 +57,7 @@ def export_onestep_stage2_analysis(
         "process_y_t_plot": plot_artifacts.process_y_t_plot_path,
         "lifecycle_timeline_plot": plot_artifacts.lifecycle_timeline_plot_path,
         "gap_rows_json": str(gap_rows_json_path),
+        "planning_timing_csv": str(planning_timing_csv_path),
     }
     exported_summary = {
         **dict(summary),
@@ -68,6 +72,7 @@ def export_onestep_stage2_analysis(
         ),
         encoding="utf-8",
     )
+    _write_planning_timing_csv(planning_timing_csv_path, exported_summary)
     summary_json_path.write_text(
         json.dumps(exported_summary, ensure_ascii=False, indent=2, sort_keys=True),
         encoding="utf-8",
@@ -85,6 +90,7 @@ def export_onestep_stage2_analysis(
         process_y_t_plot_path=plot_artifacts.process_y_t_plot_path,
         lifecycle_timeline_plot_path=plot_artifacts.lifecycle_timeline_plot_path,
         gap_rows_json_path=str(gap_rows_json_path),
+        planning_timing_csv_path=str(planning_timing_csv_path),
     )
 
 
@@ -159,6 +165,8 @@ def build_onestep_stage2_report(summary: Mapping[str, Any]) -> str:
             )
         )
 
+    lines.extend(_planning_timing_report_lines(scenario))
+
     lines.extend(["", "## MV Lifecycle"])
     for mv_id, mv_summary in summary["mv_summaries"].items():
         lifecycle = dict(mv_summary["lifecycle"])
@@ -194,6 +202,112 @@ def build_onestep_stage2_report(summary: Mapping[str, Any]) -> str:
     for name, artifact_path in summary["artifact_paths"].items():
         lines.append(f"- {name}: `{artifact_path}`")
     return "\n".join(lines) + "\n"
+
+
+def _planning_timing_report_lines(scenario: Mapping[str, Any]) -> list[str]:
+    timing = dict(scenario.get("planning_timing_summary") or {})
+    lines = [
+        "",
+        "## Planning Timing",
+        f"- clock: `{timing.get('clock')}`",
+        f"- timed_round_count: `{timing.get('timed_round_count')}`",
+        "",
+        "### By planned MV count",
+        "| count | samples | mean_ms | median_ms | min_ms | max_ms | round_ids |",
+        "| ---: | ---: | ---: | ---: | ---: | ---: | --- |",
+    ]
+    lines.extend(_timing_table_rows(timing.get("by_planned_mv_count") or {}))
+    lines.extend(
+        [
+            "",
+            "### By controlled vehicle count",
+            "| count | samples | mean_ms | median_ms | min_ms | max_ms | round_ids |",
+            "| ---: | ---: | ---: | ---: | ---: | ---: | --- |",
+        ]
+    )
+    lines.extend(_timing_table_rows(timing.get("by_controlled_vehicle_count") or {}))
+    return lines
+
+
+def _timing_table_rows(grouped: Mapping[str, Any]) -> list[str]:
+    rows: list[str] = []
+    for count, payload in sorted(grouped.items(), key=lambda item: int(item[0])):
+        item = dict(payload)
+        rows.append(
+            "| {count} | {samples} | {mean} | {median} | {min_value} | {max_value} | {round_ids} |".format(
+                count=count,
+                samples=item.get("sample_count"),
+                mean=_format_ms(item.get("mean_ms")),
+                median=_format_ms(item.get("median_ms")),
+                min_value=_format_ms(item.get("min_ms")),
+                max_value=_format_ms(item.get("max_ms")),
+                round_ids=", ".join(str(round_id) for round_id in item.get("round_ids") or []),
+            )
+        )
+    return rows
+
+
+def _format_ms(value: Any) -> str:
+    if value is None:
+        return ""
+    return f"{float(value):.6f}"
+
+
+def _write_planning_timing_csv(path: Path, summary: Mapping[str, Any]) -> None:
+    scenario = dict(summary["scenario_summary"])
+    fieldnames = (
+        "scenario_id",
+        "run_id",
+        "round_id",
+        "step",
+        "t",
+        "trigger_reason",
+        "active_trigger_reasons",
+        "entry_vehicle_ids",
+        "planned_mv_count",
+        "planned_mv_ids",
+        "controlled_vehicle_count",
+        "controlled_vehicle_ids",
+        "duration_ms",
+        "duration_ns",
+        "gap_count",
+        "plan_count",
+    )
+    with path.open("w", encoding="utf-8", newline="") as handle:
+        writer = csv.DictWriter(handle, fieldnames=fieldnames)
+        writer.writeheader()
+        for round_summary in summary["round_summaries"]:
+            timing = round_summary.get("planning_timing")
+            if timing is None:
+                continue
+            writer.writerow(
+                {
+                    "scenario_id": scenario["scenario_id"],
+                    "run_id": scenario["run_id"],
+                    "round_id": timing["round_id"],
+                    "step": timing["step"],
+                    "t": timing["t"],
+                    "trigger_reason": timing["trigger_reason"],
+                    "active_trigger_reasons": ";".join(
+                        str(value) for value in timing["active_trigger_reasons"]
+                    ),
+                    "entry_vehicle_ids": ";".join(
+                        str(value) for value in timing["entry_vehicle_ids"]
+                    ),
+                    "planned_mv_count": timing["planned_mv_count"],
+                    "planned_mv_ids": ";".join(
+                        str(value) for value in timing["planned_mv_ids"]
+                    ),
+                    "controlled_vehicle_count": timing["controlled_vehicle_count"],
+                    "controlled_vehicle_ids": ";".join(
+                        str(value) for value in timing["controlled_vehicle_ids"]
+                    ),
+                    "duration_ms": timing["duration_ms"],
+                    "duration_ns": timing["duration_ns"],
+                    "gap_count": timing["gap_count"],
+                    "plan_count": timing["plan_count"],
+                }
+            )
 
 
 def _flat_gap_rows(summary: Mapping[str, Any]) -> list[dict[str, Any]]:

@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, replace
-from typing import Any, Mapping
+from statistics import median
+from typing import Any, Iterable, Mapping
 
 from cormc.scenes import (
     RM_ONESTEP_STAGE2_DEFAULT_MAX_STEPS,
@@ -21,7 +22,11 @@ from cormc.simulation_core.commit import OutputHistory
 from cormc.onestep.rolling.engine import RampMergeEngine, RampMergeStepResult
 from cormc.onestep.rolling.gaps import identify_and_number_gaps
 from cormc.onestep.rolling.stage2_adapter import build_stage2_local_frame_from_snapshot
-from cormc.onestep.rolling.state import RampMergeRuntimeState, initialize_runtime_state
+from cormc.onestep.rolling.state import (
+    PlanningTimingRecord,
+    RampMergeRuntimeState,
+    initialize_runtime_state,
+)
 
 
 @dataclass(frozen=True)
@@ -476,6 +481,7 @@ def _formalize_stage2_summary(
     mv_ids = _collect_mv_ids(run, legacy)
     formal_events = _build_formal_events(legacy)
     round_summaries = _build_round_summaries(run, legacy)
+    timing_rows = _planning_timing_rows(run)
     mv_summaries = _build_mv_summaries(run, legacy, mv_ids)
     cross_mv_summary = _build_cross_mv_summary(
         round_summaries,
@@ -499,6 +505,7 @@ def _formalize_stage2_summary(
         "final_runtime_leftovers": final_runtime_leftovers,
         "formal_events": formal_events,
         "event_counts": _event_counts(formal_events),
+        "planning_timing_summary": _planning_timing_summary(timing_rows),
     }
     if scenario_metadata:
         scenario_summary.update(dict(scenario_metadata))
@@ -711,22 +718,29 @@ def _build_round_summaries(
     plan_records = list(legacy.get("trigger_round_plan_summaries") or [])
     lock_records = list(legacy.get("gap_lock_summaries") or [])
     gap_rows = [_formal_gap_row(row) for row in legacy.get("trigger_round_gap_rows") or []]
+    timing_by_round = _planning_timing_by_round(run)
     round_ids = tuple(
         dict.fromkeys(
-            str(record.get("round_id"))
-            for record in [*plan_records, *lock_records, *gap_rows]
-            if record.get("round_id") is not None
+            [
+                *timing_by_round.keys(),
+                *(
+                    str(record.get("round_id"))
+                    for record in [*plan_records, *lock_records, *gap_rows]
+                    if record.get("round_id") is not None
+                ),
+            ]
         )
     )
     result: list[dict[str, Any]] = []
     for round_id in round_ids:
+        timing = timing_by_round.get(round_id)
         round_plans = [
             _with_plan_local_frame(run, record)
             for record in _records_for_round(plan_records, round_id)
         ]
         round_locks = _records_for_round(lock_records, round_id)
         round_gap_rows = _records_for_round(gap_rows, round_id)
-        anchor = (round_plans or round_locks or round_gap_rows)[0]
+        anchor = (round_plans or round_locks or round_gap_rows or [timing])[0]
         step = int(anchor["step"])
         gap_snapshot = _gap_snapshot_payload_for_step(run, step)
         ordered_records = sorted(
@@ -742,22 +756,30 @@ def _build_round_summaries(
             if record.get("mv_id") is not None
         ]
         mv_order = list(dict.fromkeys(mv_order))
+        if not mv_order and timing is not None:
+            mv_order = list(timing["planned_mv_ids"])
+        trigger_reason = _round_trigger_reason(
+            legacy,
+            step,
+            round_plans,
+            round_locks,
+        )
+        active_trigger_reasons = _round_active_trigger_reasons(
+            legacy,
+            step,
+            round_plans,
+        )
+        if trigger_reason is None and timing is not None:
+            trigger_reason = timing["trigger_reason"]
+        if not active_trigger_reasons and timing is not None:
+            active_trigger_reasons = list(timing["active_trigger_reasons"])
         result.append(
             {
                 "round_id": round_id,
                 "step": step,
                 "t": anchor.get("t"),
-                "trigger_reason": _round_trigger_reason(
-                    legacy,
-                    step,
-                    round_plans,
-                    round_locks,
-                ),
-                "active_trigger_reasons": _round_active_trigger_reasons(
-                    legacy,
-                    step,
-                    round_plans,
-                ),
+                "trigger_reason": trigger_reason,
+                "active_trigger_reasons": active_trigger_reasons,
                 "mv_order": mv_order,
                 "gap_snapshot": gap_snapshot,
                 "gap_count": len(gap_snapshot.get("gaps", [])),
@@ -780,9 +802,102 @@ def _build_round_summaries(
                     ordered_records
                 ),
                 "gap_rows": round_gap_rows,
+                "planning_timing": timing,
             }
         )
     return result
+
+
+def _planning_timing_payload(record: PlanningTimingRecord) -> dict[str, Any]:
+    duration_ms = record.duration_ns / 1_000_000
+    return {
+        "step": record.step,
+        "t": record.t,
+        "round_id": record.round_id,
+        "trigger_reason": record.trigger_reason,
+        "active_trigger_reasons": list(record.active_trigger_reasons),
+        "entry_vehicle_ids": list(record.entry_vehicle_ids),
+        "duration_ns": record.duration_ns,
+        "duration_ms": duration_ms,
+        "planned_mv_ids": list(record.planned_mv_ids),
+        "planned_mv_count": len(record.planned_mv_ids),
+        "controlled_vehicle_ids": list(record.controlled_vehicle_ids),
+        "controlled_vehicle_count": len(record.controlled_vehicle_ids),
+        "gap_count": record.gap_count,
+        "plan_count": record.plan_count,
+    }
+
+
+def _planning_timing_by_round(
+    run: _OneStepStage2StepRun,
+) -> dict[str, dict[str, Any]]:
+    return {
+        payload["round_id"]: payload
+        for payload in _planning_timing_rows(run)
+    }
+
+
+def _planning_timing_rows(run: _OneStepStage2StepRun) -> list[dict[str, Any]]:
+    return [
+        _planning_timing_payload(step_result.planning_timing)
+        for step_result in run.step_results
+        if step_result.planning_timing is not None
+    ]
+
+
+def _planning_timing_summary(rows: list[dict[str, Any]]) -> dict[str, Any]:
+    return {
+        "clock": "time.perf_counter_ns",
+        "timed_round_count": len(rows),
+        "by_planned_mv_count": _aggregate_planning_timing(
+            rows,
+            "planned_mv_count",
+            expected_keys=range(1, 5),
+        ),
+        "by_controlled_vehicle_count": _aggregate_planning_timing(
+            rows,
+            "controlled_vehicle_count",
+            expected_keys=range(1, 5),
+        ),
+    }
+
+
+def _aggregate_planning_timing(
+    rows: list[Mapping[str, Any]],
+    group_key: str,
+    expected_keys: Iterable[int] | None = None,
+) -> dict[str, dict[str, Any]]:
+    grouped: dict[int, list[Mapping[str, Any]]] = {}
+    for row in rows:
+        key = int(row[group_key])
+        grouped.setdefault(key, []).append(row)
+    for key in expected_keys or ():
+        grouped.setdefault(int(key), [])
+    return {
+        str(key): _timing_stats(grouped[key])
+        for key in sorted(grouped)
+    }
+
+
+def _timing_stats(rows: list[Mapping[str, Any]]) -> dict[str, Any]:
+    durations = [float(row["duration_ms"]) for row in rows]
+    if not durations:
+        return {
+            "sample_count": 0,
+            "min_ms": None,
+            "max_ms": None,
+            "mean_ms": None,
+            "median_ms": None,
+            "round_ids": [],
+        }
+    return {
+        "sample_count": len(durations),
+        "min_ms": min(durations),
+        "max_ms": max(durations),
+        "mean_ms": sum(durations) / len(durations),
+        "median_ms": float(median(durations)),
+        "round_ids": [str(row["round_id"]) for row in rows],
+    }
 
 
 def _build_mv_summaries(
